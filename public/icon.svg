@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>The Merit Circle</title>
+  <!-- Heritage forest field with warm linen ring and muted brass monogram -->
+  <rect width="512" height="512" rx="112" fill="#14281D"/>
+  <rect x="34" y="34" width="444" height="444" rx="92" fill="none" stroke="#B89563" stroke-width="10"/>
+  <circle cx="256" cy="256" r="118" fill="none" stroke="#FBF9F5" stroke-width="12"/>
+  <text x="256" y="318" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="150" font-weight="600" fill="#B89563">M</text>
+</svg>

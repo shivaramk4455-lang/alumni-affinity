@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>The Merit Circle (maskable)</title>
+  <!-- Full-bleed field so launcher masks cannot clip the ring; motif inset. -->
+  <rect width="512" height="512" fill="#14281D"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#FBF9F5" stroke-width="16"/>
+  <text x="256" y="330" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="190" font-weight="600" fill="#B89563">M</text>
+</svg>

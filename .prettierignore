@@ -1,0 +1,20 @@
+node_modules
+dist
+.output
+.vinxi
+.tanstack
+.nitro
+pnpm-lock.yaml
+package-lock.json
+bun.lock
+routeTree.gen.ts
+
+# Vendored / machine-generated. These carry a "do not edit" header: formatting
+# or linting them just creates churn that regenerates on the next sync.
+src/integrations/lovable/**
+src/integrations/supabase/auth-attacher.ts
+src/integrations/supabase/auth-middleware.ts
+src/integrations/supabase/client.ts
+src/integrations/supabase/client.server.ts
+src/integrations/supabase/cron-auth.ts
+src/integrations/supabase/previewAuthStorage.ts

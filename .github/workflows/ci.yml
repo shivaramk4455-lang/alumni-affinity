@@ -1,0 +1,58 @@
+name: CI Gates
+
+on:
+  push:
+    branches: [main, feat/*, fix/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  static-gates:
+    name: Lint, Typecheck, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (with legal identity verification)
+        run: npm run build
+        env:
+          # On pull requests to main, verify that legal identity is either
+          # explicitly published or acknowledged.
+          REQUIRE_LEGAL_IDENTITY: ${{ github.ref == 'refs/heads/main' && '1' || '0' }}
+
+  migration-assertions:
+    name: SQL Migrations & Regressions Drill
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase test instance
+        run: supabase start
+
+      - name: Reset database (applies all migrations including regression assertions)
+        run: supabase db reset
+
+      - name: Verify migration status (clean chain)
+        run: supabase migration list

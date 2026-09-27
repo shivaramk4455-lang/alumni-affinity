@@ -1,0 +1,33 @@
+{
+  "name": "The Merit Circle",
+  "short_name": "Merit Circle",
+  "description": "A private, candidate-led matrimonial membership for premier-institute alumni.",
+  "id": "/",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FBF9F5",
+  "theme_color": "#14281D",
+  "lang": "en-IN",
+  "categories": ["social", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

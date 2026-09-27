@@ -1,0 +1,271 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Check, Clock, Mail, MessageSquare, Phone, ShieldX, Undo2, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { useMyProfile, useRevealedContacts } from "@/hooks/use-my-profile";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/_authenticated/connections")({
+  head: () => ({
+    meta: [
+      { title: "Introductions — The Merit Circle" },
+      {
+        name: "description",
+        content: "Review introductions you have received, sent and accepted.",
+      },
+      { property: "og:title", content: "Introductions — The Merit Circle" },
+      { property: "og:description", content: "Private introductions, always candidate-led." },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: Connections,
+});
+
+type Tab = "received" | "sent" | "mutual";
+
+function Connections() {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<Tab>("received");
+
+  const me = useMyProfile();
+
+  const list = useQuery({
+    queryKey: ["interests"],
+    queryFn: async () => {
+      // Trigger quiet expiry, stale-call sweep and reminders on fresh access.
+      // Both RPCs only ever move rows toward terminal states.
+      void supabase.rpc("expire_stale_interests");
+      void supabase.rpc("sweep_stale_calls");
+      const { data, error } = await supabase
+        .from("interests")
+        .select("id, sender_id, recipient_id, status, message, expires_at, created_at, updated_at")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const ids = [...new Set((list.data ?? []).flatMap((i) => [i.sender_id, i.recipient_id]))];
+  const people = useQuery({
+    queryKey: ["interest-people", ids.join(",")],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, profession, institution, city")
+        .in("id", ids);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const myId = me.data?.id;
+  const all = list.data ?? [];
+  const received = all.filter((i) => i.recipient_id === myId && i.status === "pending");
+  const sent = all.filter(
+    (i) => i.sender_id === myId && i.status !== "accepted" && i.status !== "blocked",
+  );
+  const mutualIds = all
+    .filter((i) => i.status === "accepted" && (i.sender_id === myId || i.recipient_id === myId))
+    .map((i) => (i.sender_id === myId ? i.recipient_id : i.sender_id));
+  // Contact coordinates are revealed per accepted introduction only (RPC-enforced).
+  const contacts = useRevealedContacts(mutualIds);
+  const contactById = new Map((contacts.data ?? []).map((c) => [c.profile_id, c]));
+  const person = (id: string) => (people.data ?? []).find((p) => p.id === id);
+
+  const act = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      // Counterparty inbox rows for accept/decline are written server-side by
+      // the notify_interest_transition trigger — never from the browser — so
+      // a forged "accepted" notice requires a real accepted interest.
+      const { error } = await supabase.from("interests").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["interests"] });
+      qc.invalidateQueries({ queryKey: ["contact"] });
+      qc.invalidateQueries({ queryKey: ["revealed-contacts"] });
+      toast.success("Updated.");
+    },
+    onError: () => toast.error("Could not update. Please try again."),
+  });
+
+  const mutual = all.filter(
+    (i) => i.status === "accepted" && (i.sender_id === myId || i.recipient_id === myId),
+  );
+  const rows = tab === "received" ? received : tab === "sent" ? sent : mutual;
+
+  const tabs: { key: Tab; label: string; count: number }[] = [
+    { key: "received", label: "Received", count: received.length },
+    { key: "sent", label: "Sent", count: sent.length },
+    { key: "mutual", label: "Accepted", count: mutual.length },
+  ];
+
+  return (
+    <main className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">
+        Candidate-led
+      </p>
+      <h1 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">Introductions</h1>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+        Only you can accept or decline. Family co-pilots may suggest, never act.
+      </p>
+
+      <div className="mt-8 grid grid-cols-3 border border-border p-1">
+        {tabs.map((t) => (
+          <Button
+            key={t.key}
+            variant={tab === t.key ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+            {t.count ? ` (${t.count})` : ""}
+          </Button>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-4">
+        {list.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : !rows.length ? (
+          <div className="border border-dashed border-border p-10 text-center">
+            <p className="font-serif text-xl">Nothing here yet</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {tab === "received"
+                ? "You will see interest from verified members here."
+                : tab === "sent"
+                  ? "Introductions you send will appear here."
+                  : "Accepted introductions unlock contact details."}
+            </p>
+            <Button asChild variant="outline" className="mt-6">
+              <Link to="/members">Search members</Link>
+            </Button>
+          </div>
+        ) : (
+          rows.map((i) => {
+            const otherId = i.sender_id === myId ? i.recipient_id : i.sender_id;
+            const o = person(otherId);
+            return (
+              <article key={i.id} className="border border-border bg-card p-5 md:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      to="/members/$id"
+                      params={{ id: otherId }}
+                      className="font-serif text-xl font-semibold underline-offset-4 hover:underline"
+                    >
+                      {o?.full_name?.split(" ")[0] ?? "Member"}
+                    </Link>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {o?.profession}
+                      {o?.institution ? ` · ${o.institution}` : ""}
+                      {o?.city ? ` · ${o.city}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="border border-border px-2 py-0.5 text-xs font-semibold capitalize text-muted-foreground">
+                      {i.status}
+                    </span>
+                    {i.status === "pending" && i.expires_at && (
+                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Clock className="size-3 text-brass" />
+                        {Math.max(
+                          0,
+                          Math.ceil(
+                            (new Date(i.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+                          ),
+                        )}{" "}
+                        days remaining
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {i.message && (
+                  <p className="mt-4 border-l-2 border-brass bg-secondary/40 p-4 text-sm leading-6">
+                    {i.message}
+                  </p>
+                )}
+
+                {tab === "received" && (
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => act.mutate({ id: i.id, status: "accepted" })}
+                      disabled={act.isPending}
+                    >
+                      <Check /> Accept
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => act.mutate({ id: i.id, status: "declined" })}
+                      disabled={act.isPending}
+                    >
+                      <X /> Decline
+                    </Button>
+                  </div>
+                )}
+                {tab === "sent" && i.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    className="mt-5"
+                    onClick={() => act.mutate({ id: i.id, status: "withdrawn" })}
+                    disabled={act.isPending}
+                  >
+                    <Undo2 /> Withdraw
+                  </Button>
+                )}
+                {tab === "sent" &&
+                  (i.status === "declined" ||
+                    i.status === "withdrawn" ||
+                    i.status === "expired") && (
+                    <Button
+                      variant="outline"
+                      className="mt-5"
+                      onClick={() => act.mutate({ id: i.id, status: "pending" })}
+                      disabled={act.isPending}
+                    >
+                      Send again
+                    </Button>
+                  )}
+                {tab === "mutual" && (
+                  <div className="mt-5 space-y-3 border-t border-border pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="grid gap-1 text-sm">
+                        <p className="flex items-center gap-2">
+                          <Phone className="size-4 text-brass" />
+                          {contactById.get(otherId)?.contact_phone || "Phone not shared"}
+                        </p>
+                        <p className="flex items-center gap-2">
+                          <Mail className="size-4 text-brass" />
+                          {contactById.get(otherId)?.linkedin_url || "LinkedIn not shared"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => act.mutate({ id: i.id, status: "blocked" })}
+                          disabled={act.isPending}
+                        >
+                          <ShieldX className="size-4" /> Block
+                        </Button>
+                        <Button asChild size="sm">
+                          <Link to="/messages/$interestId" params={{ interestId: i.id }}>
+                            <MessageSquare className="size-4" /> Message
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          })
+        )}
+      </div>
+    </main>
+  );
+}

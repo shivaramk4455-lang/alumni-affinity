@@ -1,0 +1,59 @@
+# Marketing pages are public; the member application is not.
+# Authenticated routes also emit <meta name="robots" content="noindex"> — this
+# file is defence in depth for the "no public directory" guarantee.
+
+User-agent: *
+Allow: /
+Allow: /auth
+Disallow: /dashboard
+Disallow: /members
+Disallow: /connections
+Disallow: /copilots
+Disallow: /copilot-invite
+Disallow: /verification
+Disallow: /settings
+Disallow: /admin
+Disallow: /notifications
+Disallow: /onboarding
+Disallow: /messages
+Disallow: /call
+
+# The 1:1 co-pilot invitation links are capability URLs.
+Disallow: /copilot-invite/
+
+User-agent: Googlebot
+Allow: /
+Disallow: /members
+Disallow: /connections
+Disallow: /copilots
+Disallow: /copilot-invite
+Disallow: /messages
+Disallow: /call
+Disallow: /verification
+Disallow: /settings
+Disallow: /admin
+Disallow: /notifications
+Disallow: /onboarding
+Disallow: /dashboard
+
+User-agent: Bingbot
+Allow: /
+Disallow: /members
+Disallow: /connections
+Disallow: /copilots
+Disallow: /copilot-invite
+Disallow: /messages
+Disallow: /call
+Disallow: /verification
+Disallow: /settings
+Disallow: /admin
+Disallow: /notifications
+Disallow: /onboarding
+Disallow: /dashboard
+
+User-agent: Twitterbot
+Disallow: /
+
+User-agent: facebookexternalhit
+Disallow: /
+
