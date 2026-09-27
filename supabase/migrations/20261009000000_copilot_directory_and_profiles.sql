@@ -78,8 +78,13 @@ GRANT UPDATE (
   height_cm, marital_status, diet, mother_tongue, residency_status
 ) ON public.profiles TO authenticated;
 
--- Update my_profile view so the member can view their own expanded profile
-CREATE OR REPLACE VIEW public.my_profile WITH (security_invoker = false) AS
+-- Update my_profile view so the member can view their own expanded profile.
+-- NOTE: DROP + CREATE (not OR REPLACE): the previous view ends with
+-- paused_until/paused_reason, so OR REPLACE would try to rename column
+-- "paused_until" to "height_cm" and fail with SQLSTATE 42P16. No object
+-- depends on the view (only GRANTs, re-issued below).
+DROP VIEW IF EXISTS public.my_profile;
+CREATE VIEW public.my_profile WITH (security_invoker = false) AS
   SELECT
     p.id, p.full_name, p.gender, p.birth_year, p.city, p.institution, p.degree,
     p.grad_year, p.profession, p.employer, p.relocation, p.values_statement, p.bio,
