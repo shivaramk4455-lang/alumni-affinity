@@ -108,7 +108,7 @@ CREATE POLICY "Own outbox read" ON public.notification_outbox FOR SELECT TO auth
 CREATE OR REPLACE FUNCTION public.notification_channels_for(_user uuid, _template text)
 RETURNS text[]
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT c.channel
+  SELECT COALESCE(array_agg(c.channel ORDER BY c.channel), '{}'::text[])
   FROM (VALUES ('email'), ('sms'), ('whatsapp')) AS c(channel)
   LEFT JOIN public.notification_preferences p ON p.user_id = _user
   WHERE CASE c.channel

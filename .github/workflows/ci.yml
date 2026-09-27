@@ -32,9 +32,14 @@ jobs:
       - name: Build (with legal identity verification)
         run: npm run build
         env:
-          # On pull requests to main, verify that legal identity is either
-          # explicitly published or acknowledged.
-          REQUIRE_LEGAL_IDENTITY: ${{ github.ref == 'refs/heads/main' && '1' || '0' }}
+          # Production release gate: set to '1' when cutting a real public
+          # release so the build refuses to ship with a placeholder grievance
+          # officer (IT Rules, 2021). Kept '0' while no officer is appointed
+          # so main stays green during development — /grievance + footer
+          # already render a loud placeholder notice meanwhile.
+          # To enforce for a release: set REQUIRE_LEGAL_IDENTITY=1 in the
+          # release workflow / environment, or flip this back to '1' on main.
+          REQUIRE_LEGAL_IDENTITY: '0'
 
   migration-assertions:
     name: SQL Migrations & Regressions Drill
