@@ -390,6 +390,13 @@ END; $$;
 -- still have no INSERT policy on notifications).
 ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_kind_valid;
 ALTER TABLE public.notifications ADD CONSTRAINT notifications_kind_valid
+  CHECK (kind IN (
+    'interest_received', 'interest_accepted', 'interest_declined', 'interest_expired',
+    'interest_reminder', 'copilot_invite_accepted', 'verification_approved',
+    'verification_resubmission', 'verification_rejected', 'suggestion_received',
+    'message_received', 'call_missed', 'report_resolved'
+  ));
+
 -- desk_reports() must surface the workflow; the return type changes, so it is
 -- replaced wholesale (Postgres forbids changing a function's result type).
 DROP FUNCTION IF EXISTS public.desk_reports(int);
@@ -539,14 +546,6 @@ END; $$;
 
 REVOKE EXECUTE ON FUNCTION public.desk_network_health() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.desk_network_health() TO authenticated, service_role;
-
-
-  CHECK (kind IN (
-    'interest_received', 'interest_accepted', 'interest_declined', 'interest_expired',
-    'interest_reminder', 'copilot_invite_accepted', 'verification_approved',
-    'verification_resubmission', 'verification_rejected', 'suggestion_received',
-    'message_received', 'call_missed', 'report_resolved'
-  ));
 
 REVOKE EXECUTE ON FUNCTION public.desk_update_report(uuid, text, text, text)
   FROM PUBLIC, anon, authenticated;
