@@ -1009,6 +1009,109 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          active: boolean
+          amount_paise: number
+          code: string
+          currency: string
+          display_order: number
+          intro_requests: number | null
+          label: string
+          placement_weight: number
+          razorpay_plan_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          amount_paise: number
+          code: string
+          currency?: string
+          display_order?: number
+          intro_requests?: number | null
+          label: string
+          placement_weight?: number
+          razorpay_plan_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          amount_paise?: number
+          code?: string
+          currency?: string
+          display_order?: number
+          intro_requests?: number | null
+          label?: string
+          placement_weight?: number
+          razorpay_plan_id?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          id: string
+          period_end: string | null
+          period_start: string | null
+          plan_code: string
+          razorpay_order_id: string | null
+          razorpay_subscription_id: string
+          requests_used: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          plan_code: string
+          razorpay_order_id?: string | null
+          razorpay_subscription_id: string
+          requests_used?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          plan_code?: string
+          razorpay_order_id?: string | null
+          razorpay_subscription_id?: string
+          requests_used?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       my_profile: {
@@ -1116,6 +1219,7 @@ export type Database = {
     }
     Functions: {
       accept_copilot_invite: { Args: { _code: string }; Returns: string }
+      can_send_introduction: { Args: { _user?: string }; Returns: boolean }
       claim_due_notifications: {
         Args: { _limit?: number }
         Returns: {
@@ -1177,6 +1281,17 @@ export type Database = {
         }
         Returns: number
       }
+      entitlement: {
+        Args: { _user: string }
+        Returns: {
+          active: boolean
+          intro_requests: number
+          placement_weight: number
+          plan_code: string
+          requests_remaining: number
+          requests_used: number
+        }[]
+      }
       expire_stale_interests: { Args: never; Returns: number }
       finish_notification: {
         Args: { _error?: string; _id: string; _ok: boolean }
@@ -1190,6 +1305,7 @@ export type Database = {
         Args: { _template: string; _user: string }
         Returns: string[]
       }
+      placement_weight: { Args: { _user: string }; Returns: number }
       record_consent: {
         Args: {
           _granted: boolean
@@ -1199,6 +1315,7 @@ export type Database = {
         }
         Returns: string
       }
+      record_intro_usage: { Args: { _user?: string }; Returns: undefined }
       record_profile_view: { Args: { _viewed: string }; Returns: undefined }
       reveal_contact: {
         Args: { _profile: string }
