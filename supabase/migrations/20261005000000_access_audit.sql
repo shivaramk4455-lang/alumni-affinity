@@ -196,7 +196,11 @@ ALTER TABLE public.partner_preferences
 
 -- SECURITY DEFINER so the profiles policy can consult profiles + preferences
 -- without recursing into itself.
-CREATE OR REPLACE FUNCTION private.same_shielded_employer(_candidate_employer text, _viewer uuid)
+-- Rewrite via DROP/CREATE: the bot's 20260928060647 duplicate of this helper has a
+-- stale signature, and CREATE OR REPLACE cannot swap the return type.
+-- Redefined once here so the directory policy below always binds the fixed body.
+DROP FUNCTION IF EXISTS private.same_shielded_employer(text, uuid);
+CREATE FUNCTION private.same_shielded_employer(_candidate_employer text, _viewer uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1
