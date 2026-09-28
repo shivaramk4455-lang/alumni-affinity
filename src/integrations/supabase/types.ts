@@ -14,27 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      blocks: {
-        Row: {
-          blocked_id: string
-          blocker_id: string
-          created_at: string
-          id: string
-        }
-        Insert: {
-          blocked_id: string
-          blocker_id: string
-          created_at?: string
-          id?: string
-        }
-        Update: {
-          blocked_id?: string
-          blocker_id?: string
-          created_at?: string
-          id?: string
-        }
-        Relationships: []
-      }
       copilot_recommendations: {
         Row: {
           candidate_id: string
@@ -142,112 +121,6 @@ export type Database = {
         }
         Relationships: []
       }
-      meetings: {
-        Row: {
-          created_at: string
-          id: string
-          interest_id: string
-          proposed_by: string
-          room: string
-          scheduled_at: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          interest_id: string
-          proposed_by: string
-          room?: string
-          scheduled_at: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          interest_id?: string
-          proposed_by?: string
-          room?: string
-          scheduled_at?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meetings_interest_id_fkey"
-            columns: ["interest_id"]
-            isOneToOne: false
-            referencedRelation: "interests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      messages: {
-        Row: {
-          body: string
-          created_at: string
-          id: string
-          interest_id: string
-          sender_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          id?: string
-          interest_id: string
-          sender_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          id?: string
-          interest_id?: string
-          sender_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messages_interest_id_fkey"
-            columns: ["interest_id"]
-            isOneToOne: false
-            referencedRelation: "interests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notifications: {
-        Row: {
-          body: string | null
-          created_at: string
-          id: string
-          kind: string
-          link: string | null
-          read_at: string | null
-          title: string
-          user_id: string
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string
-          id?: string
-          kind: string
-          link?: string | null
-          read_at?: string | null
-          title: string
-          user_id: string
-        }
-        Update: {
-          body?: string | null
-          created_at?: string
-          id?: string
-          kind?: string
-          link?: string | null
-          read_at?: string | null
-          title?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           alumni_email: string | null
@@ -335,96 +208,15 @@ export type Database = {
         }
         Relationships: []
       }
-      reports: {
-        Row: {
-          created_at: string
-          details: string | null
-          id: string
-          reason: string
-          reported_id: string
-          reporter_id: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          details?: string | null
-          id?: string
-          reason: string
-          reported_id: string
-          reporter_id: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          details?: string | null
-          id?: string
-          reason?: string
-          reported_id?: string
-          reporter_id?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      shortlists: {
-        Row: {
-          created_at: string
-          id: string
-          note: string | null
-          profile_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          note?: string | null
-          profile_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          note?: string | null
-          profile_id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -551,8 +343,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "moderator", "user"],
-    },
+    Enums: {},
   },
 } as const

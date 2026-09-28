@@ -1,0 +1,18 @@
+DROP TRIGGER IF EXISTS interests_notify ON public.interests;
+DROP TRIGGER IF EXISTS profiles_guard_verification ON public.profiles;
+DROP TRIGGER IF EXISTS profiles_notify_verification ON public.profiles;
+DROP POLICY IF EXISTS "Desk reads verification docs" ON storage.objects;
+DROP POLICY IF EXISTS "Admins read all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins update profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Members read visible onboarded" ON public.profiles;
+CREATE POLICY "Members read visible onboarded" ON public.profiles FOR SELECT TO authenticated USING (onboarded AND is_visible);
+DROP TABLE IF EXISTS public.messages, public.meetings, public.notifications, public.reports, public.blocks, public.shortlists, public.user_roles CASCADE;
+DROP FUNCTION IF EXISTS private.notify_interest() CASCADE;
+DROP FUNCTION IF EXISTS private.notify_message() CASCADE;
+DROP FUNCTION IF EXISTS private.notify_meeting() CASCADE;
+DROP FUNCTION IF EXISTS private.notify_verification() CASCADE;
+DROP FUNCTION IF EXISTS private.guard_verification() CASCADE;
+DROP FUNCTION IF EXISTS private.is_accepted_party(uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS private.is_blocked_pair(uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role) CASCADE;
+DROP TYPE IF EXISTS public.app_role;
