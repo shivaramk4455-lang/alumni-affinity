@@ -121,6 +121,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          kind: string
+          link: string | null
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           alumni_email: string | null
@@ -137,6 +170,7 @@ export type Database = {
           grad_year: number | null
           id: string
           institution: string | null
+          is_admin: boolean
           is_visible: boolean
           linkedin_url: string | null
           onboarded: boolean
@@ -165,6 +199,7 @@ export type Database = {
           grad_year?: number | null
           id: string
           institution?: string | null
+          is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
           onboarded?: boolean
@@ -193,6 +228,7 @@ export type Database = {
           grad_year?: number | null
           id?: string
           institution?: string | null
+          is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
           onboarded?: boolean
@@ -205,6 +241,30 @@ export type Database = {
           verification_doc_path?: string | null
           verification_note?: string | null
           verification_status?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          reported_profile_id: string
+          reporter_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          reported_profile_id: string
+          reporter_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reported_profile_id?: string
+          reporter_id?: string
         }
         Relationships: []
       }
