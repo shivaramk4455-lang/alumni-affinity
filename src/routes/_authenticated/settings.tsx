@@ -28,6 +28,8 @@ import { EMPTY_PREFERENCES, hasAnyPreferences } from "@/lib/alignment";
 import { CONSENT_LABELS, useConsentLog, recordConsent, type ConsentPurpose } from "@/lib/consent";
 import { GENDERS, INSTITUTIONS, PHOTO_VISIBILITY, RELOCATION } from "@/lib/profile-options";
 import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/access-log";
+import { PhotoGalleryManager } from "@/components/photo-gallery";
+
 import {
   inr,
   useCancelSubscription,
@@ -460,6 +462,17 @@ function Settings() {
           </span>
         </div>
       </section>
+      <section className="mt-6 border border-border bg-card p-6 md:p-8">
+        <h2 className="font-serif text-2xl font-semibold">Photograph gallery</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Manage your portraits (up to 6). Reorder or set a primary photograph to appear in search
+          and match cards.
+        </p>
+        <div className="mt-6">
+          <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />
+        </div>
+      </section>
+
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="font-serif text-2xl font-semibold">Contact coordinates</h2>

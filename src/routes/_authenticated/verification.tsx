@@ -6,8 +6,9 @@ import { BadgeCheck, Clock3, FileCheck2, Mail, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MemberPhoto } from "@/components/member-photo";
+import { PhotoGalleryManager } from "@/components/photo-gallery";
 import { supabase } from "@/integrations/supabase/client";
+
 import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
 import { recordConsent } from "@/lib/consent";
@@ -266,53 +267,33 @@ function Verification() {
       </section>
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
-        <h2 className="font-serif text-2xl font-semibold">Photograph & privacy</h2>
+        <h2 className="font-serif text-2xl font-semibold">Photograph &amp; gallery</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Photographs open only for members you allow; each rendered copy is stamped with the
-          viewer’s name and the time of viewing. Screenshots cannot be prevented — report misuse and
-          the membership desk will act.
+          Upload up to 6 photographs. Verified members see them according to your visibility setting;
+          each rendered copy is stamped with the viewer’s name and the time of viewing. Screenshots
+          cannot be prevented — report misuse and the membership desk will act.
         </p>
-        <div className="mt-6 grid gap-6 sm:grid-cols-[180px_1fr]">
-          <MemberPhoto
-            path={p?.photo_path}
-            watermark="Your own view"
-            className="aspect-[4/5] w-full"
-            name={p?.full_name ?? null}
-          />
-          <div className="grid content-start gap-4">
-            <label className="flex cursor-pointer items-center gap-3 border border-dashed border-border p-4 text-sm">
-              <Upload className="size-4 text-brass" />
-              <span>{p?.photo_path ? "Replace photograph" : "Upload a photograph"}</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) upload.mutate({ file: f, bucket: "profile-photos" });
-                }}
-              />
-            </label>
-            <div className="grid gap-2 text-sm font-semibold">
-              Who may see it
-              <select
-                className={selectCls}
-                value={p?.photo_visibility ?? "accepted_only"}
-                onChange={(e) => save.mutate({ photo_visibility: e.target.value })}
-              >
-                {PHOTO_VISIBILITY.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs font-normal leading-5 text-muted-foreground">
-                {
-                  PHOTO_VISIBILITY.find((o) => o.value === (p?.photo_visibility ?? "accepted_only"))
-                    ?.detail
-                }
-              </span>
-            </div>
+        <div className="mt-6 grid gap-6">
+          <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />
+          <div className="grid max-w-sm gap-2 text-sm font-semibold">
+            Who may see your photographs
+            <select
+              className={selectCls}
+              value={p?.photo_visibility ?? "accepted_only"}
+              onChange={(e) => save.mutate({ photo_visibility: e.target.value })}
+            >
+              {PHOTO_VISIBILITY.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs font-normal leading-5 text-muted-foreground">
+              {
+                PHOTO_VISIBILITY.find((o) => o.value === (p?.photo_visibility ?? "accepted_only"))
+                  ?.detail
+              }
+            </span>
           </div>
         </div>
       </section>

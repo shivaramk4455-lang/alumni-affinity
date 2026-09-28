@@ -27,6 +27,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { EMPTY_PREFERENCES, alignCandidate, type Alignment } from "@/lib/alignment";
 import { DIRECTORY_COLUMNS } from "@/lib/profile-columns";
 import { formatHeight } from "@/lib/profile-options";
+import { PhotoSlideshow } from "@/components/photo-gallery";
+import { useMemberGallery } from "@/lib/gallery";
+
 
 export const Route = createFileRoute("/_authenticated/members/$id")({
   head: () => ({
@@ -144,6 +147,9 @@ function MemberProfile() {
       return data ?? [];
     },
   });
+  const [slideIndex, setSlideIndex] = useState(0);
+  const memberGallery = useMemberGallery(id);
+
 
   const send = useMutation({
     mutationFn: async () => {
@@ -279,6 +285,15 @@ function MemberProfile() {
     ? `${me.data.full_name} · ${me.data.id?.slice(0, 8)}`
     : "Verified member view";
   const copilotLinks = myCopilotFor.data ?? [];
+  const galleryList = (memberGallery.data ?? []).map((p) => ({ path: p.path }));
+  const visiblePhotos = canSeePhoto
+    ? galleryList.length > 0
+      ? galleryList
+      : data?.photo_path
+        ? [{ path: data.photo_path }]
+        : []
+    : [];
+
   const isSelf = me.data?.id === id;
 
   return (
@@ -296,13 +311,23 @@ function MemberProfile() {
         <p className="mt-8 font-serif text-2xl">This profile is not available.</p>
       ) : (
         <article className="mt-8 border border-border bg-card p-6 md:p-10">
-          <div className="grid gap-8 sm:grid-cols-[200px_1fr]">
-            <MemberPhoto
-              path={canSeePhoto ? data.photo_path : null}
-              watermark={watermark}
-              name={data.full_name}
-              className="aspect-[4/5] w-full"
-            />
+          <div className="grid gap-8 sm:grid-cols-[240px_1fr]">
+            {visiblePhotos.length > 0 ? (
+              <PhotoSlideshow
+                photos={visiblePhotos}
+                active={slideIndex}
+                onActive={setSlideIndex}
+                watermark={watermark}
+                name={data.full_name}
+              />
+            ) : (
+              <MemberPhoto
+                path={null}
+                watermark={watermark}
+                name={data.full_name}
+                className="aspect-[4/5] w-full"
+              />
+            )}
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-success">
                 <ShieldCheck className="size-4" />
