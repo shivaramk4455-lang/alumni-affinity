@@ -180,6 +180,8 @@ export type Database = {
           relocation: string | null
           updated_at: string
           values_statement: string | null
+          verification_decided_at: string | null
+          verification_decided_by: string | null
           verification_doc_path: string | null
           verification_note: string | null
           verification_status: string
@@ -209,6 +211,8 @@ export type Database = {
           relocation?: string | null
           updated_at?: string
           values_statement?: string | null
+          verification_decided_at?: string | null
+          verification_decided_by?: string | null
           verification_doc_path?: string | null
           verification_note?: string | null
           verification_status?: string
@@ -238,6 +242,8 @@ export type Database = {
           relocation?: string | null
           updated_at?: string
           values_statement?: string | null
+          verification_decided_at?: string | null
+          verification_decided_by?: string | null
           verification_doc_path?: string | null
           verification_note?: string | null
           verification_status?: string
