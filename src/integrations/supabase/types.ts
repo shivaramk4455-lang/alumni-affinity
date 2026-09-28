@@ -1153,11 +1153,14 @@ export type Database = {
           marital_status: string | null
           mother_tongue: string | null
           onboarded: boolean | null
+          paused_reason: string | null
+          paused_until: string | null
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
           relocation: string | null
           residency_status: string | null
+          show_profile_views: boolean | null
           updated_at: string | null
           values_statement: string | null
           verification_decided_at: string | null
@@ -1189,11 +1192,14 @@ export type Database = {
           marital_status?: string | null
           mother_tongue?: string | null
           onboarded?: boolean | null
+          paused_reason?: string | null
+          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
           relocation?: string | null
           residency_status?: string | null
+          show_profile_views?: boolean | null
           updated_at?: string | null
           values_statement?: string | null
           verification_decided_at?: string | null
@@ -1225,11 +1231,14 @@ export type Database = {
           marital_status?: string | null
           mother_tongue?: string | null
           onboarded?: boolean | null
+          paused_reason?: string | null
+          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
           relocation?: string | null
           residency_status?: string | null
+          show_profile_views?: boolean | null
           updated_at?: string | null
           values_statement?: string | null
           verification_decided_at?: string | null
@@ -1329,6 +1338,10 @@ export type Database = {
         Args: { _template: string; _user: string }
         Returns: string[]
       }
+      notify_counterparty: {
+        Args: { _event: string; _user: string }
+        Returns: undefined
+      }
       placement_weight: { Args: { _user: string }; Returns: number }
       record_consent: {
         Args: {
@@ -1357,6 +1370,7 @@ export type Database = {
           profile_id: string
         }[]
       }
+      sweep_stale_calls: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
