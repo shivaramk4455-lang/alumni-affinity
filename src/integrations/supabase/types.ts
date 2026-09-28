@@ -814,15 +814,19 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           degree: string | null
+          diet: string | null
           employer: string | null
           full_name: string
           gender: string | null
           grad_year: number | null
+          height_cm: number | null
           id: string
           institution: string | null
           is_admin: boolean
           is_visible: boolean
           linkedin_url: string | null
+          marital_status: string | null
+          mother_tongue: string | null
           onboarded: boolean
           paused_reason: string | null
           paused_until: string | null
@@ -830,6 +834,7 @@ export type Database = {
           photo_visibility: string
           profession: string | null
           relocation: string | null
+          residency_status: string | null
           show_profile_views: boolean
           updated_at: string
           values_statement: string | null
@@ -848,15 +853,19 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           degree?: string | null
+          diet?: string | null
           employer?: string | null
           full_name?: string
           gender?: string | null
           grad_year?: number | null
+          height_cm?: number | null
           id: string
           institution?: string | null
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
+          marital_status?: string | null
+          mother_tongue?: string | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
@@ -864,6 +873,7 @@ export type Database = {
           photo_visibility?: string
           profession?: string | null
           relocation?: string | null
+          residency_status?: string | null
           show_profile_views?: boolean
           updated_at?: string
           values_statement?: string | null
@@ -882,15 +892,19 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           degree?: string | null
+          diet?: string | null
           employer?: string | null
           full_name?: string
           gender?: string | null
           grad_year?: number | null
+          height_cm?: number | null
           id?: string
           institution?: string | null
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
+          marital_status?: string | null
+          mother_tongue?: string | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
@@ -898,6 +912,7 @@ export type Database = {
           photo_visibility?: string
           profession?: string | null
           relocation?: string | null
+          residency_status?: string | null
           show_profile_views?: boolean
           updated_at?: string
           values_statement?: string | null
@@ -1124,22 +1139,25 @@ export type Database = {
           contact_phone: string | null
           created_at: string | null
           degree: string | null
+          diet: string | null
           employer: string | null
           full_name: string | null
           gender: string | null
           grad_year: number | null
+          height_cm: number | null
           id: string | null
           institution: string | null
           is_admin: boolean | null
           is_visible: boolean | null
           linkedin_url: string | null
+          marital_status: string | null
+          mother_tongue: string | null
           onboarded: boolean | null
-          paused_reason: string | null
-          paused_until: string | null
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
           relocation: string | null
+          residency_status: string | null
           updated_at: string | null
           values_statement: string | null
           verification_decided_at: string | null
@@ -1157,22 +1175,25 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           degree?: string | null
+          diet?: string | null
           employer?: string | null
           full_name?: string | null
           gender?: string | null
           grad_year?: number | null
+          height_cm?: number | null
           id?: string | null
           institution?: string | null
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
+          marital_status?: string | null
+          mother_tongue?: string | null
           onboarded?: boolean | null
-          paused_reason?: string | null
-          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
           relocation?: string | null
+          residency_status?: string | null
           updated_at?: string | null
           values_statement?: string | null
           verification_decided_at?: string | null
@@ -1190,22 +1211,25 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           degree?: string | null
+          diet?: string | null
           employer?: string | null
           full_name?: string | null
           gender?: string | null
           grad_year?: number | null
+          height_cm?: number | null
           id?: string | null
           institution?: string | null
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
+          marital_status?: string | null
+          mother_tongue?: string | null
           onboarded?: boolean | null
-          paused_reason?: string | null
-          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
           relocation?: string | null
+          residency_status?: string | null
           updated_at?: string | null
           values_statement?: string | null
           verification_decided_at?: string | null
