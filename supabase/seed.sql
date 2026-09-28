@@ -1,7 +1,40 @@
 -- ===========================================================================
 -- The Merit Circle — Local Development & Staging Seed File
 -- Run via: supabase db reset (or supabase db seed)
+--
+-- profiles.id -> auth.users.id FK (20260928000200) already exists by the
+-- time the seed runs (migrations apply first), so every seeded profile
+-- needs a disabled placeholder auth.users row before it can be inserted:
+-- empty password, no identities, .invalid address — they can never sign in.
+-- Same pattern as the backfill in 20260928000200_storage_and_integrity.sql.
 -- ===========================================================================
+
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+SELECT id,
+       '00000000-0000-0000-0000-000000000000'::uuid,
+       'authenticated',
+       'authenticated',
+       'directory+' || replace(id::text, '-', '') || '@example.invalid',
+       '',
+       now(),
+       '{"provider":"email","providers":["email"]}'::jsonb,
+       '{"directory_seed": true}'::jsonb,
+       now(),
+       now()
+FROM (VALUES
+  ('a1000000-0000-4000-8000-000000000001'::uuid),
+  ('a1000000-0000-4000-8000-000000000002'::uuid),
+  ('a1000000-0000-4000-8000-000000000003'::uuid),
+  ('a1000000-0000-4000-8000-000000000004'::uuid),
+  ('a1000000-0000-4000-8000-000000000005'::uuid),
+  ('a1000000-0000-4000-8000-000000000006'::uuid),
+  ('a1000000-0000-4000-8000-000000000007'::uuid),
+  ('a1000000-0000-4000-8000-000000000008'::uuid)
+) AS seed_ids(id)
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.profiles (
   id, full_name, gender, birth_year, city, institution, degree, grad_year,
