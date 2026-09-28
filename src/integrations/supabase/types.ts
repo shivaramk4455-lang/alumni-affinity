@@ -294,10 +294,150 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      my_profile: {
+        Row: {
+          alumni_email: string | null
+          alumni_email_verified: boolean | null
+          bio: string | null
+          birth_year: number | null
+          city: string | null
+          contact_phone: string | null
+          created_at: string | null
+          degree: string | null
+          employer: string | null
+          full_name: string | null
+          gender: string | null
+          grad_year: number | null
+          id: string | null
+          institution: string | null
+          is_admin: boolean | null
+          is_visible: boolean | null
+          linkedin_url: string | null
+          onboarded: boolean | null
+          photo_path: string | null
+          photo_visibility: string | null
+          profession: string | null
+          relocation: string | null
+          updated_at: string | null
+          values_statement: string | null
+          verification_decided_at: string | null
+          verification_decided_by: string | null
+          verification_doc_path: string | null
+          verification_note: string | null
+          verification_status: string | null
+        }
+        Insert: {
+          alumni_email?: string | null
+          alumni_email_verified?: boolean | null
+          bio?: string | null
+          birth_year?: number | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          degree?: string | null
+          employer?: string | null
+          full_name?: string | null
+          gender?: string | null
+          grad_year?: number | null
+          id?: string | null
+          institution?: string | null
+          is_admin?: boolean | null
+          is_visible?: boolean | null
+          linkedin_url?: string | null
+          onboarded?: boolean | null
+          photo_path?: string | null
+          photo_visibility?: string | null
+          profession?: string | null
+          relocation?: string | null
+          updated_at?: string | null
+          values_statement?: string | null
+          verification_decided_at?: string | null
+          verification_decided_by?: string | null
+          verification_doc_path?: string | null
+          verification_note?: string | null
+          verification_status?: string | null
+        }
+        Update: {
+          alumni_email?: string | null
+          alumni_email_verified?: boolean | null
+          bio?: string | null
+          birth_year?: number | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          degree?: string | null
+          employer?: string | null
+          full_name?: string | null
+          gender?: string | null
+          grad_year?: number | null
+          id?: string | null
+          institution?: string | null
+          is_admin?: boolean | null
+          is_visible?: boolean | null
+          linkedin_url?: string | null
+          onboarded?: boolean | null
+          photo_path?: string | null
+          photo_visibility?: string | null
+          profession?: string | null
+          relocation?: string | null
+          updated_at?: string | null
+          values_statement?: string | null
+          verification_decided_at?: string | null
+          verification_decided_by?: string | null
+          verification_doc_path?: string | null
+          verification_note?: string | null
+          verification_status?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_copilot_invite: { Args: { _code: string }; Returns: string }
+      desk_reports: {
+        Args: { _limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          reason: string
+          reported_name: string
+          reported_profile_id: string
+          reported_visible: boolean
+          reporter_id: string
+          reporter_name: string
+        }[]
+      }
+      desk_review_queue: {
+        Args: never
+        Returns: {
+          alumni_email: string
+          city: string
+          created_at: string
+          degree: string
+          full_name: string
+          grad_year: number
+          id: string
+          institution: string
+          photo_path: string
+          verification_doc_path: string
+          verification_status: string
+        }[]
+      }
+      reveal_contact: {
+        Args: { _profile: string }
+        Returns: {
+          contact_phone: string
+          linkedin_url: string
+          profile_id: string
+        }[]
+      }
+      reveal_contacts: {
+        Args: { _profiles: string[] }
+        Returns: {
+          contact_phone: string
+          linkedin_url: string
+          profile_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
