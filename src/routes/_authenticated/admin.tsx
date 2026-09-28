@@ -123,8 +123,8 @@ function Admin() {
       const { error } = await supabase.rpc("desk_update_report", {
         _id: id,
         _status: status,
-        _outcome: outcome ?? null,
-        _note: (note[id] ?? "").trim() || null,
+        _outcome: outcome,
+        _note: (note[id] ?? "").trim() || undefined,
       });
       if (error) throw error;
     },

@@ -22,7 +22,7 @@ export function useMyProfile() {
 
       const { data, error } = await supabase.from("my_profile").select("*").maybeSingle();
       if (error) throw error;
-      return data;
+      return (data as MyProfileRow | null) ?? null;
     },
   });
 }
