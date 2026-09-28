@@ -473,7 +473,6 @@ function Settings() {
         </div>
       </section>
 
-
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="font-serif text-2xl font-semibold">Contact coordinates</h2>
         <p className="mt-2 text-sm text-muted-foreground">

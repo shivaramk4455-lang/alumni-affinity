@@ -51,15 +51,15 @@ export function useDeleteGalleryPhoto() {
         .from("profile-photos")
         .remove([photo.path]);
       if (objError) {
-        throw new Error("Row removed, but the stored file could not be deleted. It will be purged with the account.");
+        throw new Error(
+          "Row removed, but the stored file could not be deleted. It will be purged with the account.",
+        );
       }
       const mine = (qc.getQueryData<GalleryPhoto[]>([...GALLERY_QUERY_KEY, "mine"]) ?? []).filter(
         (p) => p.id !== photo.id,
       );
       await Promise.all(
-        mine.map((p, i) =>
-          supabase.from("profile_photos").update({ position: i }).eq("id", p.id),
-        ),
+        mine.map((p, i) => supabase.from("profile_photos").update({ position: i }).eq("id", p.id)),
       ).catch(() => undefined);
     },
     onSuccess: () => {
@@ -68,7 +68,8 @@ export function useDeleteGalleryPhoto() {
       qc.invalidateQueries({ queryKey: ["photo"] });
       toast.success("Photograph deleted.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not delete the photograph."),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Could not delete the photograph."),
   });
 }
 
@@ -76,7 +77,15 @@ export function useDeleteGalleryPhoto() {
 export function useMoveGalleryPhoto() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ photos, from, to }: { photos: GalleryPhoto[]; from: number; to: number }) => {
+    mutationFn: async ({
+      photos,
+      from,
+      to,
+    }: {
+      photos: GalleryPhoto[];
+      from: number;
+      to: number;
+    }) => {
       if (to < 0 || to >= photos.length) return;
       const a = photos[from];
       const b = photos[to];
@@ -98,7 +107,6 @@ export function useMoveGalleryPhoto() {
     onError: () => toast.error("Could not reorder the gallery."),
   });
 }
-
 
 export const GALLERY_QUERY_KEY = ["gallery"] as const;
 
@@ -144,9 +152,13 @@ export function useMemberGallery(userId: string | null | undefined) {
   });
 }
 
-
 function galleryPath(userId: string, file: File): string {
-  const raw = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const raw =
+    file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "jpg";
   const ext = raw === "jpeg" || raw === "jpg" ? "jpg" : raw === "png" ? "png" : "jpg";
   const stamp = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 8);
@@ -186,7 +198,10 @@ export function useUploadGalleryPhoto() {
         is_primary: mine === 0,
       });
       if (rowError) {
-        await supabase.storage.from("profile-photos").remove([path]).catch(() => undefined);
+        await supabase.storage
+          .from("profile-photos")
+          .remove([path])
+          .catch(() => undefined);
         throw rowError;
       }
       return path;

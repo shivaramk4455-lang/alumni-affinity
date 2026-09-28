@@ -269,9 +269,9 @@ function Verification() {
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="font-serif text-2xl font-semibold">Photograph &amp; gallery</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Upload up to 6 photographs. Verified members see them according to your visibility setting;
-          each rendered copy is stamped with the viewer’s name and the time of viewing. Screenshots
-          cannot be prevented — report misuse and the membership desk will act.
+          Upload up to 6 photographs. Verified members see them according to your visibility
+          setting; each rendered copy is stamped with the viewer’s name and the time of viewing.
+          Screenshots cannot be prevented — report misuse and the membership desk will act.
         </p>
         <div className="mt-6 grid gap-6">
           <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />

@@ -30,7 +30,6 @@ import { formatHeight } from "@/lib/profile-options";
 import { PhotoSlideshow } from "@/components/photo-gallery";
 import { useMemberGallery } from "@/lib/gallery";
 
-
 export const Route = createFileRoute("/_authenticated/members/$id")({
   head: () => ({
     meta: [
@@ -149,7 +148,6 @@ function MemberProfile() {
   });
   const [slideIndex, setSlideIndex] = useState(0);
   const memberGallery = useMemberGallery(id);
-
 
   const send = useMutation({
     mutationFn: async () => {

@@ -3,7 +3,16 @@ import type { Database } from "@/integrations/supabase/types";
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type MyProfileView = Database["public"]["Views"]["my_profile"]["Row"];
 /** View columns are reported nullable; the underlying profile columns are NOT NULL. */
-export type MyProfileRow = Omit<MyProfileView, "id" | "full_name" | "is_visible" | "onboarded" | "is_admin" | "verification_status" | "photo_visibility"> & {
+export type MyProfileRow = Omit<
+  MyProfileView,
+  | "id"
+  | "full_name"
+  | "is_visible"
+  | "onboarded"
+  | "is_admin"
+  | "verification_status"
+  | "photo_visibility"
+> & {
   id: string;
   full_name: string;
   is_visible: boolean;

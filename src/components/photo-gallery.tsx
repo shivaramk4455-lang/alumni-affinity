@@ -60,8 +60,16 @@ export function PhotoGalleryManager({
             full || upload.isPending ? "pointer-events-none opacity-50" : "hover:bg-secondary/60"
           }`}
         >
-          {upload.isPending ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
-          {upload.isPending ? "Uploading…" : full ? `Gallery full (${MAX_GALLERY_PHOTOS})` : "Add photograph"}
+          {upload.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <ImagePlus className="size-4" />
+          )}
+          {upload.isPending
+            ? "Uploading…"
+            : full
+              ? `Gallery full (${MAX_GALLERY_PHOTOS})`
+              : "Add photograph"}
           <input
             type="file"
             accept={GALLERY_ACCEPT}
@@ -339,5 +347,3 @@ export function PhotoSlideshow({
     </div>
   );
 }
-
-
