@@ -44,6 +44,34 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "copilot_rec_candidate_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_rec_candidate_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_rec_profile_fkey"
+            columns: ["recommended_profile_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_rec_profile_fkey"
+            columns: ["recommended_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "copilot_recommendations_copilot_id_fkey"
             columns: ["copilot_id"]
             isOneToOne: false
@@ -89,7 +117,36 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "copilots_candidate_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilots_candidate_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilots_user_fkey"
+            columns: ["copilot_user_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilots_user_fkey"
+            columns: ["copilot_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interests: {
         Row: {
@@ -119,7 +176,36 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "interests_recipient_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interests_recipient_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interests_sender_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interests_sender_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -152,7 +238,22 @@ export type Database = {
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -272,7 +373,36 @@ export type Database = {
           reported_profile_id?: string
           reporter_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reports_reported_fkey"
+            columns: ["reported_profile_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reported_fkey"
+            columns: ["reported_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_profiles: {
         Row: {
@@ -290,7 +420,36 @@ export type Database = {
           profile_id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "saved_profiles_profile_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_profiles_profile_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_profiles_user_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_profiles_user_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
