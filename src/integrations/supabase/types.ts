@@ -436,6 +436,7 @@ export type Database = {
       interests: {
         Row: {
           created_at: string
+          decided_at: string | null
           expires_at: string
           id: string
           message: string | null
@@ -447,6 +448,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          decided_at?: string | null
           expires_at?: string
           id?: string
           message?: string | null
@@ -458,6 +460,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          decided_at?: string | null
           expires_at?: string
           id?: string
           message?: string | null
@@ -927,24 +930,39 @@ export type Database = {
       reports: {
         Row: {
           created_at: string
+          handled_at: string | null
+          handled_by: string | null
           id: string
+          outcome: string | null
           reason: string
           reported_profile_id: string
           reporter_id: string
+          resolution_note: string | null
+          status: string
         }
         Insert: {
           created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
           id?: string
+          outcome?: string | null
           reason: string
           reported_profile_id: string
           reporter_id: string
+          resolution_note?: string | null
+          status?: string
         }
         Update: {
           created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
           id?: string
+          outcome?: string | null
           reason?: string
           reported_profile_id?: string
           reporter_id?: string
+          resolution_note?: string | null
+          status?: string
         }
         Relationships: [
           {
@@ -1035,6 +1053,8 @@ export type Database = {
           label: string
           placement_weight: number
           razorpay_plan_id: string | null
+          sellable: boolean
+          service_note: string | null
         }
         Insert: {
           active?: boolean
@@ -1046,6 +1066,8 @@ export type Database = {
           label: string
           placement_weight?: number
           razorpay_plan_id?: string | null
+          sellable?: boolean
+          service_note?: string | null
         }
         Update: {
           active?: boolean
@@ -1057,6 +1079,8 @@ export type Database = {
           label?: string
           placement_weight?: number
           razorpay_plan_id?: string | null
+          sellable?: boolean
+          service_note?: string | null
         }
         Relationships: []
       }
@@ -1276,17 +1300,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      desk_network_health: { Args: never; Returns: Json }
       desk_reports: {
         Args: { _limit?: number }
         Returns: {
           created_at: string
+          handled_at: string
           id: string
+          outcome: string
           reason: string
           reported_name: string
           reported_profile_id: string
           reported_visible: boolean
           reporter_id: string
           reporter_name: string
+          resolution_note: string
+          status: string
         }[]
       }
       desk_review_queue: {
@@ -1304,6 +1333,15 @@ export type Database = {
           verification_doc_path: string
           verification_status: string
         }[]
+      }
+      desk_update_report: {
+        Args: {
+          _id: string
+          _note?: string
+          _outcome?: string
+          _status: string
+        }
+        Returns: undefined
       }
       enqueue_notification: {
         Args: {
@@ -1343,6 +1381,7 @@ export type Database = {
         Returns: undefined
       }
       placement_weight: { Args: { _user: string }; Returns: number }
+      reciprocity_multiplier: { Args: { _user: string }; Returns: number }
       record_consent: {
         Args: {
           _granted: boolean
@@ -1354,6 +1393,7 @@ export type Database = {
       }
       record_intro_usage: { Args: { _user?: string }; Returns: undefined }
       record_profile_view: { Args: { _viewed: string }; Returns: undefined }
+      response_rate: { Args: { _user: string }; Returns: number }
       reveal_contact: {
         Args: { _profile: string }
         Returns: {
