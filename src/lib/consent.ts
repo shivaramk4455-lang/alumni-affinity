@@ -46,7 +46,7 @@ export async function recordConsent(
     _purpose: purpose,
     _granted: granted,
     _policy_version: POLICY_VERSION,
-    _note: note,
+    ...(note ? { _note: note } : {}),
   });
   if (error) console.error("consent ledger", error);
 }
