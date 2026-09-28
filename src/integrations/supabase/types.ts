@@ -274,12 +274,30 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_profiles: {
+        Row: {
+          created_at: string
+          profile_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          profile_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          profile_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_copilot_invite: { Args: { _code: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
