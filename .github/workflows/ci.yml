@@ -60,4 +60,4 @@ jobs:
         run: supabase db reset
 
       - name: Verify migration status (clean chain)
-        run: supabase migration list
+        run: supabase migration list --local
