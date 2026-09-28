@@ -4,6 +4,7 @@ DROP TRIGGER IF EXISTS profiles_notify_verification ON public.profiles;
 DROP POLICY IF EXISTS "Desk reads verification docs" ON storage.objects;
 DROP POLICY IF EXISTS "Admins read all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins update profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Verified members read the directory" ON public.profiles;
 DROP POLICY IF EXISTS "Members read visible onboarded" ON public.profiles;
 CREATE POLICY "Members read visible onboarded" ON public.profiles FOR SELECT TO authenticated USING (onboarded AND is_visible);
 DROP TABLE IF EXISTS public.messages, public.meetings, public.notifications, public.reports, public.blocks, public.shortlists, public.user_roles CASCADE;

@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.subscription_plans (
 GRANT SELECT ON public.subscription_plans TO anon, authenticated;
 GRANT ALL ON public.subscription_plans TO service_role;
 ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Plans are public" ON public.subscription_plans;
 CREATE POLICY "Plans are public" ON public.subscription_plans FOR SELECT TO anon, authenticated USING (true);
 INSERT INTO public.subscription_plans (code, label, amount_paise, intro_requests, placement_weight, display_order)
 VALUES ('concierge', 'Concierge', 149900, 20, 10, 1), ('founder', 'Founder', 399900, NULL, 50, 2)

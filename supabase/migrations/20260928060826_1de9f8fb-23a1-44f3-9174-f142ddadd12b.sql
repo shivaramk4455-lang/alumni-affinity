@@ -9,6 +9,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION private.is_active_copilot(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION private.is_active_copilot(uuid) TO authenticated, service_role;
 DROP POLICY IF EXISTS "Verified members read the directory" ON public.profiles;
+DROP POLICY IF EXISTS "Verified members and copilots read the directory" ON public.profiles;
 CREATE POLICY "Verified members and copilots read the directory" ON public.profiles FOR SELECT TO authenticated
   USING (onboarded AND is_visible AND verification_status = 'verified'
     AND (private.is_verified(auth.uid()) OR private.is_active_copilot(auth.uid())));

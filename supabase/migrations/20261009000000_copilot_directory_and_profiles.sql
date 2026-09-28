@@ -29,6 +29,7 @@ GRANT EXECUTE ON FUNCTION private.is_active_copilot(uuid) TO authenticated, serv
 
 -- Update directory RLS policy to allow active copilots to browse for their candidate
 DROP POLICY IF EXISTS "Verified members read the directory" ON public.profiles;
+DROP POLICY IF EXISTS "Verified members and copilots read the directory" ON public.profiles;
 CREATE POLICY "Verified members and copilots read the directory" ON public.profiles FOR SELECT TO authenticated
   USING (
     onboarded

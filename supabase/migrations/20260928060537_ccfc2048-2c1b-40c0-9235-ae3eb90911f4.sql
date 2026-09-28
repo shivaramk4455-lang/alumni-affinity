@@ -24,6 +24,7 @@ DROP POLICY IF EXISTS "Own preferences write" ON public.partner_preferences;
 CREATE POLICY "Own preferences write" ON public.partner_preferences FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Own preferences update" ON public.partner_preferences;
 CREATE POLICY "Own preferences update" ON public.partner_preferences FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP TRIGGER IF EXISTS partner_preferences_touch ON public.partner_preferences;
 CREATE TRIGGER partner_preferences_touch BEFORE UPDATE ON public.partner_preferences FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
 ALTER TABLE public.interests

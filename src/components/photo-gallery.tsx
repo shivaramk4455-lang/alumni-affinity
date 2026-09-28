@@ -240,6 +240,9 @@ function GalleryThumb({
         </p>
       )}
     </li>
+  );
+}
+
 /**
  * Watermarked slideshow: arrow / keyboard navigation, counter and
  * thumbnails for jumping. Read-only — used on member profiles.
@@ -333,9 +336,6 @@ export function PhotoSlideshow({
         </div>
       )}
     </div>
-  );
-}
-
   );
 }
 

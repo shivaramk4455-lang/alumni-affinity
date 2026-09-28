@@ -149,6 +149,7 @@ REVOKE EXECUTE ON FUNCTION public.accept_copilot_invite(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_copilot_invite(text) TO authenticated, service_role;
 
 DROP POLICY IF EXISTS "Members read visible onboarded" ON public.profiles;
+DROP POLICY IF EXISTS "Verified members read the directory" ON public.profiles;
 CREATE POLICY "Verified members read the directory" ON public.profiles FOR SELECT TO authenticated
   USING (onboarded AND is_visible AND verification_status = 'verified' AND private.is_verified(auth.uid()));
 DROP POLICY IF EXISTS "Introductions see the other side" ON public.profiles;
