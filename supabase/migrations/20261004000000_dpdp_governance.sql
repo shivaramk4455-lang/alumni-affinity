@@ -127,11 +127,13 @@ CREATE POLICY "Verified members read the directory" ON public.profiles FOR SELEC
 
 
 -- ---------------------------------------------------------------------------
--- 4. Surface the pause to its owner only. `CREATE OR REPLACE VIEW` may only
---    append columns, so the new ones go last and every existing column keeps
---    its position (the client reads this view by name, not position).
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.my_profile WITH (security_invoker = false) AS
+-- Surface the pause to its owner only.
+-- DROP + CREATE (not OR REPLACE): the 20260928060936 rewrite of this view laid
+-- out the matrimonial columns before the pause columns, so OR REPLACE cannot
+-- reorder/drop them (Postgres 42P16). The final canonical layout (incl. every
+-- later column) is restored by 20261010000000_phase2_fix_batch.
+DROP VIEW IF EXISTS public.my_profile;
+CREATE VIEW public.my_profile WITH (security_invoker = false) AS
   SELECT
     p.id, p.full_name, p.gender, p.birth_year, p.city, p.institution, p.degree,
     p.grad_year, p.profession, p.employer, p.relocation, p.values_statement, p.bio,

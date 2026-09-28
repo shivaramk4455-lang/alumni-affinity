@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { MemberPhoto } from "@/components/member-photo";
 import {
   GALLERY_ACCEPT,
@@ -144,7 +145,7 @@ function GalleryThumb({
   isFirst: boolean;
   isLast: boolean;
   watermark: string;
-  name?: string | null;
+  name: string | null | undefined;
 }) {
   return (
     <li
@@ -159,7 +160,7 @@ function GalleryThumb({
         <MemberPhoto
           path={photo.path}
           watermark={watermark}
-          name={name}
+          name={name ?? null}
           className="aspect-square w-full"
         />
       </button>
@@ -281,7 +282,7 @@ export function PhotoSlideshow({
           <MemberPhoto
             path={current.path}
             watermark={watermark}
-            name={name}
+            name={name ?? null}
             className="aspect-[4/5] w-full"
           />
         )}
@@ -328,7 +329,7 @@ export function PhotoSlideshow({
               <MemberPhoto
                 path={p.path}
                 watermark={watermark}
-                name={name}
+                name={name ?? null}
                 className="aspect-square w-full"
               />
             </button>
