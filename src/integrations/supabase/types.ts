@@ -547,6 +547,111 @@ export type Database = {
           },
         ]
       }
+      notification_outbox: {
+        Row: {
+          attempts: number
+          channel: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          payload: Json
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          template: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          last_error?: string | null
+          payload?: Json
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          template: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          last_error?: string | null
+          payload?: Json
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          template?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_outbox_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_outbox_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          digest_skip_when_empty: boolean
+          email_alerts: boolean
+          email_digest: boolean
+          sms_alerts: boolean
+          updated_at: string
+          user_id: string
+          whatsapp_alerts: boolean
+        }
+        Insert: {
+          digest_skip_when_empty?: boolean
+          email_alerts?: boolean
+          email_digest?: boolean
+          sms_alerts?: boolean
+          updated_at?: string
+          user_id: string
+          whatsapp_alerts?: boolean
+        }
+        Update: {
+          digest_skip_when_empty?: boolean
+          email_alerts?: boolean
+          email_digest?: boolean
+          sms_alerts?: boolean
+          updated_at?: string
+          user_id?: string
+          whatsapp_alerts?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1011,6 +1116,29 @@ export type Database = {
     }
     Functions: {
       accept_copilot_invite: { Args: { _code: string }; Returns: string }
+      claim_due_notifications: {
+        Args: { _limit?: number }
+        Returns: {
+          attempts: number
+          channel: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          payload: Json
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          template: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       desk_reports: {
         Args: { _limit?: number }
         Returns: {
@@ -1040,10 +1168,27 @@ export type Database = {
           verification_status: string
         }[]
       }
+      enqueue_notification: {
+        Args: {
+          _idempotency_key?: string
+          _payload?: Json
+          _template: string
+          _user: string
+        }
+        Returns: number
+      }
       expire_stale_interests: { Args: never; Returns: number }
+      finish_notification: {
+        Args: { _error?: string; _id: string; _ok: boolean }
+        Returns: undefined
+      }
       get_or_create_conversation: {
         Args: { _interest_id: string }
         Returns: string
+      }
+      notification_channels_for: {
+        Args: { _template: string; _user: string }
+        Returns: string[]
       }
       record_consent: {
         Args: {
