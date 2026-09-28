@@ -135,6 +135,107 @@ export type Database = {
           },
         ]
       }
+      consent_events: {
+        Row: {
+          granted: boolean
+          id: string
+          note: string | null
+          policy_version: string
+          purpose: string
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          granted?: boolean
+          id?: string
+          note?: string | null
+          policy_version: string
+          purpose: string
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          granted?: boolean
+          id?: string
+          note?: string | null
+          policy_version?: string
+          purpose?: string
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consent_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_reveals: {
+        Row: {
+          access_count: number
+          first_revealed_at: string
+          id: string
+          last_revealed_at: string
+          revealed_id: string
+          viewer_id: string
+        }
+        Insert: {
+          access_count?: number
+          first_revealed_at?: string
+          id?: string
+          last_revealed_at?: string
+          revealed_id: string
+          viewer_id: string
+        }
+        Update: {
+          access_count?: number
+          first_revealed_at?: string
+          id?: string
+          last_revealed_at?: string
+          revealed_id?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_reveals_revealed_id_fkey"
+            columns: ["revealed_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_reveals_revealed_id_fkey"
+            columns: ["revealed_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_reveals_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_reveals_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -503,6 +604,7 @@ export type Database = {
           max_age: number | null
           min_age: number | null
           relocations: string[]
+          shield_employer: boolean
           updated_at: string
           user_id: string
         }
@@ -514,6 +616,7 @@ export type Database = {
           max_age?: number | null
           min_age?: number | null
           relocations?: string[]
+          shield_employer?: boolean
           updated_at?: string
           user_id: string
         }
@@ -525,6 +628,7 @@ export type Database = {
           max_age?: number | null
           min_age?: number | null
           relocations?: string[]
+          shield_employer?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -540,6 +644,56 @@ export type Database = {
             foreignKeyName: "partner_preferences_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_views: {
+        Row: {
+          id: string
+          viewed_at: string
+          viewed_id: string
+          viewer_id: string
+        }
+        Insert: {
+          id?: string
+          viewed_at?: string
+          viewed_id: string
+          viewer_id: string
+        }
+        Update: {
+          id?: string
+          viewed_at?: string
+          viewed_id?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_views_viewed_id_fkey"
+            columns: ["viewed_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_views_viewed_id_fkey"
+            columns: ["viewed_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -565,10 +719,13 @@ export type Database = {
           is_visible: boolean
           linkedin_url: string | null
           onboarded: boolean
+          paused_reason: string | null
+          paused_until: string | null
           photo_path: string | null
           photo_visibility: string
           profession: string | null
           relocation: string | null
+          show_profile_views: boolean
           updated_at: string
           values_statement: string | null
           verification_decided_at: string | null
@@ -596,10 +753,13 @@ export type Database = {
           is_visible?: boolean
           linkedin_url?: string | null
           onboarded?: boolean
+          paused_reason?: string | null
+          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
           relocation?: string | null
+          show_profile_views?: boolean
           updated_at?: string
           values_statement?: string | null
           verification_decided_at?: string | null
@@ -627,10 +787,13 @@ export type Database = {
           is_visible?: boolean
           linkedin_url?: string | null
           onboarded?: boolean
+          paused_reason?: string | null
+          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
           relocation?: string | null
+          show_profile_views?: boolean
           updated_at?: string
           values_statement?: string | null
           verification_decided_at?: string | null
@@ -763,6 +926,8 @@ export type Database = {
           is_visible: boolean | null
           linkedin_url: string | null
           onboarded: boolean | null
+          paused_reason: string | null
+          paused_until: string | null
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
@@ -794,6 +959,8 @@ export type Database = {
           is_visible?: boolean | null
           linkedin_url?: string | null
           onboarded?: boolean | null
+          paused_reason?: string | null
+          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
@@ -825,6 +992,8 @@ export type Database = {
           is_visible?: boolean | null
           linkedin_url?: string | null
           onboarded?: boolean | null
+          paused_reason?: string | null
+          paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
@@ -876,6 +1045,16 @@ export type Database = {
         Args: { _interest_id: string }
         Returns: string
       }
+      record_consent: {
+        Args: {
+          _granted: boolean
+          _note?: string
+          _policy_version: string
+          _purpose: string
+        }
+        Returns: string
+      }
+      record_profile_view: { Args: { _viewed: string }; Returns: undefined }
       reveal_contact: {
         Args: { _profile: string }
         Returns: {
