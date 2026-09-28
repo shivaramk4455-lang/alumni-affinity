@@ -335,27 +335,33 @@ export type Database = {
       interests: {
         Row: {
           created_at: string
+          expires_at: string
           id: string
           message: string | null
           recipient_id: string
+          reminder_sent_at: string | null
           sender_id: string
           status: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string
           id?: string
           message?: string | null
           recipient_id: string
+          reminder_sent_at?: string | null
           sender_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          expires_at?: string
           id?: string
           message?: string | null
           recipient_id?: string
+          reminder_sent_at?: string | null
           sender_id?: string
           status?: string
           updated_at?: string
@@ -483,6 +489,57 @@ export type Database = {
             foreignKeyName: "notifications_user_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_preferences: {
+        Row: {
+          cities: string[]
+          created_at: string
+          genders: string[]
+          institutions: string[]
+          max_age: number | null
+          min_age: number | null
+          relocations: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cities?: string[]
+          created_at?: string
+          genders?: string[]
+          institutions?: string[]
+          max_age?: number | null
+          min_age?: number | null
+          relocations?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cities?: string[]
+          created_at?: string
+          genders?: string[]
+          institutions?: string[]
+          max_age?: number | null
+          min_age?: number | null
+          relocations?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -814,6 +871,7 @@ export type Database = {
           verification_status: string
         }[]
       }
+      expire_stale_interests: { Args: never; Returns: number }
       get_or_create_conversation: {
         Args: { _interest_id: string }
         Returns: string
