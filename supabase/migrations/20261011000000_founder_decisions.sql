@@ -490,7 +490,7 @@ BEGIN
   PERFORM cron.schedule(
     'purge-verification-docs',
     '47 3 * * *',
-    $$SELECT public.purge_decided_verification_docs(90);$$
+    $job$SELECT public.purge_decided_verification_docs(90);$job$
   );
 END $$;
 
