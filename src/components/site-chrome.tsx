@@ -491,7 +491,7 @@ export function SiteFooter() {
             </ul>
           </div>
         </div>
-        <div className="mt-12 grid gap-3 border-t border-primary-foreground/15 pt-6 text-xs leading-5 text-primary-foreground/50 md:grid-cols-[1fr_auto]">
+        <div className="mt-12 grid gap-3 border-t border-primary-foreground/15 pt-6 text-xs leading-5 text-primary-foreground/70 md:grid-cols-[1fr_auto]">
           <p>
             Operated in accordance with the Information Technology Act, 2000 and applicable Indian
             data protection law.
@@ -508,7 +508,7 @@ export function SiteFooter() {
             </Link>
           </p>
         </div>
-        <div className="mt-5 flex flex-wrap justify-between gap-3 text-xs text-primary-foreground/40">
+        <div className="mt-5 flex flex-wrap justify-between gap-3 text-xs text-primary-foreground/60">
           <span>© 2026 The Merit Circle Private Limited</span>
           <span>New Delhi · Bengaluru · Mumbai</span>
         </div>

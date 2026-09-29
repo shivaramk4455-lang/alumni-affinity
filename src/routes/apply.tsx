@@ -9,7 +9,17 @@ import {
   Upload,
   UserRoundPlus,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useId,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +43,7 @@ export const Route = createFileRoute("/apply")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "https://themeritcircle.in/apply" }],
   }),
   component: ApplyPage,
 });
@@ -58,6 +69,8 @@ type Draft = {
   invite: boolean;
   copilotName: string;
   copilotEmail: string;
+  /** Adult age attestation: required before the application can finish. */
+  adult: boolean;
 };
 
 const emptyDraft: Draft = {
@@ -78,6 +91,7 @@ const emptyDraft: Draft = {
   invite: true,
   copilotName: "",
   copilotEmail: "",
+  adult: false,
 };
 
 function loadDraft(): Draft {
@@ -90,13 +104,52 @@ function loadDraft(): Draft {
   return emptyDraft;
 }
 
+/**
+ * A form field: label text, one control, an optional hint and an optional
+ * inline error.
+ *
+ * The label is explicitly associated with the control via a generated id
+ * (`htmlFor`/`id`), and the hint/error are linked with `aria-describedby` and
+ * announced with `role="alert"` — rather than being extra children inside a
+ * wrapping `<label>`, which both failed to associate them (no ids) and made
+ * the error text part of the control's *accessible name*, so a screen reader
+ * would announce "Full legal name Please complete this field." on focus.
+ */
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+  const id = useId();
+  const errId = `${id}-error`;
+  const hintId = `${id}-hint`;
+
+  const items = Children.toArray(children);
+  const errorNode = items.find((c) => isValidElement(c) && c.type === Error);
+  const control = items.find((c) => !(isValidElement(c) && c.type === Error));
+  const hasError = Boolean(errorNode);
+
+  const describedBy = [hint ? hintId : null, hasError ? errId : null].filter(Boolean).join(" ");
+
+  const wired = isValidElement(control)
+    ? cloneElement(control as ReactElement<Record<string, unknown>>, {
+        id,
+        "aria-invalid": hasError ? true : undefined,
+        "aria-describedby": describedBy || undefined,
+      })
+    : control;
+
   return (
-    <label className="grid gap-2 text-sm font-semibold text-foreground">
-      {label}
-      {children}
-      {hint && <span className="text-xs font-normal leading-5 text-muted-foreground">{hint}</span>}
-    </label>
+    <div className="grid gap-2">
+      <label htmlFor={id} className="text-sm font-semibold text-foreground">
+        {label}
+      </label>
+      {wired}
+      {hint && (
+        <span id={hintId} className="text-xs font-normal leading-5 text-muted-foreground">
+          {hint}
+        </span>
+      )}
+      {isValidElement(errorNode)
+        ? cloneElement(errorNode as ReactElement<Record<string, unknown>>, { id: errId })
+        : null}
+    </div>
   );
 }
 
@@ -145,6 +198,29 @@ function ApplyPage() {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.copilotEmail.trim())
     ) {
       nextErrors["copilot-email"] = "Enter a valid email for your co-pilot.";
+    }
+    // Server-enforced age gate has a client-side twin: membership is for
+    // adults 21+ (terms of membership), matching the database CHECK on
+    // profiles.birth_year and the onboarding schema. A date of birth implying
+    // someone younger cannot proceed, and can never satisfy the draft.
+    if (step === 0 && d.dob.trim()) {
+      const dob = new Date(`${d.dob.trim()}T00:00:00`);
+      if (Number.isNaN(dob.getTime())) {
+        nextErrors["dob"] = "Enter your date of birth as a calendar date.";
+      } else {
+        const now = new Date();
+        let age = now.getFullYear() - dob.getFullYear();
+        if (
+          now.getMonth() < dob.getMonth() ||
+          (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())
+        ) {
+          age -= 1;
+        }
+        if (age < 21) nextErrors["dob"] = "Membership is open to members aged 21 or over.";
+      }
+    }
+    if (step === steps.length - 1 && !d.adult) {
+      nextErrors["adult"] = "Please confirm the adult attestation to finish your application.";
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -542,11 +618,44 @@ function ApplyPage() {
                   </Field>
                 </div>
               )}
+              <div className="mt-6 grid gap-3 border border-border bg-secondary/30 p-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    id="adult-attestation"
+                    name="adult"
+                    type="checkbox"
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--brass-strong)]"
+                    checked={d.adult}
+                    onChange={(e) => set("adult", e.target.checked)}
+                    aria-required="true"
+                    aria-invalid={errors["adult"] ? true : undefined}
+                    aria-describedby={errors["adult"] ? "adult-attestation-error" : undefined}
+                  />
+                  <label htmlFor="adult-attestation" className="text-sm font-semibold leading-6">
+                    I confirm I am 21 years of age or older and the information I have given is
+                    accurate.
+                  </label>
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Membership is open to adults only. Your date of birth is checked against this
+                  attestation, and the platform refuses an age below 21 independently of what is
+                  typed here.
+                </p>
+                {errors["adult"] && (
+                  <p id="adult-attestation-error" role="alert" className="text-xs text-destructive">
+                    {errors["adult"]}
+                  </p>
+                )}
+              </div>
               <div className="mt-6 text-xs leading-5 text-muted-foreground">
                 By continuing, you confirm that the information provided is accurate and agree to
                 our{" "}
                 <Link to="/terms" className="underline">
                   membership, privacy, and verification terms
+                </Link>{" "}
+                and the{" "}
+                <Link to="/privacy" className="underline">
+                  privacy notice
                 </Link>
                 .
               </div>
@@ -595,6 +704,17 @@ function Step({ title, note, children }: { title: string; note: string; children
     </section>
   );
 }
-function Error({ text }: { text: string }) {
-  return <span className="text-xs font-normal text-destructive">{text}</span>;
+/**
+ * Inline validation message.
+ *
+ * `role="alert"` makes a screen reader announce it the moment it renders,
+ * without the user having to re-focus the field. `id` is injected by Field so
+ * the control's `aria-describedby` resolves to it.
+ */
+function Error({ text, id }: { text: string; id?: string }) {
+  return (
+    <span id={id} role="alert" className="text-xs font-normal text-destructive">
+      {text}
+    </span>
+  );
 }

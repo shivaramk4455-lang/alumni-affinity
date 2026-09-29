@@ -1,0 +1,20 @@
+# Normalise line endings so the repository is byte-identical on every machine.
+#
+# Without this, a Windows checkout (core.autocrlf=true) rewrites the LF blobs
+# stored in git into CRLF on disk, and prettier -- which runs as an ESLint rule
+# via eslint-plugin-prettier -- then reports every single line of every file as
+# a `Delete ␍` error. CI runs on ubuntu and passes; a local `npm run lint` fails
+# with ~1100 phantom errors. `* text=auto eol=lf` pins LF in the working tree
+# everywhere, so local and CI results match.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

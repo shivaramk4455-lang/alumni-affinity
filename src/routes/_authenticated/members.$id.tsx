@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bookmark,
   BookmarkCheck,
@@ -19,6 +20,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { MemberPhoto } from "@/components/member-photo";
 import { useMyProfile } from "@/hooks/use-my-profile";
@@ -83,7 +85,7 @@ function MemberProfile() {
 
   // Never request private columns directly: post-hardening they are revoked
   // from `authenticated`, and selecting them errors instead of leaking.
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["member", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -304,9 +306,62 @@ function MemberProfile() {
         Back to search
       </Link>
       {isLoading ? (
-        <p className="mt-8 text-sm text-muted-foreground">Loading…</p>
+        // Skeleton in the profile's own shape: a slow read must not look like
+        // "this profile is not available", which is a different, real answer.
+        <div className="mt-8 border border-border bg-card p-6 md:p-10" aria-busy="true">
+          <span className="sr-only">Loading this member profile…</span>
+          <div className="grid gap-8 sm:grid-cols-[240px_1fr]">
+            <Skeleton className="aspect-[4/5] w-full" />
+            <div className="min-w-0">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="mt-3 h-9 w-56" />
+              <Skeleton className="mt-3 h-4 w-64" />
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : isError ? (
+        // The query failed. That is not the same as "no such member" — telling
+        // someone a real profile does not exist because the network dropped is
+        // a lie with real consequences in a directory like this.
+        <div role="alert" className="mt-8 border border-destructive/40 bg-destructive/5 p-6">
+          <p className="flex items-center gap-2 font-serif text-xl">
+            <AlertTriangle className="size-5 text-destructive" />
+            This profile could not be loaded
+          </p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Your connection to the membership directory failed, so we cannot tell you whether this
+            member exists. Nothing has been shared or changed by this attempt.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-5"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+          >
+            {isFetching ? "Retrying…" : "Try again"}
+          </Button>
+        </div>
       ) : !data ? (
-        <p className="mt-8 font-serif text-2xl">This profile is not available.</p>
+        <div className="mt-8 border border-dashed border-border p-10 text-center">
+          <p className="font-serif text-2xl">This profile is not available</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            The member may have paused their profile, left the directory, or the link may be out of
+            date. Try the{" "}
+            <Link
+              to="/members"
+              className="font-semibold text-foreground underline underline-offset-4"
+            >
+              member search
+            </Link>{" "}
+            instead.
+          </p>
+        </div>
       ) : (
         <article className="mt-8 border border-border bg-card p-6 md:p-10">
           <div className="grid gap-8 sm:grid-cols-[240px_1fr]">
@@ -433,8 +488,11 @@ function MemberProfile() {
                 !interest.data ? (
                   openInterest ? (
                     <div className="grid gap-3">
-                      <label className="text-sm font-semibold">A short note (optional)</label>
+                      <label htmlFor="interest-note" className="text-sm font-semibold">
+                        A short note (optional)
+                      </label>
                       <Textarea
+                        id="interest-note"
                         rows={4}
                         maxLength={600}
                         value={note}
@@ -443,7 +501,7 @@ function MemberProfile() {
                       />
                       <div className="flex flex-wrap gap-3">
                         <Button onClick={() => send.mutate()} disabled={send.isPending}>
-                          Send interest
+                          {send.isPending ? "Sending…" : "Send interest"}
                         </Button>
                         <Button variant="ghost" onClick={() => setOpenInterest(false)}>
                           Cancel
@@ -547,24 +605,35 @@ function MemberProfile() {
 
               {openReport ? (
                 <div className="grid gap-3 border border-border p-4">
-                  <p className="text-sm font-semibold">Report this profile</p>
+                  <label htmlFor="report-reason" className="text-sm font-semibold">
+                    Report this profile
+                  </label>
                   <p className="text-xs leading-5 text-muted-foreground">
                     Tell the membership desk what felt wrong. Reports are private, and the profile
                     is hidden from your search immediately.
                   </p>
                   <Input
+                    id="report-reason"
                     maxLength={300}
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value)}
                     placeholder="A sentence or two about the concern"
+                    // The report reason is required by the mutation (10 chars
+                    // minimum), so surface that before the click fails.
+                    aria-required="true"
+                    aria-invalid={report.isError ? true : undefined}
+                    aria-describedby="report-reason-hint"
                   />
+                  <p id="report-reason-hint" className="sr-only">
+                    At least ten characters.
+                  </p>
                   <div className="flex flex-wrap gap-3">
                     <Button
                       variant="destructive"
                       onClick={() => report.mutate()}
                       disabled={report.isPending}
                     >
-                      Submit report
+                      {report.isPending ? "Submitting…" : "Submit report"}
                     </Button>
                     <Button variant="ghost" onClick={() => setOpenReport(false)}>
                       Cancel

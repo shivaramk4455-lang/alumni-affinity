@@ -232,11 +232,16 @@ function Verification() {
           Use your alumni or institute address, for example name@alumni.iitb.ac.in.
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <label htmlFor="alumni-email" className="sr-only">
+            Institutional email address
+          </label>
           <Input
+            id="alumni-email"
             value={alumniEmail}
             onChange={(e) => setAlumniEmail(e.target.value)}
             placeholder="name@alumni.iitb.ac.in"
             inputMode="email"
+            autoComplete="email"
           />
           <Button variant="outline" onClick={saveAlumniEmail} disabled={save.isPending}>
             Save email
@@ -275,12 +280,16 @@ function Verification() {
         </p>
         <div className="mt-6 grid gap-6">
           <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />
-          <div className="grid max-w-sm gap-2 text-sm font-semibold">
-            Who may see your photographs
+          <div className="grid max-w-sm gap-2">
+            <label htmlFor="verify-photo-visibility" className="text-sm font-semibold">
+              Who may see your photographs
+            </label>
             <select
+              id="verify-photo-visibility"
               className={selectCls}
               value={p?.photo_visibility ?? "accepted_only"}
               onChange={(e) => save.mutate({ photo_visibility: e.target.value })}
+              aria-describedby="verify-photo-visibility-detail"
             >
               {PHOTO_VISIBILITY.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -288,7 +297,10 @@ function Verification() {
                 </option>
               ))}
             </select>
-            <span className="text-xs font-normal leading-5 text-muted-foreground">
+            <span
+              id="verify-photo-visibility-detail"
+              className="text-xs font-normal leading-5 text-muted-foreground"
+            >
               {
                 PHOTO_VISIBILITY.find((o) => o.value === (p?.photo_visibility ?? "accepted_only"))
                   ?.detail

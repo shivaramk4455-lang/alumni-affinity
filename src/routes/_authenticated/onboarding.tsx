@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useId, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
@@ -504,11 +504,23 @@ function Onboarding() {
   );
 }
 
+/**
+ * A labelled form control.
+ *
+ * The label is wired to the control with a generated id (and the control
+ * gets that same id), so clicking the text focuses the field and a screen
+ * reader announces "Full name, edit text" instead of an unlabelled box.
+ * Previously <Label> sat next to the input with no association at all.
+ */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = useId();
+  const control = isValidElement(children)
+    ? cloneElement(children as React.ReactElement<{ id?: string }>, { id })
+    : children;
   return (
     <div className="grid gap-2">
-      <Label>{label}</Label>
-      {children}
+      <Label htmlFor={id}>{label}</Label>
+      {control}
     </div>
   );
 }

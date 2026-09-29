@@ -23,23 +23,48 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check line endings are LF
+        run: node scripts/normalize-eol.mjs --check
+
       - name: Typecheck
         run: npm run typecheck
 
       - name: Lint
         run: npm run lint
 
-      - name: Build (with legal identity verification)
+      - name: Build
+        run: npm run build
+
+  release-gate:
+    name: Release gate (legal identity)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with legal identity verification
         run: npm run build
         env:
-          # Production release gate: set to '1' when cutting a real public
-          # release so the build refuses to ship with a placeholder grievance
-          # officer (IT Rules, 2021). Kept '0' while no officer is appointed
-          # so main stays green during development — /grievance + footer
-          # already render a loud placeholder notice meanwhile.
-          # To enforce for a release: set REQUIRE_LEGAL_IDENTITY=1 in the
-          # release workflow / environment, or flip this back to '1' on main.
-          REQUIRE_LEGAL_IDENTITY: '0'
+          # IT Rules 2021 Rules 3(2)(a)/3A/4(1) and DPDP Act 2023 Sections 5,
+          # 13 and 14 require a named Grievance Officer, a monitored complaint
+          # address, a Nodal Officer and a DPO contact before this service may
+          # be published.
+          #
+          # This job is EXPECTED TO FAIL until a real officer is appointed and
+          # src/lib/legal-identity.ts is filled in. That is deliberate: a red
+          # build here is the release blocker doing its job, and it cannot be
+          # bypassed by flipping `published` because the gate also rejects
+          # bracketed placeholders and `.invalid` mailboxes.
+          REQUIRE_LEGAL_IDENTITY: '1'
 
   migration-assertions:
     name: SQL Migrations & Regressions Drill

@@ -441,12 +441,16 @@ function Settings() {
             aria-label="Visible to members"
           />
         </div>
-        <div className="mt-6 grid gap-2 text-sm font-semibold">
-          Who may see your photograph
+        <div className="mt-6 grid gap-2">
+          <Label htmlFor="photo-visibility" className="text-sm font-semibold">
+            Who may see your photograph
+          </Label>
           <select
+            id="photo-visibility"
             className={selectCls}
             value={p?.photo_visibility ?? "accepted_only"}
             onChange={(e) => save.mutate({ photo_visibility: e.target.value })}
+            aria-describedby="photo-visibility-detail"
           >
             {PHOTO_VISIBILITY.map((o) => (
               <option key={o.value} value={o.value}>
@@ -454,7 +458,10 @@ function Settings() {
               </option>
             ))}
           </select>
-          <span className="text-xs font-normal leading-5 text-muted-foreground">
+          <span
+            id="photo-visibility-detail"
+            className="text-xs font-normal leading-5 text-muted-foreground"
+          >
             {
               PHOTO_VISIBILITY.find((o) => o.value === (p?.photo_visibility ?? "accepted_only"))
                 ?.detail
@@ -480,12 +487,18 @@ function Settings() {
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
-            <Label>Phone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 " />
+            <Label htmlFor="contact-phone">Phone</Label>
+            <Input
+              id="contact-phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 "
+            />
           </div>
           <div className="grid gap-2">
-            <Label>LinkedIn</Label>
+            <Label htmlFor="contact-linkedin">LinkedIn</Label>
             <Input
+              id="contact-linkedin"
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
               placeholder="linkedin.com/in/…"
@@ -787,6 +800,18 @@ function Settings() {
             <div className="mt-3 divide-y divide-border border border-border">
               {visitorLog.isLoading ? (
                 <p className="p-3 text-xs text-muted-foreground">Loading…</p>
+              ) : visitorLog.isError ? (
+                <p role="alert" className="p-3 text-xs text-destructive">
+                  Your visitor log could not be loaded. This is not the same as an empty log.{" "}
+                  <button
+                    type="button"
+                    className="font-semibold underline underline-offset-2"
+                    onClick={() => void visitorLog.refetch()}
+                    disabled={visitorLog.isFetching}
+                  >
+                    {visitorLog.isFetching ? "Retrying…" : "Retry"}
+                  </button>
+                </p>
               ) : !visitorLog.data?.length ? (
                 <p className="p-3 text-xs text-muted-foreground">
                   {p?.show_profile_views
@@ -818,6 +843,18 @@ function Settings() {
             <div className="mt-3 divide-y divide-border border border-border">
               {contactLog.isLoading ? (
                 <p className="p-3 text-xs text-muted-foreground">Loading…</p>
+              ) : contactLog.isError ? (
+                <p role="alert" className="p-3 text-xs text-destructive">
+                  This log could not be loaded. This is not the same as nobody having looked.{" "}
+                  <button
+                    type="button"
+                    className="font-semibold underline underline-offset-2"
+                    onClick={() => void contactLog.refetch()}
+                    disabled={contactLog.isFetching}
+                  >
+                    {contactLog.isFetching ? "Retrying…" : "Retry"}
+                  </button>
+                </p>
               ) : !contactLog.data?.length ? (
                 <p className="p-3 text-xs text-muted-foreground">
                   Nobody has opened your contact details yet.

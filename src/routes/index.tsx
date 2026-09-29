@@ -14,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { canonical, ORGANIZATION_JSON_LD } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -34,7 +35,11 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      // Structured data: what this organisation is and where it operates.
+      // Only the landing page carries it, so the entity is declared once.
+      { "script:ld+json": ORGANIZATION_JSON_LD },
     ],
+    links: [canonical("/")],
   }),
   component: Index,
 });

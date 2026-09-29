@@ -9,6 +9,7 @@ export const Route = createFileRoute("/terms")({
         content: "Eligibility, conduct and membership terms for The Merit Circle.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://themeritcircle.in/terms" }],
   }),
   component: Terms,
 });

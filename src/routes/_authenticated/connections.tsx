@@ -2,9 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Clock, Mail, MessageSquare, Phone, ShieldX, Undo2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clock,
+  Mail,
+  MessageSquare,
+  Phone,
+  ShieldX,
+  Undo2,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMyProfile, useRevealedContacts } from "@/hooks/use-my-profile";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -98,6 +109,13 @@ function Connections() {
   );
   const rows = tab === "received" ? received : tab === "sent" ? sent : mutual;
 
+  /**
+   * Only the row actually being acted on should go busy. Disabling every
+   * button made the whole page look frozen and hid which introduction the
+   * click applied to.
+   */
+  const pendingId = act.isPending ? act.variables?.id : undefined;
+
   const tabs: { key: Tab; label: string; count: number }[] = [
     { key: "received", label: "Received", count: received.length },
     { key: "sent", label: "Sent", count: sent.length },
@@ -114,10 +132,18 @@ function Connections() {
         Only you can accept or decline. Family co-pilots may suggest, never act.
       </p>
 
-      <div className="mt-8 grid grid-cols-3 border border-border p-1">
+      <div
+        className="mt-8 grid grid-cols-3 border border-border p-1"
+        role="tablist"
+        aria-label="Introduction folders"
+      >
         {tabs.map((t) => (
           <Button
             key={t.key}
+            role="tab"
+            id={`connections-tab-${t.key}`}
+            aria-selected={tab === t.key}
+            aria-controls="connections-panel"
             variant={tab === t.key ? "default" : "ghost"}
             size="sm"
             onClick={() => setTab(t.key)}
@@ -128,9 +154,50 @@ function Connections() {
         ))}
       </div>
 
-      <div className="mt-8 grid gap-4">
+      <div
+        className="mt-8 grid gap-4"
+        id="connections-panel"
+        role="tabpanel"
+        aria-labelledby={`connections-tab-${tab}`}
+        tabIndex={-1}
+      >
         {list.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          // A skeleton keeps the list's shape: "nothing here yet" is a real
+          // answer and must not be what a slow query looks like.
+          <div className="grid gap-4" aria-busy="true" aria-live="polite">
+            <span className="sr-only">Loading your introductions…</span>
+            {[0, 1, 2].map((n) => (
+              <div key={n} className="border border-border bg-card p-5 md:p-6">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="mt-3 h-4 w-72" />
+                <Skeleton className="mt-2 h-4 w-40" />
+                <div className="mt-5 flex gap-3">
+                  <Skeleton className="h-9 w-28" />
+                  <Skeleton className="h-9 w-28" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : list.isError ? (
+          // A failed read is not an empty inbox. Say so, and offer a retry.
+          <div role="alert" className="border border-destructive/40 bg-destructive/5 p-6">
+            <p className="flex items-center gap-2 font-serif text-xl">
+              <AlertTriangle className="size-5 text-destructive" />
+              Your introductions could not be loaded
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              This is a connection problem on our side, not an empty folder. Nothing has been lost —
+              your introductions are still on record.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-5"
+              onClick={() => void list.refetch()}
+              disabled={list.isFetching}
+            >
+              {list.isFetching ? "Retrying…" : "Try again"}
+            </Button>
+          </div>
         ) : !rows.length ? (
           <div className="border border-dashed border-border p-10 text-center">
             <p className="font-serif text-xl">Nothing here yet</p>
@@ -194,14 +261,14 @@ function Connections() {
                   <div className="mt-5 flex flex-wrap gap-3">
                     <Button
                       onClick={() => act.mutate({ id: i.id, status: "accepted" })}
-                      disabled={act.isPending}
+                      disabled={pendingId === i.id}
                     >
-                      <Check /> Accept
+                      <Check /> {pendingId === i.id ? "Working…" : "Accept"}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => act.mutate({ id: i.id, status: "declined" })}
-                      disabled={act.isPending}
+                      disabled={pendingId === i.id}
                     >
                       <X /> Decline
                     </Button>
@@ -212,9 +279,9 @@ function Connections() {
                     variant="outline"
                     className="mt-5"
                     onClick={() => act.mutate({ id: i.id, status: "withdrawn" })}
-                    disabled={act.isPending}
+                    disabled={pendingId === i.id}
                   >
-                    <Undo2 /> Withdraw
+                    <Undo2 /> {pendingId === i.id ? "Withdrawing…" : "Withdraw"}
                   </Button>
                 )}
                 {tab === "sent" &&
@@ -225,9 +292,9 @@ function Connections() {
                       variant="outline"
                       className="mt-5"
                       onClick={() => act.mutate({ id: i.id, status: "pending" })}
-                      disabled={act.isPending}
+                      disabled={pendingId === i.id}
                     >
-                      Send again
+                      {pendingId === i.id ? "Sending…" : "Send again"}
                     </Button>
                   )}
                 {tab === "mutual" && (
@@ -248,9 +315,10 @@ function Connections() {
                           variant="outline"
                           size="sm"
                           onClick={() => act.mutate({ id: i.id, status: "blocked" })}
-                          disabled={act.isPending}
+                          disabled={pendingId === i.id}
                         >
-                          <ShieldX className="size-4" /> Block
+                          <ShieldX className="size-4" />{" "}
+                          {pendingId === i.id ? "Blocking…" : "Block"}
                         </Button>
                         <Button asChild size="sm">
                           <Link to="/messages/$interestId" params={{ interestId: i.id }}>

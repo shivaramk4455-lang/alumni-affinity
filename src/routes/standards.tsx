@@ -9,6 +9,7 @@ export const Route = createFileRoute("/standards")({
         content: "Safety and respectful-conduct standards for members and co-pilots.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://themeritcircle.in/standards" }],
   }),
   component: Standards,
 });

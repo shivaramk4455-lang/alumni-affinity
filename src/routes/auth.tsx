@@ -76,6 +76,13 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  /**
+   * Adult attestation. Membership is 21+; the database CHECK on
+   * profiles.birth_year is the real gate, this is the record that a human
+   * affirmatively confirmed their age before an account existed.
+   */
+  const [adultAttested, setAdultAttested] = useState(false);
+  const [attestError, setAttestError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -132,12 +139,26 @@ function AuthPage() {
     }
     setBusy(true);
     if (mode === "signup") {
+      // The attestation is checked here, before the account exists, because a
+      // Google OAuth signup never passes through this form's checkbox at all.
+      if (!adultAttested) {
+        setBusy(false);
+        setAttestError("Please confirm you are 21 or older to create an account.");
+        return;
+      }
+      setAttestError(null);
       const { error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
           emailRedirectTo: window.location.origin + "/onboarding",
-          data: { full_name: parsed.data.fullName },
+          data: {
+            full_name: parsed.data.fullName,
+            // handle_new_user() (20261014) reads this flag and stamps
+            // profiles.adult_attested_at, so the affirmation becomes an
+            // auditable server-side record rather than a browser boolean.
+            adult_attested: true,
+          },
         },
       });
       setBusy(false);
@@ -175,6 +196,13 @@ function AuthPage() {
     toast.success("Confirmation link re-sent. Check your inbox.");
   }
   async function google() {
+    // On the signup tab the attestation applies to OAuth too, otherwise the
+    // checkbox is trivially bypassed by clicking the Google button instead.
+    if (mode === "signup" && !adultAttested) {
+      setAttestError("Please confirm you are 21 or older to create an account.");
+      return;
+    }
+    setAttestError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -267,13 +295,19 @@ function AuthPage() {
           </>
         ) : (
           <>
-            <div className="grid grid-cols-2 border border-border" role="tablist">
+            <div
+              className="grid grid-cols-2 border border-border"
+              role="tablist"
+              aria-label="Account access"
+            >
               {(["signin", "signup"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
                   role="tab"
+                  id={`auth-tab-${m}`}
                   aria-selected={mode === m}
+                  aria-controls="auth-panel"
                   onClick={() => setMode(m)}
                   className={`py-3 text-sm font-medium ${mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
                 >
@@ -281,7 +315,13 @@ function AuthPage() {
                 </button>
               ))}
             </div>
-            <form onSubmit={submit} className="mt-6 grid gap-4">
+            <form
+              onSubmit={submit}
+              className="mt-6 grid gap-4"
+              id="auth-panel"
+              role="tabpanel"
+              aria-labelledby={`auth-tab-${mode}`}
+            >
               {mode === "signup" && (
                 <div className="grid gap-2">
                   <Label htmlFor="fn">Full name</Label>
@@ -315,6 +355,33 @@ function AuthPage() {
                   required
                 />
               </div>
+              {mode === "signup" && (
+                <div className="grid gap-2">
+                  <div className="flex items-start gap-3">
+                    <input
+                      id="adult-attested"
+                      type="checkbox"
+                      className="mt-0.5 size-4 shrink-0 accent-[var(--brass-strong)]"
+                      checked={adultAttested}
+                      onChange={(e) => {
+                        setAdultAttested(e.target.checked);
+                        if (e.target.checked) setAttestError(null);
+                      }}
+                      aria-invalid={attestError ? true : undefined}
+                      aria-describedby={attestError ? "adult-attested-error" : undefined}
+                    />
+                    <label htmlFor="adult-attested" className="text-xs leading-5">
+                      I am 21 years of age or older. Membership is open to adults only, and age is
+                      recorded as part of your profile.
+                    </label>
+                  </div>
+                  {attestError && (
+                    <p id="adult-attested-error" role="alert" className="text-xs text-destructive">
+                      {attestError}
+                    </p>
+                  )}
+                </div>
+              )}
               <Button type="submit" size="lg" disabled={busy}>
                 {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
               </Button>
