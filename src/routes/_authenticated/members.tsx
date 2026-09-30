@@ -14,7 +14,9 @@ import {
   GENDERS,
   INSTITUTIONS,
   MARITAL_STATUSES,
+  MOTHER_TONGUES,
   RELOCATION,
+  RESIDENCY_STATUSES,
   formatHeight,
 } from "@/lib/profile-options";
 import {
@@ -51,6 +53,9 @@ function Members() {
   const [ageBand, setAgeBand] = useState("");
   const [diet, setDiet] = useState("");
   const [maritalStatus, setMaritalStatus] = useState("");
+  const [residency, setResidency] = useState("");
+  const [tongue, setTongue] = useState("");
+  const [minHeight, setMinHeight] = useState("");
   const [sort, setSort] = useState<"recent" | "youngest" | "grad" | "match">("recent");
   const [page, setPage] = useState(0);
   const [savedOnly, setSavedOnly] = useState(false);
@@ -136,6 +141,9 @@ function Members() {
       ageBand,
       diet,
       maritalStatus,
+      residency,
+      tongue,
+      minHeight,
       sort,
       page,
       me.data?.id,
@@ -164,6 +172,9 @@ function Members() {
       if (gender) query = query.eq("gender", gender);
       if (diet) query = query.eq("diet", diet);
       if (maritalStatus) query = query.eq("marital_status", maritalStatus);
+      if (residency) query = query.eq("residency_status", residency);
+      if (tongue) query = query.eq("mother_tongue", tongue);
+      if (minHeight) query = query.gte("height_cm", Number(minHeight));
       if (ageBand === "20s")
         query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
       if (ageBand === "30s")
@@ -381,6 +392,50 @@ function Members() {
           <option value="">All marital statuses</option>
           {MARITAL_STATUSES.map((m) => (
             <option key={m}>{m}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Residency"
+          className={selectCls}
+          value={residency}
+          onChange={(e) => {
+            setResidency(e.target.value);
+            resetPage();
+          }}
+        >
+          <option value="">Any residency</option>
+          {RESIDENCY_STATUSES.map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Mother tongue"
+          className={selectCls}
+          value={tongue}
+          onChange={(e) => {
+            setTongue(e.target.value);
+            resetPage();
+          }}
+        >
+          <option value="">Any mother tongue</option>
+          {MOTHER_TONGUES.map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Minimum height"
+          className={selectCls}
+          value={minHeight}
+          onChange={(e) => {
+            setMinHeight(e.target.value);
+            resetPage();
+          }}
+        >
+          <option value="">Any height</option>
+          {[150, 155, 160, 165, 170, 175, 180, 185].map((h) => (
+            <option key={h} value={h}>
+              {formatHeight(h)} +
+            </option>
           ))}
         </select>
         <select
