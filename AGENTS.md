@@ -10,3 +10,5 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+
+- Public backend URL/publishable key fall back to literals in vite.config.ts — `.env` is gitignored (locked), so hosted builds would otherwise ship empty keys and blank the screen.
