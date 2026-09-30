@@ -54,6 +54,28 @@ function legalIdentityGate(): Plugin {
   };
 }
 
+/**
+ * Public Lovable Cloud connection values (URL + publishable key — both are
+ * browser-safe; all protection comes from RLS). `.env` is gitignored in this
+ * repo, so hosted builds would otherwise bake empty values into the client
+ * bundle and blank the screen with "Missing Supabase environment variable(s)".
+ * Env values still win when present. NEVER add a service-role/secret key here.
+ */
+const PUBLIC_SUPABASE_URL =
+  process.env["VITE_SUPABASE_URL"] ||
+  process.env["SUPABASE_URL"] ||
+  "https://eopcauzciqflikfdhmcj.supabase.co";
+const PUBLIC_SUPABASE_KEY =
+  process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+  process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+  "sb_publishable_6lPH6KNKcSiWYBfFKjBDxQ_Fmzd29vv";
+const PUBLIC_SUPABASE_PROJECT_ID =
+  process.env["VITE_SUPABASE_PROJECT_ID"] || process.env["SUPABASE_PROJECT_ID"] || "eopcauzciqflikfdhmcj";
+
+// Server-side fallbacks (SSR + server functions read process.env).
+process.env["SUPABASE_URL"] ||= PUBLIC_SUPABASE_URL;
+process.env["SUPABASE_PUBLISHABLE_KEY"] ||= PUBLIC_SUPABASE_KEY;
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
@@ -62,5 +84,10 @@ export default defineConfig({
   },
   vite: {
     plugins: [legalIdentityGate()],
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(PUBLIC_SUPABASE_URL),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(PUBLIC_SUPABASE_KEY),
+      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(PUBLIC_SUPABASE_PROJECT_ID),
+    },
   },
 });
