@@ -75,6 +75,10 @@ const PUBLIC_SUPABASE_PROJECT_ID =
 // Server-side fallbacks (SSR + server functions read process.env).
 process.env["SUPABASE_URL"] ||= PUBLIC_SUPABASE_URL;
 process.env["SUPABASE_PUBLISHABLE_KEY"] ||= PUBLIC_SUPABASE_KEY;
+// Vite's env loader also picks VITE_* up from process.env, covering bracket access.
+process.env["VITE_SUPABASE_URL"] ||= PUBLIC_SUPABASE_URL;
+process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||= PUBLIC_SUPABASE_KEY;
+process.env["VITE_SUPABASE_PROJECT_ID"] ||= PUBLIC_SUPABASE_PROJECT_ID;
 
 export default defineConfig({
   tanstackStart: {
