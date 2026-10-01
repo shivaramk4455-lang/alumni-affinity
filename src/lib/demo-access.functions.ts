@@ -19,7 +19,8 @@ export const startDemoSession = createServerFn({ method: "POST" }).handler(async
       email_confirm: true,
       user_metadata: { full_name: "Guest Preview", adult_attested: true },
     });
-    if (error || !data.user) throw new Error("Could not start the guest preview.");
+    if (error || !data.user) { console.error("demo create", error); throw new Error("Could not start the guest preview.");
+    }
     user = data.user;
   } else {
     await supabaseAdmin.auth.admin.updateUserById(user.id, { password });
@@ -43,6 +44,7 @@ export const startDemoSession = createServerFn({ method: "POST" }).handler(async
     email: DEMO_EMAIL,
     password,
   });
+  if (error || !signed.session) console.error("demo signin", error);
   if (error || !signed.session) throw new Error("Could not start the guest preview.");
   return {
     access_token: signed.session.access_token,
