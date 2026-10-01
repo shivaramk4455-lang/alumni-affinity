@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { startDemoSession } from "@/lib/demo-access.functions";
 
 const searchSchema = z.object({ redirect: z.string().optional() });
 
@@ -517,6 +518,25 @@ function AuthPage() {
             </div>
             <Button variant="outline" size="lg" className="w-full" onClick={google}>
               Continue with Google
+            </Button>
+            <Button
+              variant="ghost"
+              size="lg"
+              className="mt-3 w-full"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const tokens = await startDemoSession();
+                  await supabase.auth.setSession(tokens);
+                } catch {
+                  toast.error("Guest preview is unavailable right now.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Explore as guest (no sign-up)
             </Button>
             <p className="mt-6 text-sm leading-6 text-muted-foreground">
               By continuing you agree to our{" "}
