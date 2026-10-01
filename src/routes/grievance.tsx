@@ -37,7 +37,9 @@ function Grievance() {
         In accordance with the Information Technology Act, 2000 and applicable Indian data
         protection law.
       </p>
-      <div className="mt-8 grid gap-6 text-sm leading-7 text-muted-foreground">
+      {/* `break-words`: this page repeats long emails and the registered
+          address, so it overflowed a 320px viewport most of any page in the app. */}
+      <div className="mt-8 grid gap-6 break-words text-sm leading-7 text-muted-foreground">
         <section className="border border-border bg-card p-6">
           <h2 className="font-serif text-xl font-semibold text-foreground">Grievance Officer</h2>
           <p className="mt-2 text-sm leading-6">
@@ -59,7 +61,8 @@ function Grievance() {
             </a>
           </p>
           {!GRIEVANCE_OFFICER.published && (
-            <p className="mt-3 border-l-2 border-brass bg-secondary/40 px-4 py-3 text-xs leading-5">
+            // Legally operative disclosure — never the smallest text on the page.
+            <p className="mt-3 border-l-2 border-brass bg-secondary/40 px-4 py-3 text-sm leading-6 text-foreground">
               {GRIEVANCE_PLACEHOLDER_NOTICE}
             </p>
           )}

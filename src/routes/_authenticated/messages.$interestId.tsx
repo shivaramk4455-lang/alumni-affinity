@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  ArrowDown,
   ArrowLeft,
   Check,
   CheckCheck,
@@ -40,6 +41,11 @@ function ConversationPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const endRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  // Tracks whether the reader is parked at the newest message, so we can offer
+  // a "jump to latest" affordance instead of stealing the viewport.
+  const [atBottom, setAtBottom] = useState(true);
 
   const reportAndBlock = useMutation({
     mutationFn: async () => {
@@ -116,9 +122,26 @@ function ConversationPage() {
     }
   }, [history.data, markRead]);
 
+  // Only follow new messages when the reader is already at the bottom. Without
+  // this check, reading back through history and receiving a message yanked
+  // the viewport to the newest one.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+    // Follow on first paint (nothing scrolled yet) and whenever we were
+    // already parked at the end.
+    if (atBottom || el.scrollTop === 0) {
+      endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [history.data?.length]);
+
+  /** Recompute on scroll so the jump-to-latest control appears and disappears. */
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 64);
+  }
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
@@ -128,6 +151,9 @@ function ConversationPage() {
     const ok = await send(body);
     if (!ok) {
       setText(body);
+      // Restore the draft and put the caret back, so a failed send does not
+      // look like the message was delivered-and-vanished.
+      chatInputRef.current?.focus();
       toast.error(sendError || "Could not deliver message.");
     }
   }
@@ -158,6 +184,29 @@ function ConversationPage() {
     return (
       <main className="mx-auto max-w-3xl px-5 py-16 text-center text-sm text-muted-foreground">
         Loading conversation…
+      </main>
+    );
+  }
+
+  if (interestQuery.isError) {
+    // A failed read is not a locked conversation: `!interest` below would show
+    // "Direct messaging locked" for what is really a network problem.
+    return (
+      <main className="mx-auto max-w-xl px-5 py-20 text-center">
+        <MessageSquare className="mx-auto size-8 text-brass" />
+        <h1 className="mt-4 font-serif text-2xl font-semibold">Conversation could not load</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Something went wrong fetching this introduction. This is not the same as messaging being
+          locked.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-6"
+          onClick={() => void interestQuery.refetch()}
+          disabled={interestQuery.isFetching}
+        >
+          {interestQuery.isFetching ? "Retrying…" : "Try again"}
+        </Button>
       </main>
     );
   }
@@ -195,7 +244,10 @@ function ConversationPage() {
   const messages = history.data ?? [];
 
   return (
-    <main className="mx-auto flex h-[calc(100vh-4rem)] max-w-3xl flex-col bg-background">
+    // The sticky site header is `h-18` plus its 1px border = 4.5625rem, and
+    // `100vh` does not account for mobile browser chrome, so the composer was
+    // pushed below the fold. `dvh` tracks the real viewport.
+    <main className="mx-auto flex h-[calc(100dvh-4.5625rem)] max-w-3xl flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon" aria-label="Back to introductions">
@@ -278,7 +330,19 @@ function ConversationPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+      {/* `role="log"` is what makes realtime arrivals announceable; without it
+          a screen-reader user has no idea a message came in. `tabIndex` keeps
+          the scroll region reachable by keyboard. */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label={`Conversation with ${p?.full_name || "your introduction"}`}
+        tabIndex={0}
+        className="flex-1 space-y-4 overflow-y-auto p-4 md:p-6"
+      >
         <div className="rounded-md border border-border bg-secondary/30 p-4 text-center">
           <p className="font-serif text-base font-semibold">
             You and {counterpartFirstName} are connected.
@@ -301,7 +365,7 @@ function ConversationPage() {
                     className="rounded border border-border bg-background p-2 text-left text-xs text-foreground transition-colors hover:border-brass hover:bg-secondary/40"
                   >
                     <span className="font-medium">{b.title}</span>
-                    <span className="mt-0.5 block line-clamp-1 text-[11px] text-muted-foreground">
+                    <span className="mt-0.5 block line-clamp-1 text-xs text-muted-foreground">
                       {b.prompt}
                     </span>
                   </button>
@@ -311,6 +375,22 @@ function ConversationPage() {
           )}
         </div>
 
+        {history.isError && (
+          <p
+            role="alert"
+            className="border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+          >
+            Earlier messages could not be loaded — the thread below may be incomplete.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void history.refetch()}
+              disabled={history.isFetching}
+            >
+              {history.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        )}
         {messages.map((m) => {
           const isMine = m.sender_id === myId;
           return (
@@ -324,7 +404,7 @@ function ConversationPage() {
               >
                 <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 <div
-                  className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
+                  className={`mt-1 flex items-center justify-end gap-1 text-xs ${
                     isMine ? "text-primary-foreground/60" : "text-muted-foreground"
                   }`}
                 >
@@ -336,9 +416,17 @@ function ConversationPage() {
                   </span>
                   {isMine &&
                     (m.read_at ? (
-                      <CheckCheck className="size-3 text-brass" aria-label="Read" />
+                      // `aria-label` on a role-less <svg> is ignored, so the read
+                      // receipt was invisible to assistive tech.
+                      <>
+                        <CheckCheck className="size-3 text-brass" aria-hidden="true" />
+                        <span className="sr-only">Read</span>
+                      </>
                     ) : (
-                      <Check className="size-3" aria-label="Sent" />
+                      <>
+                        <Check className="size-3" aria-hidden="true" />
+                        <span className="sr-only">Sent</span>
+                      </>
                     ))}
                 </div>
               </div>
@@ -348,9 +436,37 @@ function ConversationPage() {
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={handleSend} className="border-t border-border bg-card p-3 sm:p-4">
+      {/* The counterpart to the scroll guard: when we deliberately did not
+          follow a new message, offer the jump rather than moving the viewport
+          out from under the reader. */}
+      {!atBottom && (
+        <div className="pointer-events-none relative">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="pointer-events-auto absolute -top-12 left-1/2 -translate-x-1/2 shadow-paper"
+            onClick={() => {
+              endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+              setAtBottom(true);
+            }}
+          >
+            <ArrowDown className="size-3.5" /> Jump to latest
+          </Button>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSend}
+        className="border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <label htmlFor="chat-message" className="sr-only">
+          Message {counterpartFirstName}
+        </label>
         <div className="flex items-center gap-2">
           <Input
+            id="chat-message"
+            ref={chatInputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={`Message ${counterpartFirstName}… (Enter to send)`}
@@ -367,7 +483,7 @@ function ConversationPage() {
             <Send className="size-4" />
           </Button>
         </div>
-        <p className="mt-1.5 text-right text-[10px] text-muted-foreground">{text.length}/2000</p>
+        <p className="mt-1.5 text-right text-xs text-muted-foreground">{text.length}/2000</p>
       </form>
     </main>
   );

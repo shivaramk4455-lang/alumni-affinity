@@ -14,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { verificationLabel } from "@/lib/profile-options";
@@ -185,8 +186,11 @@ function DashboardPage() {
                         : "Complete your member profile to start discovery."}
                     </p>
                   </div>
-                  <Link to="/onboarding">
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <Link to="/onboarding" aria-label="Edit your profile details">
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                   </Link>
                 </div>
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
@@ -203,8 +207,11 @@ function DashboardPage() {
                         : "Verified members can find you in search."}
                     </p>
                   </div>
-                  <Link to="/settings">
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <Link to="/settings" aria-label="Open visibility and privacy settings">
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                   </Link>
                 </div>
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
@@ -213,18 +220,29 @@ function DashboardPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">
-                      {received
-                        ? `${received} introduction${received === 1 ? "" : "s"} awaiting you`
-                        : "No pending introductions"}
+                      {interests.isPending ? (
+                        <Skeleton className="h-4 w-44" />
+                      ) : interests.isError ? (
+                        "Introductions could not be loaded"
+                      ) : received ? (
+                        `${received} introduction${received === 1 ? "" : "s"} awaiting you`
+                      ) : (
+                        "No pending introductions"
+                      )}
                     </p>
                     <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      {accepted
-                        ? `${accepted} accepted · contact details unlocked.`
-                        : "Only fully verified members may send interest."}
+                      {interests.isError
+                        ? "This is not an empty inbox — a connection problem on our side."
+                        : accepted
+                          ? `${accepted} accepted · contact details unlocked.`
+                          : "Only fully verified members may send interest."}
                     </p>
                   </div>
-                  <Link to="/connections">
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <Link to="/connections" aria-label="Review your introductions">
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                   </Link>
                 </div>
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
@@ -233,9 +251,15 @@ function DashboardPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">
-                      {mine.length
-                        ? `${mine.length} co-pilot${mine.length === 1 ? "" : "s"} invited`
-                        : "No co-pilots yet"}
+                      {copilots.isPending ? (
+                        <Skeleton className="h-4 w-36" />
+                      ) : copilots.isError ? (
+                        "Co-pilots could not be loaded"
+                      ) : mine.length ? (
+                        `${mine.length} co-pilot${mine.length === 1 ? "" : "s"} invited`
+                      ) : (
+                        "No co-pilots yet"
+                      )}
                     </p>
                     <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
                       {activeCopilot
@@ -243,8 +267,11 @@ function DashboardPage() {
                         : "Many members invite one parent."}
                     </p>
                   </div>
-                  <Link to="/copilots">
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <Link to="/copilots" aria-label="Manage co-pilot access">
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                   </Link>
                 </div>
               </div>

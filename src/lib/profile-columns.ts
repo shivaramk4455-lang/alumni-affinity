@@ -39,4 +39,12 @@ export const DIRECTORY_COLUMNS =
 
 /** The lighter projection used for search result cards. */
 export const SEARCH_COLUMNS =
-  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status";
+  // photo_path was missing here, so search cards could not render a photograph
+  // at all even though the profile page leads with one. In a matrimonial
+  // directory that was the largest single gap in the product.
+  //
+  // photo_visibility rides along so a card can skip the signed-URL request
+  // outright when the member has not opened their photo to us, instead of
+  // firing a request that storage RLS will refuse. Both columns are inside the
+  // existing column-level GRANT on profiles.
+  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility";

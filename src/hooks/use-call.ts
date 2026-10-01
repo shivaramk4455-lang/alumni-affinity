@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -315,11 +316,21 @@ export function useCall(callId: string | undefined) {
       await begin("callee");
       qc.invalidateQueries({ queryKey: ["call", callId] });
     } catch (err) {
+      // The callee tapped Accept and nothing happened: a bare console.error left
+      // them on a still-ringing screen with no explanation.
       console.error("Failed to answer call:", err);
+      toast.error("Could not answer the call. Please try again.");
     } finally {
       setBusy(false);
     }
   }, [callId, busy, begin, qc]);
+
+  // Media must not outlive the screen that requested it. `teardownMedia` is
+  // already called on hangup, decline and the `ended` realtime update, but
+  // none of those fire when the user navigates away mid-call, closes the tab,
+  // or an error boundary unmounts the route — which left the camera light on
+  // with the track still live. Unmount is the only reliable backstop.
+  useEffect(() => teardownMedia, [teardownMedia]);
 
   // Ringing timeout guard: automatically cancel if unanswered
   useEffect(() => {
