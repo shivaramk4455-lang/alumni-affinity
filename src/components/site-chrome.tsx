@@ -17,7 +17,10 @@ import { notificationDestination } from "@/lib/safe-link";
 const publicNav = [
   { to: "/", label: "Membership" },
   { to: "/apply", label: "How to apply" },
-  { to: "/dashboard", label: "Verification preview" },
+  // Honest label for a member-only page: a logged-out click goes to sign-in
+  // and returns here afterwards. The old "Verification preview" wording
+  // promised a look before sign-in that the route could not deliver.
+  { to: "/verification", label: "Verification" },
 ] as const;
 const memberNav = [
   { to: "/dashboard", label: "Home" },

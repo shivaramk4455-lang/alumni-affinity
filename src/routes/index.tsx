@@ -47,21 +47,21 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <main>
-      <section className="relative overflow-hidden border-b border-border bg-background px-5 pb-14 pt-16 md:px-8 md:pb-20 md:pt-24">
+      <section className="relative overflow-hidden border-b border-border bg-background px-5 pb-10 pt-12 md:px-8 md:pb-16 md:pt-16">
         <div className="absolute inset-x-0 top-0 h-px bg-brass" />
         <div className="mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
             <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] text-brass">
               <span className="h-px w-9 bg-brass" /> Membership by verification
             </div>
-            <h1 className="mt-7 max-w-[16ch] font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.02em] text-foreground sm:text-6xl lg:text-[5.25rem] xl:text-[6rem]">
+            <h1 className="mt-5 max-w-[16ch] font-serif text-4xl font-semibold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-5xl lg:text-[3.25rem] xl:text-[3.75rem]">
               For people who built their own lives—and wish to choose their own partner.
             </h1>
-            <p className="mt-8 max-w-2xl text-lg leading-8 text-muted-foreground">
+            <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground">
               A discreet matrimonial membership for premier-institute alumni. Candidates lead every
               decision. Families contribute with permission.
             </p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
                 <Link to="/apply">
                   Request membership <ArrowRight />
@@ -71,7 +71,7 @@ function Index() {
                 <Link to="/auth">Sign in to the Circle</Link>
               </Button>
             </div>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs font-semibold text-muted-foreground">
+            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-xs font-semibold text-muted-foreground">
               <span className="flex items-center gap-2">
                 <Check className="size-4 text-success" /> No public directory
               </span>
@@ -90,7 +90,7 @@ function Index() {
             <dl className="mt-8 grid grid-cols-2 gap-x-5 gap-y-7 border-t border-border pt-7">
               <div>
                 <dt className="font-serif text-3xl font-semibold">
-                  100<span className="text-[0.5em] align-super">%</span>
+                  100<span className="text-[0.7em] align-baseline">%</span>
                 </dt>
                 <dd className="mt-1 text-xs text-muted-foreground">
                   identity checked before access
