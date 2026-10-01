@@ -5,7 +5,7 @@ import { startDemoSession } from "@/lib/demo-access.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const { data } = await supabase.auth.getUser();
     if (data.user) return { user: data.user };
     // Demo bypass: signed-out visitors are signed in to the shared guest account.
@@ -13,7 +13,11 @@ export const Route = createFileRoute("/_authenticated")({
     try {
       const tokens = await startDemoSession();
       const { data: s } = await supabase.auth.setSession(tokens);
-      if (s.user) return { user: s.user };
+      if (s.user) {
+        // Chrome may have cached a signed-out profile while we were signing in.
+        await context.queryClient.invalidateQueries();
+        return { user: s.user };
+      }
     } catch {
       /* fall through to sign-in */
     }
