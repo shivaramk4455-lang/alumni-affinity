@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cloneElement, isValidElement, useId, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, CircleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,6 +134,8 @@ function Onboarding() {
   const [step, setStep] = useState(0);
   const [f, setF] = useState<Form>(empty);
   const [saving, setSaving] = useState(false);
+  /** Per-field validation messages, keyed by the schema path, for this step. */
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const set = (k: keyof Form, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
   const me = useMyProfile();
   const loaded = useRef(false);
@@ -174,14 +176,24 @@ function Onboarding() {
             birth_year: birthYear,
             is_visible: draft["ghost"] === false,
           }));
+          // The alumni email cannot be recovered by re-running the wizard (it
+          // drives verification), so a failed carry-over is reported rather than
+          // bundled into the success claim.
           void (async () => {
-            if (!str("alumniEmail")) return;
+            const email = str("alumniEmail").trim().toLowerCase();
+            if (!email) return;
             const { data: u } = await supabase.auth.getUser();
             if (!u.user) return;
-            await supabase
+            const { error } = await supabase
               .from("profiles")
-              .update({ alumni_email: str("alumniEmail").trim().toLowerCase() })
+              .update({ alumni_email: email })
               .eq("id", u.user.id);
+            if (error) {
+              toast.warning(
+                "Your application carried over, but the alumni email could not be saved — add it under Verification.",
+                { duration: 8000 },
+              );
+            }
           })();
           toast.success("Your application carried over — review and finish.");
           prefilled = true;
@@ -218,44 +230,65 @@ function Onboarding() {
   async function next() {
     const r = schemas[step]!.safeParse(f);
     if (!r.success) {
-      toast.error(r.error.issues[0]?.message ?? "Check your details");
+      // Surface the failure on the field itself, not only in a toast that
+      // disappears: the member otherwise has to guess which step is wrong.
+      const first = r.error.issues[0];
+      if (first) {
+        const key = String(first.path[0]);
+        setErrors({ [key]: first.message });
+        // Move focus to the offending control so keyboard and screen-reader
+        // users are not left on a button that did nothing.
+        const node = document.querySelector<HTMLElement>(`[aria-invalid="true"]`);
+        node?.focus();
+        node?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
       return;
     }
+    setErrors({});
     if (step < steps.length - 1) {
       setStep(step + 1);
       return;
     }
     setSaving(true);
-    const { data: u } = await supabase.auth.getUser();
-    const heightNum = f.height_cm.trim() ? Number(f.height_cm.trim()) : null;
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: f.full_name.trim(),
-        gender: f.gender,
-        birth_year: Number(f.birth_year),
-        city: f.city.trim(),
-        height_cm: heightNum,
-        marital_status: f.marital_status || null,
-        diet: f.diet || null,
-        mother_tongue: f.mother_tongue || null,
-        residency_status: f.residency_status || null,
-        institution: f.institution,
-        degree: f.degree.trim(),
-        grad_year: Number(f.grad_year),
-        profession: f.profession.trim(),
-        employer: f.employer.trim() || null,
-        relocation: f.relocation,
-        values_statement: f.values_statement.trim(),
-        bio: f.bio.trim() || null,
-        is_visible: f.is_visible,
-        onboarded: true,
-      })
-      .eq("id", u.user!.id);
-    setSaving(false);
-    if (error) {
-      toast.error("Could not save your profile. Please try again.");
+    // `getUser` and the update are both fallible and were previously outside
+    // any try/finally, so a single expired session left the wizard stuck on
+    // "Saving…" forever with an unhandled rejection and no feedback.
+    try {
+      const { data: u, error: authError } = await supabase.auth.getUser();
+      if (authError || !u.user) throw new Error("Your session has expired. Please sign in again.");
+      const heightNum = f.height_cm.trim() ? Number(f.height_cm.trim()) : null;
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: f.full_name.trim(),
+          gender: f.gender,
+          birth_year: Number(f.birth_year),
+          city: f.city.trim(),
+          height_cm: heightNum,
+          marital_status: f.marital_status || null,
+          diet: f.diet || null,
+          mother_tongue: f.mother_tongue || null,
+          residency_status: f.residency_status || null,
+          institution: f.institution,
+          degree: f.degree.trim(),
+          grad_year: Number(f.grad_year),
+          profession: f.profession.trim(),
+          employer: f.employer.trim() || null,
+          relocation: f.relocation,
+          values_statement: f.values_statement.trim(),
+          bio: f.bio.trim() || null,
+          is_visible: f.is_visible,
+          onboarded: true,
+        })
+        .eq("id", u.user.id);
+      if (error) throw error;
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not save your profile. Please try again.",
+      );
       return;
+    } finally {
+      setSaving(false);
     }
     try {
       localStorage.removeItem(APPLY_DRAFT_KEY);
@@ -266,22 +299,53 @@ function Onboarding() {
     // notice and the use of their stated criteria for matching. The ledger row
     // is written once, on the transition to onboarded = true.
     if (!me.data?.onboarded) {
-      await recordConsent(
+      const terms = await recordConsent(
         "terms_and_privacy",
         true,
         "Membership terms and privacy notice accepted at onboarding",
       );
-      await recordConsent(
+      const criteria = await recordConsent(
         "partnership_criteria",
         true,
         "Partnership criteria and profile details may be used for matching",
       );
+      // The DPDP receipt is the one row that must not go missing silently —
+      // warn loudly rather than claim an acceptance that was never recorded.
+      if (!terms.ok || !criteria.ok) {
+        toast.warning(
+          "Profile saved, but the consent receipt could not be written — retry from Settings.",
+          { duration: 8000 },
+        );
+      }
     }
     const isEdit = me.data?.onboarded;
     toast.success(
       isEdit ? "Profile updated successfully." : "Profile saved. Welcome to the Circle.",
     );
     navigate({ to: isEdit ? "/dashboard" : "/members" });
+  }
+
+  if (me.isError) {
+    // Without this the wizard renders every field blank on a failed read, which
+    // looks like a fresh profile rather than a load error.
+    return (
+      <main className="mx-auto max-w-3xl px-5 py-20 text-center">
+        <CircleAlert className="mx-auto size-8 text-destructive" />
+        <h1 className="mt-4 font-serif text-3xl font-semibold">Your profile could not be loaded</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          The wizard needs your existing profile so it cannot overwrite it. This is a connection
+          problem, not a missing account.
+        </p>
+        <Button
+          className="mt-8"
+          size="lg"
+          onClick={() => void me.refetch()}
+          disabled={me.isFetching}
+        >
+          {me.isFetching ? "Retrying…" : "Try again"}
+        </Button>
+      </main>
+    );
   }
 
   return (
@@ -292,7 +356,7 @@ function Onboarding() {
       <h1 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">{steps[step]}</h1>
       <ol className="mt-8 grid grid-cols-4 gap-2" aria-label="Progress">
         {steps.map((s, i) => (
-          <li key={s} className="grid gap-2">
+          <li key={s} className="grid gap-2" aria-current={i === step ? "step" : undefined}>
             <span className={`h-1 ${i <= step ? "bg-primary" : "bg-border"}`} />
             <span
               className={`hidden text-xs sm:flex items-center gap-1 ${i === step ? "text-foreground" : "text-muted-foreground"}`}
@@ -300,18 +364,33 @@ function Onboarding() {
               {i < step && <Check className="size-3" />}
               {s}
             </span>
+            {/* Step names are hidden on mobile; keep them announced there. */}
+            <span className="sr-only sm:hidden">{i === step ? `${s} (current step)` : s}</span>
           </li>
         ))}
       </ol>
 
-      <div className="mt-10 grid gap-5 border border-border bg-card p-6 md:p-8">
+      {/* A real <form>, so Enter in any field advances the step — expected in
+          a 4-step wizard, and previously a dead keypress. */}
+      <form
+        className="mt-10 grid gap-5 border border-border bg-card p-6 md:p-8"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void next();
+        }}
+      >
         {step === 0 && (
           <>
-            <Field label="Full name">
-              <Input value={f.full_name} onChange={(e) => set("full_name", e.target.value)} />
+            <Field label="Full name" error={errors["full_name"]}>
+              <Input
+                autoComplete="name"
+                value={f.full_name}
+                onChange={(e) => set("full_name", e.target.value)}
+              />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Gender">
+              <Field label="Gender" error={errors["gender"]}>
                 <select
                   className={selectCls}
                   value={f.gender}
@@ -323,7 +402,7 @@ function Onboarding() {
                   ))}
                 </select>
               </Field>
-              <Field label="Birth year">
+              <Field label="Birth year" error={errors["birth_year"]}>
                 <Input
                   inputMode="numeric"
                   value={f.birth_year}
@@ -332,8 +411,12 @@ function Onboarding() {
               </Field>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Current city">
-                <Input value={f.city} onChange={(e) => set("city", e.target.value)} />
+              <Field label="Current city" error={errors["city"]}>
+                <Input
+                  autoComplete="address-level2"
+                  value={f.city}
+                  onChange={(e) => set("city", e.target.value)}
+                />
               </Field>
               <Field label="Height (cm, optional)">
                 <Input
@@ -400,7 +483,7 @@ function Onboarding() {
         )}
         {step === 1 && (
           <>
-            <Field label="Institution">
+            <Field label="Institution" error={errors["institution"]}>
               <select
                 className={selectCls}
                 value={f.institution}
@@ -413,14 +496,14 @@ function Onboarding() {
               </select>
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Degree">
+              <Field label="Degree" error={errors["degree"]}>
                 <Input
                   placeholder="B.Tech, MBA…"
                   value={f.degree}
                   onChange={(e) => set("degree", e.target.value)}
                 />
               </Field>
-              <Field label="Graduation year">
+              <Field label="Graduation year" error={errors["grad_year"]}>
                 <Input
                   inputMode="numeric"
                   value={f.grad_year}
@@ -428,7 +511,7 @@ function Onboarding() {
                 />
               </Field>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Institution verification via alumni email or document review follows after onboarding.
             </p>
           </>
@@ -436,14 +519,18 @@ function Onboarding() {
         {step === 2 && (
           <>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Profession">
-                <Input value={f.profession} onChange={(e) => set("profession", e.target.value)} />
+              <Field label="Profession" error={errors["profession"]}>
+                <Input
+                  autoComplete="organization-title"
+                  value={f.profession}
+                  onChange={(e) => set("profession", e.target.value)}
+                />
               </Field>
               <Field label="Organisation (optional)">
                 <Input value={f.employer} onChange={(e) => set("employer", e.target.value)} />
               </Field>
             </div>
-            <Field label="Relocation">
+            <Field label="Relocation" error={errors["relocation"]}>
               <select
                 className={selectCls}
                 value={f.relocation}
@@ -459,9 +546,10 @@ function Onboarding() {
         )}
         {step === 3 && (
           <>
-            <Field label="What matters to you in a partnership">
+            <Field label="What matters to you in a partnership" error={errors["values_statement"]}>
               <Textarea
                 rows={4}
+                maxLength={600}
                 value={f.values_statement}
                 onChange={(e) => set("values_statement", e.target.value)}
               />
@@ -484,22 +572,27 @@ function Onboarding() {
             </div>
           </>
         )}
-      </div>
 
-      <div className="mt-6 flex justify-between">
-        <Button variant="outline" disabled={step === 0} onClick={() => setStep(step - 1)}>
-          Back
-        </Button>
-        <Button onClick={next} disabled={saving}>
-          {step === steps.length - 1
-            ? saving
-              ? "Saving…"
-              : me.data?.onboarded
-                ? "Save changes"
-                : "Finish"
-            : "Continue"}
-        </Button>
-      </div>
+        <div className="mt-6 flex justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={step === 0}
+            onClick={() => setStep(step - 1)}
+          >
+            Back
+          </Button>
+          <Button type="submit" disabled={saving} aria-busy={saving}>
+            {step === steps.length - 1
+              ? saving
+                ? "Saving…"
+                : me.data?.onboarded
+                  ? "Save changes"
+                  : "Finish"
+              : "Continue"}
+          </Button>
+        </div>
+      </form>
     </main>
   );
 }
@@ -512,15 +605,45 @@ function Onboarding() {
  * reader announces "Full name, edit text" instead of an unlabelled box.
  * Previously <Label> sat next to the input with no association at all.
  */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  error,
+}: {
+  label: string;
+  children: React.ReactNode;
+  // `| undefined` (not just `?`) because the project sets exactOptionalPropertyTypes.
+  error?: string | undefined;
+}) {
   const id = useId();
   const control = isValidElement(children)
-    ? cloneElement(children as React.ReactElement<{ id?: string }>, { id })
+    ? cloneElement(
+        children as React.ReactElement<{
+          id?: string;
+          "aria-invalid"?: boolean | undefined;
+          "aria-describedby"?: string | undefined;
+        }>,
+        {
+          id,
+          "aria-invalid": error ? true : undefined,
+          "aria-describedby": error ? `${id}-error` : undefined,
+        },
+      )
     : children;
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
       {control}
+      {error && (
+        <span
+          id={`${id}-error`}
+          role="alert"
+          className="flex items-start gap-1.5 text-sm leading-6 text-destructive"
+        >
+          <CircleAlert className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
+          {error}
+        </span>
+      )}
     </div>
   );
 }

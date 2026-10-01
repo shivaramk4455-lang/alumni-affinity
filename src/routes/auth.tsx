@@ -83,6 +83,15 @@ function AuthPage() {
    */
   const [adultAttested, setAdultAttested] = useState(false);
   const [attestError, setAttestError] = useState<string | null>(null);
+  /**
+   * Credential problems are reported inline as well as in a toast. A toast
+   * disappears, is not tied to the field that caused it, and reaches the input
+   * through no `aria-invalid`/`aria-describedby` — so a screen-reader user was
+   * told nothing at all about why sign-up was refused.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  /** Form-level server error, shown inline next to the form as well as a toast. */
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -110,18 +119,22 @@ function AuthPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setServerError(null);
     if (mode === "reset") {
       const value = email.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-        toast.error("Enter a valid email address.");
+        setFieldErrors({ email: "Enter a valid email address." });
+        document.getElementById("auth-email")?.focus();
         return;
       }
+      setFieldErrors({});
       setBusy(true);
       const { error } = await supabase.auth.resetPasswordForEmail(value, {
         redirectTo: window.location.origin + "/auth",
       });
       setBusy(false);
       if (error) {
+        setServerError(error.message);
         toast.error(error.message);
         return;
       }
@@ -134,9 +147,16 @@ function AuthPage() {
       fullName: mode === "signup" ? fullName : undefined,
     });
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Check your details");
+      setFieldErrors(
+        Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message])),
+      );
+      // Send focus to the first offending field so keyboard and screen-reader
+      // users are not left on the submit button with no idea what failed.
+      const first = parsed.error.issues[0]?.path[0];
+      if (first) document.getElementById(`auth-${String(first)}`)?.focus();
       return;
     }
+    setFieldErrors({});
     setBusy(true);
     if (mode === "signup") {
       // The attestation is checked here, before the account exists, because a
@@ -163,6 +183,7 @@ function AuthPage() {
       });
       setBusy(false);
       if (error) {
+        setServerError(error.message);
         toast.error(error.message);
         return;
       }
@@ -174,6 +195,7 @@ function AuthPage() {
       });
       setBusy(false);
       if (error) {
+        setServerError(error.message);
         toast.error(error.message);
         return;
       }
@@ -209,7 +231,10 @@ function AuthPage() {
         redirectTo: window.location.origin + "/auth",
       },
     });
-    if (error) toast.error("Google sign-in failed. Please try again.");
+    if (error) {
+      setServerError("Google sign-in failed. Please try again.");
+      toast.error("Google sign-in failed. Please try again.");
+    }
   }
 
   return (
@@ -227,12 +252,21 @@ function AuthPage() {
         </p>
       </section>
       <section className="border border-border bg-card p-6 shadow-paper md:p-10">
+        {serverError && (
+          <p
+            role="alert"
+            className="mb-4 border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+          >
+            {serverError}
+          </p>
+        )}
         {sent ? (
           <div>
             <h2 className="font-serif text-2xl font-semibold">Check your inbox</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              We sent a confirmation link to {email}. Open it to activate your membership and begin
-              onboarding.
+              If {email} is a new address, a confirmation link is on its way — open it to activate
+              your membership and begin onboarding. Nothing arrived? Check spam, or sign in if you
+              already have an account.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button
@@ -273,17 +307,24 @@ function AuthPage() {
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Enter the email you signed up with and we will send a reset link.
             </p>
-            <form onSubmit={submit} className="mt-6 grid gap-4">
+            <form onSubmit={submit} noValidate className="mt-6 grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="em">Email</Label>
+                <Label htmlFor="auth-email">Email</Label>
                 <Input
-                  id="em"
+                  id="auth-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   required
+                  aria-invalid={fieldErrors["email"] ? true : undefined}
+                  aria-describedby={fieldErrors["email"] ? "auth-email-error" : undefined}
                 />
+                {fieldErrors["email"] && (
+                  <p id="auth-email-error" role="alert" className="text-sm text-destructive">
+                    {fieldErrors["email"]}
+                  </p>
+                )}
               </div>
               <Button type="submit" size="lg" disabled={busy}>
                 {busy ? "Please wait…" : "Send reset link"}
@@ -308,103 +349,167 @@ function AuthPage() {
                   id={`auth-tab-${m}`}
                   aria-selected={mode === m}
                   aria-controls="auth-panel"
-                  onClick={() => setMode(m)}
-                  className={`py-3 text-sm font-medium ${mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  // Roving tabindex + arrow keys, as the ARIA tabs pattern requires.
+                  tabIndex={mode === m ? 0 : -1}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      const next = mode === "signin" ? "signup" : "signin";
+                      setMode(next);
+                      setAttestError(null);
+                      document.getElementById(`auth-tab-${next}`)?.focus();
+                    }
+                  }}
+                  onClick={() => {
+                    setMode(m);
+                    setAttestError(null);
+                    setFieldErrors({});
+                  }}
+                  className={`py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+                    mode === m
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
                 >
                   {m === "signin" ? "Sign in" : "Create account"}
                 </button>
               ))}
             </div>
-            <form
-              onSubmit={submit}
-              className="mt-6 grid gap-4"
+            {/*
+              `role="tabpanel"` belongs on a wrapper, not on the <form>: an
+              explicit role overrides the implicit `form` role, so assistive tech
+              stopped exposing this as a form region at all.
+            */}
+            <div
+              className="mt-6"
               id="auth-panel"
               role="tabpanel"
               aria-labelledby={`auth-tab-${mode}`}
             >
-              {mode === "signup" && (
-                <div className="grid gap-2">
-                  <Label htmlFor="fn">Full name</Label>
-                  <Input
-                    id="fn"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    autoComplete="name"
-                  />
-                </div>
-              )}
-              <div className="grid gap-2">
-                <Label htmlFor="em">Email</Label>
-                <Input
-                  id="em"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pw">Password</Label>
-                <Input
-                  id="pw"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                  required
-                />
-              </div>
-              {mode === "signup" && (
-                <div className="grid gap-2">
-                  <div className="flex items-start gap-3">
-                    <input
-                      id="adult-attested"
-                      type="checkbox"
-                      className="mt-0.5 size-4 shrink-0 accent-[var(--brass-strong)]"
-                      checked={adultAttested}
-                      onChange={(e) => {
-                        setAdultAttested(e.target.checked);
-                        if (e.target.checked) setAttestError(null);
-                      }}
-                      aria-invalid={attestError ? true : undefined}
-                      aria-describedby={attestError ? "adult-attested-error" : undefined}
+              <form onSubmit={submit} className="grid gap-4" noValidate>
+                {mode === "signup" && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="auth-fullName">Full name</Label>
+                    <Input
+                      id="auth-fullName"
+                      name="name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      autoComplete="name"
+                      aria-invalid={fieldErrors["fullName"] ? true : undefined}
+                      aria-describedby={fieldErrors["fullName"] ? "auth-fullName-error" : undefined}
                     />
-                    <label htmlFor="adult-attested" className="text-xs leading-5">
-                      I am 21 years of age or older. Membership is open to adults only, and age is
-                      recorded as part of your profile.
-                    </label>
+                    {fieldErrors["fullName"] && (
+                      <p id="auth-fullName-error" role="alert" className="text-sm text-destructive">
+                        {fieldErrors["fullName"]}
+                      </p>
+                    )}
                   </div>
-                  {attestError && (
-                    <p id="adult-attested-error" role="alert" className="text-xs text-destructive">
-                      {attestError}
+                )}
+                <div className="grid gap-2">
+                  <Label htmlFor="auth-email">Email</Label>
+                  <Input
+                    id="auth-email"
+                    name="email"
+                    type="email"
+                    inputMode="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    aria-invalid={fieldErrors["email"] ? true : undefined}
+                    aria-describedby={fieldErrors["email"] ? "auth-email-error" : undefined}
+                  />
+                  {fieldErrors["email"] && (
+                    <p id="auth-email-error" role="alert" className="text-sm text-destructive">
+                      {fieldErrors["email"]}
                     </p>
                   )}
                 </div>
-              )}
-              <Button type="submit" size="lg" disabled={busy}>
-                {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
-              </Button>
-              {mode === "signin" && (
-                <div className="flex items-center justify-between text-xs">
-                  <button
-                    type="button"
-                    className="font-semibold text-foreground underline underline-offset-4"
-                    onClick={() => setMode("reset")}
-                  >
-                    Forgot password?
-                  </button>
-                  <button
-                    type="button"
-                    className="text-muted-foreground underline underline-offset-4"
-                    onClick={resendConfirmation}
-                    disabled={busy}
-                  >
-                    Re-send confirmation
-                  </button>
+                <div className="grid gap-2">
+                  <Label htmlFor="auth-password">Password</Label>
+                  <Input
+                    id="auth-password"
+                    name="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    aria-invalid={fieldErrors["password"] ? true : undefined}
+                    aria-describedby={
+                      fieldErrors["password"]
+                        ? "auth-password-error"
+                        : mode === "signup"
+                          ? "auth-password-hint"
+                          : undefined
+                    }
+                  />
+                  {fieldErrors["password"] ? (
+                    <p id="auth-password-error" role="alert" className="text-sm text-destructive">
+                      {fieldErrors["password"]}
+                    </p>
+                  ) : (
+                    mode === "signup" && (
+                      <p id="auth-password-hint" className="text-sm text-muted-foreground">
+                        At least 8 characters.
+                      </p>
+                    )
+                  )}
                 </div>
-              )}
-            </form>
+                {mode === "signup" && (
+                  <div className="grid gap-2">
+                    <div className="flex items-start gap-3">
+                      <input
+                        id="adult-attested"
+                        type="checkbox"
+                        className="mt-0.5 size-6 shrink-0 accent-[var(--brass-strong)]"
+                        checked={adultAttested}
+                        onChange={(e) => {
+                          setAdultAttested(e.target.checked);
+                          if (e.target.checked) setAttestError(null);
+                        }}
+                        aria-invalid={attestError ? true : undefined}
+                        aria-describedby={attestError ? "adult-attested-error" : undefined}
+                      />
+                      <label htmlFor="adult-attested" className="text-sm leading-6">
+                        I am 21 years of age or older. Membership is open to adults only, and age is
+                        recorded as part of your profile.
+                      </label>
+                    </div>
+                    {attestError && (
+                      <p
+                        id="adult-attested-error"
+                        role="alert"
+                        className="text-sm text-destructive"
+                      >
+                        {attestError}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button type="submit" size="lg" disabled={busy} aria-busy={busy}>
+                  {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+                </Button>
+                {mode === "signin" && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <button
+                      type="button"
+                      className="rounded-sm font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setMode("reset")}
+                    >
+                      Forgot password?
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-sm font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={resendConfirmation}
+                      disabled={busy}
+                    >
+                      Re-send confirmation
+                    </button>
+                  </div>
+                )}
+              </form>
+            </div>
             <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
               <span className="h-px flex-1 bg-border" />
               or
@@ -413,13 +518,19 @@ function AuthPage() {
             <Button variant="outline" size="lg" className="w-full" onClick={google}>
               Continue with Google
             </Button>
-            <p className="mt-6 text-xs leading-5 text-muted-foreground">
+            <p className="mt-6 text-sm leading-6 text-muted-foreground">
               By continuing you agree to our{" "}
-              <Link to="/terms" className="underline">
+              <Link
+                to="/terms"
+                className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+              >
                 terms of membership
               </Link>
               . New here?{" "}
-              <Link to="/apply" className="underline">
+              <Link
+                to="/apply"
+                className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+              >
                 See what the application involves
               </Link>
               .

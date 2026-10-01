@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
@@ -89,6 +90,14 @@ const CHANNEL_ROWS: {
 /** Must match the confirmation string the delete-account function expects. */
 const DELETE_CONFIRMATION = "DELETE MY ACCOUNT";
 
+/**
+ * The member's action still succeeded, but the DPDP consent receipt did not
+ * land. Blocking the action would be worse than the missing row, so we warn
+ * loudly instead and point at the retry path.
+ */
+const CONSENT_RECEIPT_WARNING =
+  "Saved, but the consent receipt could not be written — retry from Settings.";
+
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
@@ -113,6 +122,8 @@ function Settings() {
   const [seeded, setSeeded] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  // "Clear all" wipes every stored criterion, so it takes a second click.
+  const [clearOpen, setClearOpen] = useState(false);
 
   // Sabbatical (restrict processing) and account deletion (right to erasure).
   const [pauseUntil, setPauseUntil] = useState("");
@@ -188,6 +199,33 @@ function Settings() {
 
   const consentLog = useConsentLog();
 
+  /**
+   * Unsaved-changes guard. Contact coordinates, the sabbatical fields and all
+   * seven partner preferences live in local state until an explicit Save, and
+   * this page carries links that navigate away mid-form — so a stray click
+   * used to discard real edits with no warning.
+   */
+  const dirty =
+    phone !== (p?.contact_phone ?? "") ||
+    linkedin !== (p?.linkedin_url ?? "") ||
+    pauseUntil !== (p?.paused_until?.slice(0, 10) ?? "") ||
+    pauseReason !== (p?.paused_reason ?? "") ||
+    minAge !== (prefs.data?.min_age?.toString() ?? "") ||
+    maxAge !== (prefs.data?.max_age?.toString() ?? "") ||
+    prefGenders.join() !== (prefs.data?.genders ?? []).join() ||
+    prefInstitutions.join() !== (prefs.data?.institutions ?? []).join() ||
+    prefCities !== (prefs.data?.cities ?? []).join(", ") ||
+    prefRelocations.join() !== (prefs.data?.relocations ?? []).join() ||
+    prefShieldEmployer !== (prefs.data?.shield_employer ?? false);
+
+  // `enableBeforeUnload` covers tab close/reload; `shouldBlockFn` covers
+  // in-app navigation. Either alone would leave a gap.
+  useBlocker({
+    shouldBlockFn: () =>
+      dirty && window.confirm("You have unsaved changes on this page. Leave without saving them?"),
+    enableBeforeUnload: () => dirty,
+  });
+
   // Access audit surfaces (visitor log is opt-in; the reveal log is always
   // available to the member whose coordinates were opened).
   const visitorLog = useVisitorLog(p?.show_profile_views === true);
@@ -196,10 +234,14 @@ function Settings() {
     ...(visitorLog.data ?? []).map((v) => v.viewer_id),
     ...(contactLog.data ?? []).map((r) => r.viewer_id),
   ]);
-  /** First name + institution only: the audit log never needs a full record. */
+  /**
+   * First name + institution only: the audit log never needs a full record.
+   * A failed name read must read differently from a name we simply do not have,
+   * so a transient outage is not mistaken for an anonymous stranger.
+   */
   const who = (id: string): string => {
     const row = names.data?.find((n) => n.id === id);
-    if (!row) return "A member";
+    if (!row) return names.isError ? "Identity unavailable" : "A member";
     const first = row.full_name?.split(" ")[0] || "Member";
     return row.institution ? `${first} · ${row.institution}` : first;
   };
@@ -213,17 +255,19 @@ function Settings() {
         .eq("id", u.user.id);
       if (error) throw error;
       // View tracking itself is unaffected — this records the member's choice
-      // about having the log shown back to them.
-      await recordConsent(
+      // about having the log shown back to them. The ledger result flows back to
+      // onSuccess so a missing receipt is warned about, not swallowed.
+      return recordConsent(
         "profile_views_display",
         next,
         next ? "Visitor log display enabled" : "Visitor log display disabled",
       );
     },
-    onSuccess: () => {
+    onSuccess: (consent) => {
       qc.invalidateQueries({ queryKey: MY_PROFILE_KEY });
       qc.invalidateQueries({ queryKey: ["consent-events"] });
-      toast.success("Visibility preference saved.");
+      if (consent.ok) toast.success("Visibility preference saved.");
+      else toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
     },
     onError: () => toast.error("Could not update the visitor log setting."),
   });
@@ -245,16 +289,17 @@ function Settings() {
         .update({ paused_until: until, paused_reason: reason })
         .eq("id", u.user.id);
       if (error) throw error;
-      await recordConsent(
+      return recordConsent(
         "sabbatical_visibility",
         until !== null,
         until ? `Paused until ${until}` : "Resumed discovery",
       );
     },
-    onSuccess: () => {
+    onSuccess: (consent) => {
       qc.invalidateQueries({ queryKey: MY_PROFILE_KEY });
       qc.invalidateQueries({ queryKey: ["consent-events"] });
-      toast.success("Visibility preference saved.");
+      if (consent.ok) toast.success("Visibility preference saved.");
+      else toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
     },
     onError: () => toast.error("Could not save your pause. Please try again."),
   });
@@ -403,8 +448,20 @@ function Settings() {
       </p>
       <h1 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">Privacy & account</h1>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-        These controls travel with your profile everywhere. Changes take effect immediately.
+        Most controls save the moment you change them. Contact details, the sabbatical and partner
+        preferences each need an explicit Save.
       </p>
+
+      {/* So the blocker prompt above is never a surprise. */}
+      {dirty && (
+        <p
+          role="status"
+          className="mt-4 flex items-center gap-2 border-l-2 border-brass bg-secondary/40 px-4 py-3 text-sm text-foreground"
+        >
+          <span className="size-1.5 shrink-0 rounded-full bg-brass" aria-hidden="true" />
+          You have unsaved changes on this page. Save each section before you leave.
+        </p>
+      )}
 
       <section className="mt-9 border border-border bg-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -482,23 +539,36 @@ function Settings() {
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="font-serif text-2xl font-semibold">Contact coordinates</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Shared only with members whose introduction you have accepted.
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Shared only with members whose introduction you have accepted. Also editable from{" "}
+          <Link
+            to="/verification"
+            className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+          >
+            Verification
+          </Link>{" "}
+          — edit them in one place or the other, not both.
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="contact-phone">Phone</Label>
             <Input
               id="contact-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 "
+              placeholder="+91 98765 43210"
             />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="contact-linkedin">LinkedIn</Label>
             <Input
               id="contact-linkedin"
+              type="url"
+              inputMode="url"
+              autoComplete="url"
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
               placeholder="linkedin.com/in/…"
@@ -517,13 +587,16 @@ function Settings() {
               },
               {
                 // Consent is recorded only once the write succeeds, so the
-                // ledger never claims a disclosure that did not happen.
-                onSuccess: () =>
-                  void recordConsent(
+                // ledger never claims a disclosure that did not happen. A
+                // missing receipt is warned about, never a rollback of the save.
+                onSuccess: async () => {
+                  const consent = await recordConsent(
                     "contact_disclosure",
                     true,
                     "Contact coordinates stored for accepted introductions",
-                  ),
+                  );
+                  if (!consent.ok) toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
+                },
               },
             )
           }
@@ -621,143 +694,214 @@ function Settings() {
           Leaving everything blank means no filtering, which is a perfectly respectable answer.
         </p>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="pref-min-age">Minimum age</Label>
-            <Input
-              id="pref-min-age"
-              inputMode="numeric"
-              placeholder="21"
-              value={minAge}
-              onChange={(e) => setMinAge(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="pref-max-age">Maximum age</Label>
-            <Input
-              id="pref-max-age"
-              inputMode="numeric"
-              placeholder="40"
-              value={maxAge}
-              onChange={(e) => setMaxAge(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <fieldset className="mt-6">
-          <legend className="text-sm font-semibold">Preferred gender</legend>
-          <div className="mt-3 flex flex-wrap gap-4">
-            {GENDERS.map((g) => (
-              <label key={g} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-[var(--brass)]"
-                  checked={prefGenders.includes(g)}
-                  onChange={(e) =>
-                    setPrefGenders((prev) =>
-                      e.target.checked ? [...prev, g] : prev.filter((x) => x !== g),
-                    )
-                  }
-                />
-                {g}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="mt-6">
-          <legend className="text-sm font-semibold">Preferred relocation stance</legend>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {RELOCATION.map((r) => (
-              <label key={r} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-[var(--brass)]"
-                  checked={prefRelocations.includes(r)}
-                  onChange={(e) =>
-                    setPrefRelocations((prev) =>
-                      e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
-                    )
-                  }
-                />
-                {r}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <div className="mt-6 grid gap-2">
-          <Label htmlFor="pref-institutions">Preferred institutions (select any)</Label>
-          <select
-            id="pref-institutions"
-            multiple
-            size={6}
-            className="w-full border border-input bg-background px-3 py-2 text-sm"
-            value={prefInstitutions}
-            onChange={(e) =>
-              setPrefInstitutions(Array.from(e.target.selectedOptions).map((o) => o.value))
-            }
+        {/*
+          Guard the whole editor. When this query fails, `prefs.data` is
+          undefined, every field below renders as its blank default, and
+          "Save preferences" would then write those blanks over the member's
+          real stored row — silently erasing their criteria on a transient
+          network error. Hiding the editor is the only safe option: we cannot
+          distinguish "no preferences" from "preferences we failed to load".
+        */}
+        {prefs.isError ? (
+          <p
+            role="alert"
+            className="mt-6 border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
           >
-            {INSTITUTIONS.map((i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs font-normal leading-5 text-muted-foreground">
-            Hold ⌘/Ctrl to select more than one. Leave unselected to keep the whole directory open.
-          </span>
-        </div>
+            Your partner preferences could not be loaded, so they are hidden rather than shown as
+            empty — saving now would erase them.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void prefs.refetch()}
+              disabled={prefs.isFetching}
+            >
+              {prefs.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        ) : prefs.isLoading ? (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2" aria-busy="true">
+            <span className="sr-only">Loading your partner preferences…</span>
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-24 w-full sm:col-span-2" />
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="pref-min-age">Minimum age</Label>
+                <Input
+                  id="pref-min-age"
+                  inputMode="numeric"
+                  placeholder="21"
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pref-max-age">Maximum age</Label>
+                <Input
+                  id="pref-max-age"
+                  inputMode="numeric"
+                  placeholder="40"
+                  value={maxAge}
+                  onChange={(e) => setMaxAge(e.target.value)}
+                />
+              </div>
+            </div>
 
-        <div className="mt-6 grid gap-2">
-          <Label htmlFor="pref-cities">Preferred cities</Label>
-          <Input
-            id="pref-cities"
-            placeholder="Mumbai, Bengaluru, London"
-            value={prefCities}
-            onChange={(e) => setPrefCities(e.target.value)}
-          />
-          <span className="text-xs font-normal leading-5 text-muted-foreground">
-            Comma separated. Matched against the member&rsquo;s current city.
-          </span>
-        </div>
+            <fieldset className="mt-6">
+              <legend className="text-sm font-semibold">Preferred gender</legend>
+              <div className="mt-3 flex flex-wrap gap-4">
+                {GENDERS.map((g) => (
+                  <label key={g} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-6 accent-[var(--brass)]"
+                      checked={prefGenders.includes(g)}
+                      onChange={(e) =>
+                        setPrefGenders((prev) =>
+                          e.target.checked ? [...prev, g] : prev.filter((x) => x !== g),
+                        )
+                      }
+                    />
+                    {g}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
-        <div className="mt-6 border-t border-border pt-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="flex items-center gap-2 text-sm font-semibold">
-                <ShieldAlert className="size-4 text-brass" /> Employer shield
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Hide profiles of members who currently work at the same organisation as you. Applied
-                server-side, so it also applies to counts and pagination.
-              </p>
-              {!p?.employer && (
-                <p className="mt-2 text-xs text-destructive">
-                  Add your organisation under onboarding before this can take effect.
-                </p>
+            <fieldset className="mt-6">
+              <legend className="text-sm font-semibold">Preferred relocation stance</legend>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {RELOCATION.map((r) => (
+                  <label key={r} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-6 accent-[var(--brass)]"
+                      checked={prefRelocations.includes(r)}
+                      onChange={(e) =>
+                        setPrefRelocations((prev) =>
+                          e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
+                        )
+                      }
+                    />
+                    {r}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="mt-6 grid gap-2">
+              <Label htmlFor="pref-institutions">Preferred institutions (select any)</Label>
+              <select
+                id="pref-institutions"
+                multiple
+                size={6}
+                className="w-full border border-input bg-background px-3 py-2 text-sm"
+                value={prefInstitutions}
+                onChange={(e) =>
+                  setPrefInstitutions(Array.from(e.target.selectedOptions).map((o) => o.value))
+                }
+              >
+                {INSTITUTIONS.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs font-normal leading-5 text-muted-foreground">
+                Hold ⌘/Ctrl to select more than one. Leave unselected to keep the whole directory
+                open.
+              </span>
+            </div>
+
+            <div className="mt-6 grid gap-2">
+              <Label htmlFor="pref-cities">Preferred cities</Label>
+              <Input
+                id="pref-cities"
+                placeholder="Mumbai, Bengaluru, London"
+                value={prefCities}
+                onChange={(e) => setPrefCities(e.target.value)}
+              />
+              <span className="text-xs font-normal leading-5 text-muted-foreground">
+                Comma separated. Matched against the member&rsquo;s current city.
+              </span>
+            </div>
+
+            <div className="mt-6 border-t border-border pt-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <ShieldAlert className="size-4 text-brass" /> Employer shield
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Hide profiles of members who currently work at the same organisation as you.
+                    Applied server-side, so it also applies to counts and pagination.
+                  </p>
+                  {!p?.employer && (
+                    <p className="mt-2 text-xs text-destructive">
+                      Add your organisation under onboarding before this can take effect.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  checked={prefShieldEmployer}
+                  disabled={!p?.employer}
+                  onCheckedChange={setPrefShieldEmployer}
+                  aria-label="Employer shield"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Button
+                onClick={savePreferences}
+                disabled={savePrefs.isPending}
+                aria-busy={savePrefs.isPending}
+              >
+                {savePrefs.isPending ? "Saving…" : "Save preferences"}
+              </Button>
+              {clearOpen ? (
+                <div
+                  role="group"
+                  aria-label="Confirm clearing partner preferences"
+                  className="flex basis-full flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3"
+                >
+                  <p className="text-sm leading-6 text-destructive">
+                    Clear every partner preference? Your age range, institutions, cities and
+                    relocation choices will all be reset.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={savePrefs.isPending}
+                    onClick={() => {
+                      clearPreferences();
+                      setClearOpen(false);
+                    }}
+                  >
+                    {savePrefs.isPending ? "Clearing…" : "Yes, clear all"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setClearOpen(false)}>
+                    Keep them
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={() => setClearOpen(true)}
+                  disabled={savePrefs.isPending}
+                >
+                  Clear all
+                </Button>
+              )}
+              {prefs.data && !hasAnyPreferences(prefs.data) && (
+                <span className="text-sm text-muted-foreground">No criteria set yet.</span>
               )}
             </div>
-            <Switch
-              checked={prefShieldEmployer}
-              disabled={!p?.employer}
-              onCheckedChange={setPrefShieldEmployer}
-              aria-label="Employer shield"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Button onClick={savePreferences} disabled={savePrefs.isPending}>
-            Save preferences
-          </Button>
-          <Button variant="ghost" onClick={clearPreferences} disabled={savePrefs.isPending}>
-            Clear all
-          </Button>
-          {prefs.data && !hasAnyPreferences(prefs.data) && (
-            <span className="text-xs text-muted-foreground">No criteria set yet.</span>
-          )}
-        </div>
+          </>
+        )}
       </section>
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
@@ -780,6 +924,19 @@ function Settings() {
               is logged whether or not you choose to see it — the toggle only controls what is shown
               back to you.
             </p>
+            {names.isError && (
+              <p role="alert" className="mt-2 text-xs text-destructive">
+                Some visitor names could not be loaded, so those rows read “Identity unavailable”.{" "}
+                <button
+                  type="button"
+                  className="font-semibold underline underline-offset-2"
+                  onClick={() => void names.refetch()}
+                  disabled={names.isFetching}
+                >
+                  {names.isFetching ? "Retrying…" : "Retry"}
+                </button>
+              </p>
+            )}
           </div>
           <label className="flex items-center gap-3 text-sm font-medium">
             <Switch
@@ -893,7 +1050,28 @@ function Settings() {
           metered quota of introductions.
         </p>
 
-        {subscription.data ? (
+        {subscription.isError ? (
+          <p
+            role="alert"
+            className="mt-6 border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
+          >
+            Your membership could not be loaded, so your current tier is hidden rather than shown as
+            the complimentary tier — we will not offer a member an upgrade they already hold.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void subscription.refetch()}
+              disabled={subscription.isFetching}
+            >
+              {subscription.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        ) : subscription.isLoading ? (
+          <div className="mt-6" aria-busy="true">
+            <span className="sr-only">Loading your membership…</span>
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : subscription.data ? (
           <div className="mt-6 border border-border">
             <div className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
@@ -1014,27 +1192,58 @@ function Settings() {
           the in-app notifications — you will simply not be emailed or texted.
         </p>
 
-        <div className="mt-6 divide-y divide-border border border-border">
-          {CHANNEL_ROWS.map((row) => (
-            <div key={row.key} className="flex items-start justify-between gap-4 p-4">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">{row.label}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{row.hint}</p>
-                {row.needsPhone && !p?.contact_phone && (
-                  <p className="mt-1 text-xs text-destructive">
-                    Add a phone number below to use this channel.
-                  </p>
-                )}
+        {notifPrefs.isError ? (
+          <p
+            role="alert"
+            className="mt-6 border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
+          >
+            Your alert settings could not be loaded, so they are hidden rather than shown with
+            defaults you may never have chosen — flipping a switch now could overwrite them.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void notifPrefs.refetch()}
+              disabled={notifPrefs.isFetching}
+            >
+              {notifPrefs.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        ) : notifPrefs.isLoading ? (
+          <div className="mt-6 divide-y divide-border border border-border" aria-busy="true">
+            <span className="sr-only">Loading your alert settings…</span>
+            {CHANNEL_ROWS.map((row) => (
+              <div key={row.key} className="flex items-start justify-between gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{row.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{row.hint}</p>
+                </div>
+                <Skeleton className="h-6 w-11 shrink-0 rounded-full" />
               </div>
-              <Switch
-                checked={notifPrefs.data ? notifPrefs.data[row.key] : row.fallback}
-                disabled={saveNotifPrefs.isPending || (row.needsPhone && !p?.contact_phone)}
-                onCheckedChange={(v) => saveNotifPrefs.mutate({ [row.key]: v })}
-                aria-label={row.label}
-              />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-6 divide-y divide-border border border-border">
+            {CHANNEL_ROWS.map((row) => (
+              <div key={row.key} className="flex items-start justify-between gap-4 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{row.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{row.hint}</p>
+                  {row.needsPhone && !p?.contact_phone && (
+                    <p className="mt-1 text-xs text-destructive">
+                      Add a phone number below to use this channel.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  checked={notifPrefs.data ? notifPrefs.data[row.key] : row.fallback}
+                  disabled={saveNotifPrefs.isPending || (row.needsPhone && !p?.contact_phone)}
+                  onCheckedChange={(v) => saveNotifPrefs.mutate({ [row.key]: v })}
+                  aria-label={row.label}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
@@ -1048,24 +1257,46 @@ function Settings() {
 
         <div className="mt-6 divide-y divide-border border border-border">
           {consentLog.isLoading ? (
-            <p className="p-4 text-xs text-muted-foreground">Loading consent trail…</p>
+            <div className="grid gap-2 p-4" aria-busy="true">
+              <span className="sr-only">Loading consent trail…</span>
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+          ) : consentLog.isError ? (
+            // Distinct from empty: a failed read is not proof that no consent
+            // was ever recorded, and telling the member otherwise could lead
+            // them to re-consent and create duplicate receipts.
+            <p role="alert" className="p-4 text-sm leading-6 text-destructive">
+              Your consent trail could not be loaded — this is not the same as having no entries.{" "}
+              <button
+                type="button"
+                className="font-semibold underline underline-offset-2"
+                onClick={() => void consentLog.refetch()}
+                disabled={consentLog.isFetching}
+              >
+                {consentLog.isFetching ? "Retrying…" : "Retry"}
+              </button>
+            </p>
           ) : !consentLog.data?.length ? (
-            <p className="p-4 text-xs text-muted-foreground">
+            <p className="p-4 text-sm text-muted-foreground">
               No ledger entries yet. Actions like saving preferences or contact details write here.
             </p>
           ) : (
             consentLog.data.map((c) => (
               <div
                 key={c.id}
-                className="flex flex-col gap-1 p-3 text-xs sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground">
+                  <p className="text-sm font-medium text-foreground">
                     {CONSENT_LABELS[c.purpose as ConsentPurpose] || c.purpose}
                   </p>
-                  {c.note && <p className="truncate text-[11px] text-muted-foreground">{c.note}</p>}
+                  {c.note && (
+                    <p className="break-words text-sm leading-5 text-muted-foreground">{c.note}</p>
+                  )}
                 </div>
-                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                   <span
                     className={`font-semibold ${c.granted ? "text-success" : "text-destructive"}`}
                   >
@@ -1095,15 +1326,27 @@ function Settings() {
         </p>
 
         {deleteOpen ? (
-          <div className="mt-5 space-y-4 rounded-md border border-destructive/30 bg-destructive/5 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-destructive">
+          <div
+            role="group"
+            aria-label="Confirm permanent account deletion"
+            className="mt-5 space-y-4 rounded-md border border-destructive/30 bg-destructive/5 p-4"
+          >
+            <p className="text-sm font-semibold uppercase tracking-wider text-destructive">
               Permanent Deletion Confirmation
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm leading-6 text-muted-foreground">
               To confirm, type <strong className="text-foreground">{DELETE_CONFIRMATION}</strong>{" "}
               below:
             </p>
             <Input
+              id="delete-confirm"
+              // The most destructive control in the app cannot rely on its
+              // placeholder as a name — placeholders vanish on focus and are
+              // not exposed as an accessible name.
+              aria-label={`Type ${DELETE_CONFIRMATION} to confirm permanent deletion`}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               placeholder={DELETE_CONFIRMATION}

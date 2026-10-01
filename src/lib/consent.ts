@@ -35,20 +35,26 @@ export const CONSENT_LABELS: Record<ConsentPurpose, string> = {
 /**
  * Fire-and-forget by design: a consent record must never block or fail the
  * member's actual action, but a failure is logged rather than swallowed so the
- * desk can tell that a ledger entry is missing.
+ * desk can tell that a ledger entry is missing. The caller still learns whether
+ * the receipt was written via the `ok` flag, so it can warn instead of claiming
+ * a success that never landed.
  */
 export async function recordConsent(
   purpose: ConsentPurpose,
   granted = true,
   note?: string,
-): Promise<void> {
+): Promise<{ ok: boolean }> {
   const { error } = await supabase.rpc("record_consent", {
     _purpose: purpose,
     _granted: granted,
     _policy_version: POLICY_VERSION,
     ...(note ? { _note: note } : {}),
   });
-  if (error) console.error("consent ledger", error);
+  if (error) {
+    console.error("consent ledger", error);
+    return { ok: false };
+  }
+  return { ok: true };
 }
 
 export type ConsentEvent = {

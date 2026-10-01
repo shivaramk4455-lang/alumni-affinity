@@ -49,15 +49,15 @@ function Index() {
     <main>
       <section className="relative overflow-hidden border-b border-border bg-background px-5 pb-14 pt-16 md:px-8 md:pb-20 md:pt-24">
         <div className="absolute inset-x-0 top-0 h-px bg-brass" />
-        <div className="mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
             <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] text-brass">
               <span className="h-px w-9 bg-brass" /> Membership by verification
             </div>
-            <h1 className="mt-7 max-w-4xl font-serif text-5xl font-semibold leading-[1.07] text-foreground sm:text-6xl lg:text-7xl">
+            <h1 className="mt-7 max-w-[16ch] font-serif text-5xl font-semibold leading-[1.02] tracking-[-0.02em] text-foreground sm:text-6xl lg:text-[5.25rem] xl:text-[6rem]">
               For people who built their own lives—and wish to choose their own partner.
             </h1>
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground">
+            <p className="mt-8 max-w-2xl text-lg leading-8 text-muted-foreground">
               A discreet matrimonial membership for premier-institute alumni. Candidates lead every
               decision. Families contribute with permission.
             </p>
@@ -89,8 +89,12 @@ function Index() {
             </p>
             <dl className="mt-8 grid grid-cols-2 gap-x-5 gap-y-7 border-t border-border pt-7">
               <div>
-                <dt className="font-serif text-3xl font-semibold">100%</dt>
-                <dd className="mt-1 text-xs text-muted-foreground">identity checked</dd>
+                <dt className="font-serif text-3xl font-semibold">
+                  100<span className="text-[0.5em] align-super">%</span>
+                </dt>
+                <dd className="mt-1 text-xs text-muted-foreground">
+                  identity checked before access
+                </dd>
               </div>
               <div>
                 <dt className="font-serif text-3xl font-semibold">1:1</dt>
@@ -196,7 +200,7 @@ function Index() {
         <div className="mx-auto max-w-7xl">
           <div className="grid items-start gap-10 lg:grid-cols-[0.85fr_1.15fr]">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass-strong">
                 Privacy, by architecture
               </p>
               <h2 className="mt-3 font-serif text-4xl font-semibold md:text-5xl">
@@ -281,7 +285,7 @@ function Eligibility({ icon, title, text }: { icon: ReactNode; title: string; te
 function Privacy({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
     <article className="border border-forest-foreground/20 p-5">
-      <span className="text-brass [&_svg]:size-5">{icon}</span>
+      <span className="text-brass-strong [&_svg]:size-5">{icon}</span>
       <h3 className="mt-5 font-serif text-xl font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-forest-foreground/60">{text}</p>
     </article>

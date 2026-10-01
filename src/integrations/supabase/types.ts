@@ -1348,7 +1348,9 @@ export type Database = {
         }[];
       };
       desk_review_queue: {
-        Args: never;
+        // Paged server-side by migration 20261016. Regenerate with
+        // `supabase gen types` once the migration has been applied.
+        Args: { _limit?: number; _offset?: number };
         Returns: {
           alumni_email: string;
           city: string;

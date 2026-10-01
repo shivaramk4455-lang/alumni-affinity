@@ -40,6 +40,12 @@ type Tab = "received" | "sent" | "mutual";
 function Connections() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("received");
+  /**
+   * Decline, withdraw and block are terminal for an introduction and cannot be
+   * undone from this screen, so they take a second explicit click. The same
+   * two-step pattern `photo-gallery` uses for permanent deletion.
+   */
+  const [confirm, setConfirm] = useState<{ id: string; action: string } | null>(null);
 
   const me = useMyProfile();
 
@@ -96,12 +102,16 @@ function Connections() {
       if (error) throw error;
     },
     onSuccess: () => {
+      setConfirm(null);
       qc.invalidateQueries({ queryKey: ["interests"] });
       qc.invalidateQueries({ queryKey: ["contact"] });
       qc.invalidateQueries({ queryKey: ["revealed-contacts"] });
       toast.success("Updated.");
     },
-    onError: () => toast.error("Could not update. Please try again."),
+    onError: () => {
+      setConfirm(null);
+      toast.error("Could not update. Please try again.");
+    },
   });
 
   const mutual = all.filter(
@@ -144,8 +154,29 @@ function Connections() {
             id={`connections-tab-${t.key}`}
             aria-selected={tab === t.key}
             aria-controls="connections-panel"
+            // Roving tabindex: the ARIA tabs pattern expects one stop in the
+            // tab order, with arrow keys moving between tabs.
+            tabIndex={tab === t.key ? 0 : -1}
             variant={tab === t.key ? "default" : "ghost"}
             size="sm"
+            onKeyDown={(e) => {
+              const order = tabs.map((x) => x.key);
+              const at = order.indexOf(tab);
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                e.preventDefault();
+                const next =
+                  e.key === "ArrowRight"
+                    ? order[(at + 1) % order.length]!
+                    : order[(at - 1 + order.length) % order.length]!;
+                setTab(next);
+                document.getElementById(`connections-tab-${next}`)?.focus();
+              } else if (e.key === "Home" || e.key === "End") {
+                e.preventDefault();
+                const next = e.key === "Home" ? order[0]! : order[order.length - 1]!;
+                setTab(next);
+                document.getElementById(`connections-tab-${next}`)?.focus();
+              }
+            }}
             onClick={() => setTab(t.key)}
           >
             {t.label}
@@ -161,6 +192,22 @@ function Connections() {
         aria-labelledby={`connections-tab-${tab}`}
         tabIndex={-1}
       >
+        {people.isError && (
+          <p
+            role="alert"
+            className="border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+          >
+            Member names could not be loaded, so some rows read “Member”.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void people.refetch()}
+              disabled={people.isFetching}
+            >
+              {people.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        )}
         {list.isLoading ? (
           // A skeleton keeps the list's shape: "nothing here yet" is a real
           // answer and must not be what a slow query looks like.
@@ -238,7 +285,7 @@ function Connections() {
                       {i.status}
                     </span>
                     {i.status === "pending" && i.expires_at && (
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="size-3 text-brass" />
                         {Math.max(
                           0,
@@ -265,24 +312,72 @@ function Connections() {
                     >
                       <Check /> {pendingId === i.id ? "Working…" : "Accept"}
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => act.mutate({ id: i.id, status: "declined" })}
-                      disabled={pendingId === i.id}
-                    >
-                      <X /> Decline
-                    </Button>
+                    {confirm?.id === i.id && confirm.action === "declined" ? (
+                      <div
+                        role="group"
+                        aria-label={`Confirm declining the introduction from ${o?.full_name ?? "this member"}`}
+                        className="flex basis-full flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3"
+                      >
+                        <p className="text-sm leading-6 text-destructive">
+                          Decline this introduction? They are notified, and you can send again
+                          later.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => act.mutate({ id: i.id, status: "declined" })}
+                          disabled={pendingId === i.id}
+                        >
+                          {pendingId === i.id ? "Declining…" : "Yes, decline"}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => setConfirm({ id: i.id, action: "declined" })}
+                        disabled={pendingId === i.id}
+                      >
+                        <X /> Decline
+                      </Button>
+                    )}
                   </div>
                 )}
                 {tab === "sent" && i.status === "pending" && (
-                  <Button
-                    variant="outline"
-                    className="mt-5"
-                    onClick={() => act.mutate({ id: i.id, status: "withdrawn" })}
-                    disabled={pendingId === i.id}
-                  >
-                    <Undo2 /> {pendingId === i.id ? "Withdrawing…" : "Withdraw"}
-                  </Button>
+                  <div className="mt-5">
+                    {confirm?.id === i.id && confirm.action === "withdrawn" ? (
+                      <div
+                        role="group"
+                        aria-label="Confirm withdrawing this introduction"
+                        className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3"
+                      >
+                        <p className="text-sm leading-6 text-destructive">
+                          Withdraw this introduction? They will be told it was withdrawn.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => act.mutate({ id: i.id, status: "withdrawn" })}
+                          disabled={pendingId === i.id}
+                        >
+                          {pendingId === i.id ? "Withdrawing…" : "Yes, withdraw"}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => setConfirm({ id: i.id, action: "withdrawn" })}
+                        disabled={pendingId === i.id}
+                      >
+                        <Undo2 /> {pendingId === i.id ? "Withdrawing…" : "Withdraw"}
+                      </Button>
+                    )}
+                  </div>
                 )}
                 {tab === "sent" &&
                   (i.status === "declined" ||
@@ -300,26 +395,73 @@ function Connections() {
                 {tab === "mutual" && (
                   <div className="mt-5 space-y-3 border-t border-border pt-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="grid gap-1 text-sm">
-                        <p className="flex items-center gap-2">
-                          <Phone className="size-4 text-brass" />
-                          {contactById.get(otherId)?.contact_phone || "Phone not shared"}
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <Mail className="size-4 text-brass" />
-                          {contactById.get(otherId)?.linkedin_url || "LinkedIn not shared"}
-                        </p>
-                      </div>
+                      {/* A LinkedIn URL is a long unbroken string and was the
+                          clearest horizontal-overflow vector on this page. */}
+                      {contacts.isError ? (
+                        <div role="alert" className="grid gap-1 text-sm text-destructive">
+                          <p className="font-semibold">Contact details could not be loaded</p>
+                          <p className="text-xs leading-5">
+                            This is not the same as “not shared”.{" "}
+                            <button
+                              type="button"
+                              className="font-semibold underline underline-offset-2"
+                              onClick={() => void contacts.refetch()}
+                              disabled={contacts.isFetching}
+                            >
+                              {contacts.isFetching ? "Retrying…" : "Retry"}
+                            </button>
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid min-w-0 gap-1 text-sm">
+                          <p className="flex min-w-0 items-center gap-2">
+                            <Phone className="size-4 shrink-0 text-brass" />
+                            <span className="min-w-0 break-all">
+                              {contactById.get(otherId)?.contact_phone || "Phone not shared"}
+                            </span>
+                          </p>
+                          <p className="flex min-w-0 items-center gap-2">
+                            <Mail className="size-4 shrink-0 text-brass" />
+                            <span className="min-w-0 break-all">
+                              {contactById.get(otherId)?.linkedin_url || "LinkedIn not shared"}
+                            </span>
+                          </p>
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => act.mutate({ id: i.id, status: "blocked" })}
-                          disabled={pendingId === i.id}
-                        >
-                          <ShieldX className="size-4" />{" "}
-                          {pendingId === i.id ? "Blocking…" : "Block"}
-                        </Button>
+                        {confirm?.id === i.id && confirm.action === "blocked" ? (
+                          <div
+                            role="group"
+                            aria-label={`Confirm blocking ${o?.full_name ?? "this member"}`}
+                            className="flex basis-full flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3"
+                          >
+                            <p className="text-sm leading-6 text-destructive">
+                              Block {o?.full_name ?? "this member"}? This ends the introduction,
+                              hides both profiles from each other, and cannot be undone here.
+                            </p>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => act.mutate({ id: i.id, status: "blocked" })}
+                              disabled={pendingId === i.id}
+                            >
+                              {pendingId === i.id ? "Blocking…" : "Yes, block"}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setConfirm({ id: i.id, action: "blocked" })}
+                            disabled={pendingId === i.id}
+                          >
+                            <ShieldX className="size-4" />
+                            {pendingId === i.id ? "Blocking…" : "Block"}
+                          </Button>
+                        )}
                         <Button asChild size="sm">
                           <Link to="/messages/$interestId" params={{ interestId: i.id }}>
                             <MessageSquare className="size-4" /> Message

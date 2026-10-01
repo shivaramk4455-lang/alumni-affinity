@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CircleAlert,
   FileCheck2,
   LockKeyhole,
   Mail,
@@ -142,7 +143,7 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
       </label>
       {wired}
       {hint && (
-        <span id={hintId} className="text-xs font-normal leading-5 text-muted-foreground">
+        <span id={hintId} className="text-sm font-normal leading-6 text-muted-foreground">
           {hint}
         </span>
       )}
@@ -228,7 +229,14 @@ function ApplyPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate(event.currentTarget)) return;
+    if (!validate(event.currentTarget)) {
+      // Focus stays on the Continue button after a failed step, so the user has
+      // to hunt for the red text. Move focus to the first offending field.
+      const first = event.currentTarget.querySelector<HTMLElement>('[aria-invalid="true"]');
+      first?.focus();
+      first?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
     if (step < steps.length - 1) {
       setStep((value) => value + 1);
       setErrors({});
@@ -282,7 +290,7 @@ function ApplyPage() {
     );
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-dvh bg-background">
       <section className="border-b border-border bg-secondary/45 px-5 py-10 md:px-8 md:py-14">
         <div className="mx-auto max-w-5xl">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
@@ -298,7 +306,7 @@ function ApplyPage() {
                 account.
               </p>
             </div>
-            <span className="flex items-center gap-2 text-xs font-semibold text-forest">
+            <span className="flex items-center gap-2 text-sm font-semibold text-forest-ink">
               <LockKeyhole className="size-4" /> Encrypted & never publicly listed
             </span>
           </div>
@@ -311,7 +319,11 @@ function ApplyPage() {
           aria-label="Application progress"
         >
           {steps.map((label, index) => (
-            <li key={label} className="min-w-0 text-center">
+            <li
+              key={label}
+              className="min-w-0 text-center"
+              aria-current={index === step ? "step" : undefined}
+            >
               <div
                 className={`mx-auto grid size-7 place-items-center rounded-full border text-xs font-bold ${index < step ? "border-success bg-success text-success-foreground" : index === step ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
               >
@@ -322,11 +334,16 @@ function ApplyPage() {
               >
                 {label}
               </span>
+              {/* The visible label is hidden on mobile; keep the step name (and
+                  the current-step marker) available to assistive tech there. */}
+              <span className="sr-only sm:hidden">
+                {index === step ? `${label} (current step)` : label}
+              </span>
             </li>
           ))}
         </ol>
 
-        <form onSubmit={submit} className="mx-auto mt-10 max-w-3xl">
+        <form onSubmit={submit} noValidate className="mx-auto mt-10 max-w-3xl">
           {step === 0 && (
             <Step
               title="Let’s verify who you are"
@@ -446,7 +463,7 @@ function ApplyPage() {
               </div>
               <div className="mt-6 grid gap-4 border border-border bg-secondary/35 p-4 text-sm leading-6 text-muted-foreground">
                 <span>
-                  <Mail className="mr-2 inline size-4 text-forest" />
+                  <Mail className="mr-2 inline size-4 text-forest-ink" />
                   Degree documents are uploaded privately in verification, after you create an
                   account — never shown to members.
                 </span>
@@ -536,12 +553,19 @@ function ApplyPage() {
               title="Choose how you are seen"
               note="Every profile photo is watermarked. You retain control over who can view it."
             >
-              <div className="border border-dashed border-brass bg-brass/5 p-6 text-center">
-                <Upload className="mx-auto size-6 text-brass" />
-                <p className="mt-3 text-sm font-semibold">Add a recent profile photograph</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  You will upload it privately after signup — JPG or PNG, portrait preferred.
-                </p>
+              {/* Informational, not interactive: a dashed border plus an
+                  upload icon reads as a file picker, but there is no file
+                  input here — the upload genuinely happens after signup. Style
+                  it as guidance so it does not promise a click. */}
+              <div className="flex items-start gap-4 border border-border bg-secondary/40 p-5">
+                <Upload className="mt-0.5 size-5 shrink-0 text-brass" />
+                <div>
+                  <p className="text-sm font-semibold">Add your photograph after signup</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    We take no uploads during application so your document stays private until you
+                    have an account. Upload a recent JPG or PNG, portrait preferred.
+                  </p>
+                </div>
               </div>
               <div className="mt-5 flex items-start justify-between gap-5 border border-border p-5">
                 <div>
@@ -624,7 +648,7 @@ function ApplyPage() {
                     id="adult-attestation"
                     name="adult"
                     type="checkbox"
-                    className="mt-0.5 size-4 shrink-0 accent-[var(--brass-strong)]"
+                    className="mt-0.5 size-6 shrink-0 accent-[var(--brass-strong)]"
                     checked={d.adult}
                     onChange={(e) => set("adult", e.target.checked)}
                     aria-required="true"
@@ -642,19 +666,25 @@ function ApplyPage() {
                   typed here.
                 </p>
                 {errors["adult"] && (
-                  <p id="adult-attestation-error" role="alert" className="text-xs text-destructive">
+                  <p id="adult-attestation-error" role="alert" className="text-sm text-destructive">
                     {errors["adult"]}
                   </p>
                 )}
               </div>
-              <div className="mt-6 text-xs leading-5 text-muted-foreground">
+              <div className="mt-6 text-sm leading-6 text-muted-foreground">
                 By continuing, you confirm that the information provided is accurate and agree to
                 our{" "}
-                <Link to="/terms" className="underline">
+                <Link
+                  to="/terms"
+                  className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                >
                   membership, privacy, and verification terms
                 </Link>{" "}
                 and the{" "}
-                <Link to="/privacy" className="underline">
+                <Link
+                  to="/privacy"
+                  className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                >
                   privacy notice
                 </Link>
                 .
@@ -662,7 +692,10 @@ function ApplyPage() {
             </Step>
           )}
 
-          <div className="mt-9 grid grid-cols-[auto_1fr] items-center gap-4 border-t border-border pt-6">
+          {/* `grid-cols-[auto_1fr]` forced two wide lg buttons onto one 320px
+              row, scrolling the primary submit control off screen. Stack on
+              mobile; the primary action stays last in the tab order. */}
+          <div className="mt-9 flex flex-col-reverse gap-4 border-t border-border pt-6 sm:grid sm:grid-cols-[auto_1fr] sm:items-center">
             {step > 0 ? (
               <Button
                 type="button"
@@ -676,9 +709,9 @@ function ApplyPage() {
                 <ArrowLeft /> Back
               </Button>
             ) : (
-              <span />
+              <span className="hidden sm:block" />
             )}
-            <Button type="submit" size="lg" className="justify-self-end">
+            <Button type="submit" size="lg" className="sm:justify-self-end">
               {step === steps.length - 1 ? "Save & create account" : "Continue"}
               <ArrowRight />
             </Button>
@@ -713,7 +746,15 @@ function Step({ title, note, children }: { title: string; note: string; children
  */
 function Error({ text, id }: { text: string; id?: string }) {
   return (
-    <span id={id} role="alert" className="text-xs font-normal text-destructive">
+    // Validation copy is the text a user most needs to read, so it is not set
+    // below the size of the fields it sits under. The icon keeps the failure
+    // from being signalled by colour alone.
+    <span
+      id={id}
+      role="alert"
+      className="flex items-start gap-1.5 text-sm leading-6 text-destructive"
+    >
+      <CircleAlert className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
       {text}
     </span>
   );

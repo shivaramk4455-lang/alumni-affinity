@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import {
   Camera,
   ChevronLeft,
@@ -73,7 +73,7 @@ export function PhotoGalleryManager({
           <input
             type="file"
             accept={GALLERY_ACCEPT}
-            className="hidden"
+            className="sr-only"
             disabled={full || upload.isPending}
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -89,7 +89,23 @@ export function PhotoGalleryManager({
         </p>
       </div>
 
-      {gallery.isLoading ? (
+      {gallery.isError ? (
+        <div
+          role="alert"
+          className="border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
+        >
+          Your photographs could not be loaded — this is not the same as an empty gallery. Adding or
+          reordering from a failed count could drop you over the limit.{" "}
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2"
+            onClick={() => void gallery.refetch()}
+            disabled={gallery.isFetching}
+          >
+            {gallery.isFetching ? "Retrying…" : "Retry"}
+          </button>
+        </div>
+      ) : gallery.isLoading ? (
         <p className="text-xs text-muted-foreground">Loading photographs…</p>
       ) : photos.length === 0 ? (
         <div className="grid place-items-center border border-dashed border-border p-8 text-center">
@@ -104,6 +120,7 @@ export function PhotoGalleryManager({
             <GalleryThumb
               key={p.id}
               photo={p}
+              index={i}
               selected={i === active}
               busy={busy}
               onSelect={() => setActive(i)}
@@ -126,6 +143,7 @@ export function PhotoGalleryManager({
 }
 function GalleryThumb({
   photo,
+  index,
   selected,
   busy,
   onSelect,
@@ -141,6 +159,7 @@ function GalleryThumb({
   name,
 }: {
   photo: GalleryPhoto;
+  index: number;
   selected: boolean;
   busy: boolean;
   onSelect: () => void;
@@ -163,7 +182,8 @@ function GalleryThumb({
         type="button"
         onClick={onSelect}
         className="block w-full"
-        aria-label="Preview photograph"
+        aria-label={`Preview photograph ${index + 1}`}
+        aria-current={selected ? "true" : undefined}
       >
         <MemberPhoto
           path={photo.path}
@@ -173,11 +193,11 @@ function GalleryThumb({
         />
       </button>
       {photo.is_primary && (
-        <span className="absolute left-1 top-1 inline-flex items-center gap-1 bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+        <span className="absolute left-1 top-1 inline-flex items-center gap-1 bg-primary px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-primary-foreground">
           <Star className="size-3" /> Primary
         </span>
       )}
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-ink/80 p-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-foreground/80 p-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
         <span className="flex items-center gap-1">
           <button
             type="button"
@@ -244,7 +264,7 @@ function GalleryThumb({
         </span>
       </div>
       {confirming && (
-        <p className="bg-ink/90 p-1 text-center text-[10px] font-semibold text-background">
+        <p className="bg-foreground/90 p-1 text-center text-xs font-semibold text-background">
           Tap trash again to delete
         </p>
       )}
@@ -272,19 +292,29 @@ export function PhotoSlideshow({
   const total = photos.length;
   const safe = Math.min(Math.max(active, 0), Math.max(total - 1, 0));
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") onActive((safe + total - 1) % total);
-      if (e.key === "ArrowRight") onActive((safe + 1) % total);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onActive, safe, total]);
+  // Scoped to the slideshow region instead of window-global: a window listener
+  // hijacked the arrow keys for every other control on the page.
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (total < 2) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      onActive((safe + total - 1) % total);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      onActive((safe + 1) % total);
+    }
+  }
 
   const current = photos[safe];
 
   return (
-    <div className="grid gap-3">
+    <div
+      className="grid gap-3"
+      role="region"
+      aria-label="Photograph gallery"
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+    >
       <div className="relative">
         {current && (
           <MemberPhoto
@@ -316,7 +346,7 @@ export function PhotoSlideshow({
             >
               <ChevronRight className="size-4" />
             </Button>
-            <span className="absolute bottom-2 right-2 bg-ink/80 px-2 py-0.5 text-[11px] font-semibold text-background">
+            <span className="absolute bottom-2 right-2 bg-foreground/80 px-2 py-0.5 text-xs font-semibold text-background">
               {safe + 1} / {total}
             </span>
           </>
@@ -329,7 +359,8 @@ export function PhotoSlideshow({
               key={i}
               type="button"
               onClick={() => onActive(i)}
-              aria-label={`View photograph ${i + 1}`}
+              aria-label={`View photograph ${i + 1} of ${total}`}
+              aria-current={i === safe ? "true" : undefined}
               className={`w-14 shrink-0 overflow-hidden border ${
                 i === safe ? "border-brass" : "border-border opacity-70 hover:opacity-100"
               }`}

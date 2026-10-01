@@ -15,15 +15,24 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
       setUser(session?.user ?? null);
       setLoading(false);
     });
     void supabase.auth.getSession().then(({ data: { session } }) => {
+      // The auth-state listener may already have resolved to signed-out while
+      // this was in flight; without the guard a late response resurrects a
+      // session the user just dropped.
+      if (cancelled) return;
       setUser(session?.user ?? null);
       setLoading(false);
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   return { user, loading };

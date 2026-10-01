@@ -18,7 +18,9 @@ export function useMyProfile() {
     staleTime: 30_000,
     queryFn: async (): Promise<MyProfileRow | null> => {
       const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) return null;
+      // A failed session read is not "no profile": collapsing it to null made
+      // every consumer render an empty state for what was really an error.
+      if (authError || !authData.user) throw new Error("session unavailable");
 
       const { data, error } = await supabase.from("my_profile").select("*").maybeSingle();
       if (error) throw error;
