@@ -56,9 +56,7 @@ function Privacy() {
       </p>
 
       {!isLegalIdentityComplete() && (
-        // The one paragraph that stops someone mailing real personal data to
-        // an unmonitored address — it must not be the smallest text on the page.
-        <p className="mt-6 border-l-2 border-brass bg-secondary/40 px-4 py-3 text-sm leading-6 text-foreground">
+        <p className="mt-6 border-l-2 border-brass bg-secondary/40 px-4 py-3 text-xs leading-5">
           The controller and contact details below are placeholders pending appointment of the Data
           Protection Officer and grievance officers. They are not monitored yet — do not send
           personal data to them. This notice cannot be relied upon for a launch until they are
@@ -66,9 +64,7 @@ function Privacy() {
         </p>
       )}
 
-      {/* `break-words` throughout: long email addresses and the registered
-          address are unbroken strings that overflow a 320px viewport. */}
-      <div className="mt-8 grid gap-8 break-words text-sm leading-7 text-muted-foreground">
+      <div className="mt-8 grid gap-8 text-sm leading-7 text-muted-foreground">
         <Section title="Who controls your data">
           <p>
             The data controller (Data Fiduciary under the DPDP Act) is{" "}

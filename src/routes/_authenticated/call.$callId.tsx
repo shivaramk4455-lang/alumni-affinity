@@ -106,33 +106,25 @@ function CallPage() {
     if (!myId || !otherId) return;
     setReporting(true);
     try {
-      // Record the report BEFORE tearing the call down. Ending first meant a
-      // failed insert destroyed the call while the toast implied nothing had
-      // been done — and there was no way to report afterwards.
+      await endCall("declined");
       const { error: repErr } = await supabase.from("reports").insert({
         reporter_id: myId,
         reported_profile_id: otherId,
         reason,
       });
       if (repErr) throw repErr;
-      await endCall("declined");
       toast.success("Report submitted. Call ended and member blocked.");
       navigate({ to: "/connections" });
     } catch {
-      toast.error("Could not submit the report. The call is still live — please try again.");
+      toast.error("Could not complete report.");
       setReporting(false);
     }
   }
 
   if (!call) {
-    // `call` is null both while loading and when the query fails (e.g. an RLS
-    // denial), so the old copy spun forever with no escape.
     return (
-      <main className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center gap-4 p-6 text-center">
+      <main className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center p-6 text-center">
         <p className="text-sm text-muted-foreground">Loading video session…</p>
-        <Button asChild variant="outline">
-          <Link to="/connections">Back to introductions</Link>
-        </Button>
       </main>
     );
   }
@@ -161,8 +153,7 @@ function CallPage() {
   }
 
   return (
-    // Header is `h-18` + 1px border = 4.5625rem; `dvh` tracks mobile chrome.
-    <main className="relative flex h-[calc(100dvh-4.5625rem)] w-full flex-col bg-slate-950 text-white">
+    <main className="relative flex h-[calc(100vh-4rem)] w-full flex-col bg-slate-950 text-white">
       <header className="absolute top-0 inset-x-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4 sm:px-6">
         <div>
           <h2 className="font-serif text-lg font-medium tracking-wide">
@@ -191,43 +182,21 @@ function CallPage() {
       </header>
 
       {reportOpen && (
-        // Real dialog semantics: the overlay previously had no role, no focus
-        // move into it and no Escape, so Tab walked straight back into the
-        // call controls behind it while the video kept playing.
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="report-call-title"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setReportOpen(false);
-              setReportReason("");
-            }
-          }}
-          className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-        >
-          <div className="w-full max-w-md space-y-4 rounded-lg border border-rose-800/80 bg-slate-900 p-6 text-left shadow-2xl">
-            <h3
-              id="report-call-title"
-              className="flex items-center gap-2 font-serif text-lg font-semibold text-rose-300"
-            >
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-lg border border-rose-800/80 bg-slate-900 p-6 shadow-2xl space-y-4 text-left">
+            <h3 className="font-serif text-lg font-semibold text-rose-300 flex items-center gap-2">
               <Flag className="size-4 text-rose-400" /> Report &amp; end call
             </h3>
-            <p className="text-sm leading-6 text-slate-300">
+            <p className="text-xs text-slate-300">
               This will immediately terminate the call, submit your confidential report to the
               membership desk, and block this member from finding you.
             </p>
-            <label htmlFor="call-report-reason" className="sr-only">
-              Reason for report
-            </label>
             <Input
-              id="call-report-reason"
-              autoFocus
               maxLength={300}
               placeholder="Reason for report (at least 10 characters)"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
-              className="border-slate-700 bg-slate-950 text-sm text-white placeholder:text-slate-500"
+              className="border-slate-700 bg-slate-950 text-white placeholder:text-slate-500 text-sm"
             />
             <div className="flex gap-2 justify-end">
               <Button
@@ -255,13 +224,7 @@ function CallPage() {
 
       <div className="relative flex flex-1 items-center justify-center overflow-hidden">
         {call.status === "active" && (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            aria-label={`Video from ${counterpart.data?.full_name || "your introduction"}`}
-            className="size-full object-cover"
-          />
+          <video ref={remoteVideoRef} autoPlay playsInline className="size-full object-cover" />
         )}
 
         {call.status === "ringing" && (
@@ -300,7 +263,6 @@ function CallPage() {
                     size="lg"
                     variant="destructive"
                     onClick={() => void endCall("declined")}
-                    disabled={busy}
                     className="gap-2 font-medium"
                   >
                     <PhoneOff className="size-5" /> Decline
@@ -314,7 +276,6 @@ function CallPage() {
           <div className="absolute bottom-24 right-4 z-20 w-28 overflow-hidden rounded-lg border border-slate-700/80 bg-black/80 shadow-2xl sm:bottom-28 sm:right-6 sm:w-44 aspect-[3/4]">
             <video
               ref={localVideoRef}
-              aria-label="Your camera preview"
               autoPlay
               muted
               playsInline
@@ -329,60 +290,20 @@ function CallPage() {
         )}
 
         {mediaError && (
-          <div
-            role="alert"
-            className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md rounded-md border border-rose-800 bg-rose-950/90 p-3 text-center text-sm leading-6 text-rose-200 backdrop-blur-md"
-          >
+          <div className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md rounded-md bg-rose-950/90 border border-rose-800 p-3 text-center text-xs text-rose-200 backdrop-blur-md">
             {mediaError}
           </div>
         )}
-
-        {/*
-          `connectionState` was destructured and never used, so the call
-          screen showed a black rectangle for the whole ICE/DTLS handshake
-          and said nothing when the peer connection failed — leaving the user
-          staring at a frozen frame behind working-looking controls.
-        */}
-        {call?.status === "active" &&
-          (connectionState === "connecting" || connectionState === "new") && (
-            <p
-              role="status"
-              className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md rounded-md bg-black/70 p-3 text-center text-sm text-slate-200 backdrop-blur-md"
-            >
-              Connecting… {isVideoMuted ? "Your camera is off." : "Say hello."}
-            </p>
-          )}
-        {connectionState === "failed" && (
-          <div
-            role="alert"
-            className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md rounded-md border border-rose-800 bg-rose-950/90 p-3 text-center text-sm leading-6 text-rose-200 backdrop-blur-md"
-          >
-            The connection failed. Check your network and try again.
-          </div>
-        )}
-        {connectionState === "disconnected" && (
-          <p
-            role="status"
-            className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md rounded-md bg-black/70 p-3 text-center text-sm text-slate-200 backdrop-blur-md"
-          >
-            Reconnecting…
-          </p>
-        )}
       </div>
 
-      <footer className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6">
+      <footer className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-center gap-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6">
         <Button
           variant="outline"
           size="icon"
           aria-label={isAudioMuted ? "Unmute mic" : "Mute mic"}
-          // Expose the toggle state, not just the label swap and colour.
-          aria-pressed={isAudioMuted}
-          // No local track yet (callee has not answered): the control did
-          // nothing, so it should not look live.
-          disabled={!localStream}
           onClick={toggleAudio}
-          className={`size-12 rounded-full border-slate-700 bg-slate-800/80 text-white hover:bg-slate-700 focus-visible:bg-slate-800 ${
-            isAudioMuted ? "border-rose-700 bg-rose-900 text-rose-200 hover:bg-rose-800" : ""
+          className={`size-12 rounded-full border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-white ${
+            isAudioMuted ? "bg-rose-900 border-rose-700 hover:bg-rose-800 text-rose-200" : ""
           }`}
         >
           {isAudioMuted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
@@ -393,7 +314,7 @@ function CallPage() {
           size="icon"
           aria-label="End call"
           onClick={() => void endCall("ended")}
-          className="size-14 rounded-full bg-rose-600 text-white shadow-lg hover:bg-rose-500"
+          className="size-14 rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg"
         >
           <PhoneOff className="size-6" />
         </Button>
@@ -402,11 +323,9 @@ function CallPage() {
           variant="outline"
           size="icon"
           aria-label={isVideoMuted ? "Turn on camera" : "Turn off camera"}
-          aria-pressed={isVideoMuted}
-          disabled={!localStream}
           onClick={toggleVideo}
-          className={`size-12 rounded-full border-slate-700 bg-slate-800/80 text-white hover:bg-slate-700 focus-visible:bg-slate-800 ${
-            isVideoMuted ? "border-rose-700 bg-rose-900 text-rose-200 hover:bg-rose-800" : ""
+          className={`size-12 rounded-full border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-white ${
+            isVideoMuted ? "bg-rose-900 border-rose-700 hover:bg-rose-800 text-rose-200" : ""
           }`}
         >
           {isVideoMuted ? <VideoOff className="size-5" /> : <Video className="size-5" />}

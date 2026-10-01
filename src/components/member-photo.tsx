@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, EyeOff, UserRound } from "lucide-react";
+import { EyeOff, UserRound } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,7 +23,7 @@ export function MemberPhoto({
   className?: string;
   name?: string | null;
 }) {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["photo", path],
     enabled: !!path,
     staleTime: 4 * 60 * 1000,
@@ -31,50 +31,22 @@ export function MemberPhoto({
       const { data, error } = await supabase.storage
         .from("profile-photos")
         .createSignedUrl(path!, 300);
-      // A signing failure is an outage, not a withheld photograph. Collapsing
-      // it to `null` made a transient error read as "withheld until accepted".
-      if (error) throw error;
+      if (error) return null;
       return data.signedUrl;
     },
   });
 
-  if (!path) {
+  if (!path || (!isLoading && !data)) {
     return (
       <div
         className={`grid place-items-center border border-border bg-secondary/50 text-center ${className}`}
       >
         <div className="px-4 py-6 text-muted-foreground">
-          <UserRound className="mx-auto size-6" />
-          <p className="mt-3 text-xs leading-5">No photograph shared.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div
-        className={`grid place-items-center border border-destructive/40 bg-destructive/5 text-center ${className}`}
-      >
-        <div role="alert" className="px-4 py-6 text-destructive">
-          <AlertTriangle className="mx-auto size-6" />
+          {path ? <EyeOff className="mx-auto size-6" /> : <UserRound className="mx-auto size-6" />}
           <p className="mt-3 text-xs leading-5">
-            This photograph could not be loaded right now — not the same as one withheld.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoading && !data) {
-    return (
-      <div
-        className={`grid place-items-center border border-border bg-secondary/50 text-center ${className}`}
-      >
-        <div className="px-4 py-6 text-muted-foreground">
-          <EyeOff className="mx-auto size-6" />
-          <p className="mt-3 text-xs leading-5">
-            Photograph withheld until an introduction is accepted.
+            {path
+              ? "Photograph withheld until an introduction is accepted."
+              : "No photograph shared."}
           </p>
         </div>
       </div>

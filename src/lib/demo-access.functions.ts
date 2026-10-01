@@ -8,9 +8,7 @@ const DEMO_EMAIL = "guest.demo@meritcircle.example";
  */
 export const startDemoSession = createServerFn({ method: "POST" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  // Bracket access: `process.env` is an index signature (tsconfig
-  // `noPropertyAccessFromIndexSignature`), matching every other server file.
-  const password = `Demo-${process.env["SUPABASE_URL"]?.slice(8, 20) ?? "circle"}-Guest!2026`;
+  const password = `Demo-${process.env['SUPABASE_URL']?.slice(8, 20) ?? "circle"}-Guest!2026`;
 
   const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
   let user = list?.users.find((u) => u.email === DEMO_EMAIL);
@@ -38,11 +36,9 @@ export const startDemoSession = createServerFn({ method: "POST" }).handler(async
     .eq("id", user.id);
 
   const { createClient } = await import("@supabase/supabase-js");
-  const anon = createClient(
-    process.env["SUPABASE_URL"]!,
-    process.env["SUPABASE_PUBLISHABLE_KEY"]!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  const anon = createClient(process.env['SUPABASE_URL']!, process.env['SUPABASE_PUBLISHABLE_KEY']!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   const { data: signed, error } = await anon.auth.signInWithPassword({
     email: DEMO_EMAIL,
     password,

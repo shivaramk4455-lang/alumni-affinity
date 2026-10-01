@@ -103,14 +103,7 @@ function Verification() {
         bucket === "profile-photos"
           ? "Photograph uploaded; on-screen viewer-identity overlay acknowledged (deterrent only)"
           : "Credential document submitted to the membership desk",
-      ).then((consent) => {
-        if (!consent.ok) {
-          toast.warning(
-            "Uploaded, but the consent receipt could not be written — retry from Settings.",
-            { duration: 8000 },
-          );
-        }
-      });
+      );
       qc.invalidateQueries({ queryKey: ["consent-events"] });
       toast.success(
         bucket === "profile-photos" ? "Photograph uploaded." : "Document uploaded for review.",
@@ -162,28 +155,6 @@ function Verification() {
       {
         onSuccess: () => toast.success("Submitted to the membership desk."),
       },
-    );
-  }
-
-  if (me.isError) {
-    // A failed read left the contact fields blank, which reads as "nothing on
-    // file" — hide them behind an explicit error instead.
-    return (
-      <main className="mx-auto max-w-4xl px-5 py-20 text-center">
-        <h1 className="font-serif text-3xl font-semibold">Verification could not load</h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Your standing and contact fields could not be read, so they are hidden rather than shown
-          blank. This is a connection problem, not an empty record.
-        </p>
-        <Button
-          className="mt-8"
-          size="lg"
-          onClick={() => void me.refetch()}
-          disabled={me.isFetching}
-        >
-          {me.isFetching ? "Retrying…" : "Try again"}
-        </Button>
-      </main>
     );
   }
 
@@ -283,7 +254,7 @@ function Verification() {
         <p className="mt-2 text-sm text-muted-foreground">
           Degree certificate, transcript or alumni card. PDF, JPG or PNG up to 10 MB.
         </p>
-        <label className="mt-5 flex cursor-pointer items-center gap-3 border border-dashed border-border p-5 text-sm transition-colors hover:bg-secondary/60 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+        <label className="mt-5 flex cursor-pointer items-center gap-3 border border-dashed border-border p-5 text-sm">
           <Upload className="size-4 text-brass" />
           <span>
             {p?.verification_doc_path ? "Replace uploaded document" : "Choose a document"}
@@ -291,26 +262,13 @@ function Verification() {
           <input
             type="file"
             accept="application/pdf,image/jpeg,image/png"
-            // `hidden` is display:none, which drops the control out of the tab
-            // order entirely — the document upload was unreachable by keyboard.
-            // `sr-only` keeps it focusable, and focus-within on the label makes
-            // that focus visible.
-            className="sr-only"
-            aria-label="Upload a credential document — PDF, JPG or PNG up to 10 MB"
-            disabled={upload.isPending}
+            className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              // Reset so re-picking the same file after a failure fires again.
-              e.target.value = "";
               if (f) upload.mutate({ file: f, bucket: "verification-docs" });
             }}
           />
         </label>
-        {upload.isPending && (
-          <p role="status" className="mt-3 text-sm text-muted-foreground">
-            Uploading your document…
-          </p>
-        )}
       </section>
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
@@ -354,35 +312,17 @@ function Verification() {
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="font-serif text-2xl font-semibold">Contact coordinates</h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Shared only with members whose introduction you have accepted. These are the same fields
-          as on{" "}
-          <Link
-            to="/settings"
-            className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
-          >
-            Settings
-          </Link>
-          , so edit them in one place or the other — not both.
+        <p className="mt-2 text-sm text-muted-foreground">
+          Shared only with members whose introduction you have accepted.
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-semibold">
             Phone
-            <Input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-            />
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 " />
           </label>
           <label className="grid gap-2 text-sm font-semibold">
             LinkedIn
             <Input
-              type="url"
-              inputMode="url"
-              autoComplete="url"
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
               placeholder="linkedin.com/in/…"

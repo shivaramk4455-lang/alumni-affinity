@@ -103,10 +103,6 @@ export function useMoveGalleryPhoto() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
-      // Reordering can change which row ends up primary, and the primary mirrors
-      // onto profiles.photo_path — the same invalidations set-primary/delete do.
-      qc.invalidateQueries({ queryKey: ["my-profile"] });
-      qc.invalidateQueries({ queryKey: ["photo"] });
     },
     onError: () => toast.error("Could not reorder the gallery."),
   });
@@ -123,10 +119,7 @@ export function useGallery() {
     queryKey: [...GALLERY_QUERY_KEY, "mine"],
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      // A failed session read must not read as "no photographs": the upload cap
-      // below counts this same cached list, so an empty-on-error result would
-      // also wave through uploads past MAX_GALLERY_PHOTOS.
-      if (!u.user) throw new Error("session unavailable");
+      if (!u.user) return [] as GalleryPhoto[];
       const { data, error } = await supabase
         .from("profile_photos")
         .select("id, user_id, path, position, is_primary, created_at")
@@ -153,7 +146,7 @@ export function useMemberGallery(userId: string | null | undefined) {
         .order("is_primary", { ascending: false })
         .order("position", { ascending: true })
         .order("created_at", { ascending: true });
-      if (error) throw error;
+      if (error) return [] as GalleryPhoto[];
       return (data ?? []) as GalleryPhoto[];
     },
   });

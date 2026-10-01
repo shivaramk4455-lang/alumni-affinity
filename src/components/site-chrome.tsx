@@ -5,10 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { GRIEVANCE_OFFICER } from "@/lib/legal-identity";
 
-import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "@/hooks/use-my-profile";
@@ -83,17 +80,7 @@ export function NotificationBell() {
 
   /** Mark a single notification read when the member actually opens it. */
   async function markRead(id: string) {
-    // The error used to be discarded, so a failed update left the unread dot
-    // in place with no explanation. Surface it; the mutation is retried the
-    // next time the row is opened.
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) {
-      toast.error("Could not mark that notification as read.");
-      return;
-    }
+    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
     void queryClient.invalidateQueries({ queryKey: ["notifications"] });
   }
 
@@ -109,7 +96,7 @@ export function NotificationBell() {
       >
         <Bell />
         {unread > 0 && (
-          <span className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-brass text-xs font-bold text-primary-foreground">
+          <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-brass text-[10px] font-bold text-white">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -126,31 +113,7 @@ export function NotificationBell() {
               View all
             </Link>
           </div>
-          {list.isError ? (
-            <div role="alert" className="px-4 py-5 text-center">
-              <p className="text-xs text-destructive">
-                Notifications could not be loaded — this is not an empty inbox.
-              </p>
-              <button
-                type="button"
-                className="mt-2 text-xs font-semibold underline underline-offset-2"
-                onClick={() => void list.refetch()}
-                disabled={list.isFetching}
-              >
-                {list.isFetching ? "Retrying…" : "Retry"}
-              </button>
-            </div>
-          ) : list.isPending ? (
-            <div className="divide-y divide-border" aria-busy="true">
-              <span className="sr-only">Loading notifications…</span>
-              {[0, 1, 2].map((n) => (
-                <div key={n} className="px-4 py-3">
-                  <Skeleton className="h-3.5 w-40" />
-                  <Skeleton className="mt-2 h-3 w-56" />
-                </div>
-              ))}
-            </div>
-          ) : !items.length ? (
+          {!items.length ? (
             <p className="px-4 py-6 text-center text-xs text-muted-foreground">Nothing yet.</p>
           ) : (
             items.slice(0, 5).map((n) => (
@@ -351,12 +314,6 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[60] focus:border focus:border-border focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-semibold"
-      >
-        Skip to content
-      </a>
       <div className="mx-auto grid h-18 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 md:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-3" onClick={() => setOpen(false)}>
           <span className="grid size-9 shrink-0 place-items-center border border-primary bg-primary text-primary-foreground">
@@ -366,7 +323,7 @@ export function SiteHeader() {
             <span className="block truncate font-serif text-xl font-semibold leading-none text-foreground">
               The Merit Circle
             </span>
-            <span className="mt-1 block truncate text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Private introductions
             </span>
           </span>
@@ -418,15 +375,12 @@ export function SiteHeader() {
           className="md:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          aria-controls="mobile-nav"
         >
           {open ? <X /> : <Menu />}
         </Button>
       </div>
       {open && (
         <nav
-          id="mobile-nav"
           className="border-t border-border bg-background px-5 py-4 md:hidden"
           aria-label="Mobile navigation"
         >
@@ -441,24 +395,23 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            {!loading &&
-              (user ? (
-                <button
-                  type="button"
-                  onClick={signOut}
-                  className="flex items-center gap-2 py-3 text-left text-sm font-medium"
-                >
-                  <LogOut className="size-4" /> Sign out ({user.email})
-                </button>
-              ) : (
-                <Link
-                  to="/auth"
-                  className="py-3 text-sm font-semibold"
-                  onClick={() => setOpen(false)}
-                >
-                  Sign in / Become a member
-                </Link>
-              ))}
+            {user ? (
+              <button
+                type="button"
+                onClick={signOut}
+                className="flex items-center gap-2 py-3 text-left text-sm font-medium"
+              >
+                <LogOut className="size-4" /> Sign out ({user.email})
+              </button>
+            ) : (
+              <Link
+                to="/auth"
+                className="py-3 text-sm font-semibold"
+                onClick={() => setOpen(false)}
+              >
+                Sign in / Become a member
+              </Link>
+            )}
           </div>
         </nav>
       )}

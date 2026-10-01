@@ -141,9 +141,7 @@ function MemberProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("copilots")
-        // The name columns are needed to give each suggestion button a distinct
-        // accessible name — with only ids, every button reads "Share suggestion".
-        .select("id, candidate_id, copilot_name, copilot_email")
+        .select("id, candidate_id")
         .eq("copilot_user_id", me.data!.id)
         .eq("status", "active");
       if (error) throw error;
@@ -366,23 +364,6 @@ function MemberProfile() {
         </div>
       ) : (
         <article className="mt-8 border border-border bg-card p-6 md:p-10">
-          {memberGallery.isError && (
-            <p
-              role="alert"
-              className="mb-5 border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
-            >
-              This member&rsquo;s gallery could not be loaded, so only the primary photograph is
-              shown — this is not an empty gallery.{" "}
-              <button
-                type="button"
-                className="font-semibold underline underline-offset-2"
-                onClick={() => void memberGallery.refetch()}
-                disabled={memberGallery.isFetching}
-              >
-                {memberGallery.isFetching ? "Retrying…" : "Retry"}
-              </button>
-            </p>
-          )}
           <div className="grid gap-8 sm:grid-cols-[240px_1fr]">
             {visiblePhotos.length > 0 ? (
               <PhotoSlideshow
@@ -442,14 +423,14 @@ function MemberProfile() {
                       <span
                         key={b.label}
                         title={b.detail}
-                        className="border border-brass/50 bg-brass/5 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-brass-strong"
+                        className="border border-brass/50 bg-brass/5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brass-strong"
                       >
                         {b.label}
                         {b.detail && b.label !== "Age in range" ? ` · ${b.detail}` : ""}
                       </span>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 text-[11px] text-muted-foreground">
                     Derived from your own criteria and only visible to you.
                   </p>
                 </div>
@@ -488,30 +469,16 @@ function MemberProfile() {
                   </Button>
                 )}
               </div>
-              {contact.isError ? (
-                <p role="alert" className="mt-4 text-sm text-destructive">
-                  Contact details could not be loaded — this is not the same as “not shared”.{" "}
-                  <button
-                    type="button"
-                    className="font-semibold underline underline-offset-2"
-                    onClick={() => void contact.refetch()}
-                    disabled={contact.isFetching}
-                  >
-                    {contact.isFetching ? "Retrying…" : "Retry"}
-                  </button>
+              <div className="mt-4 grid gap-2 text-sm">
+                <p className="flex items-center gap-2">
+                  <Phone className="size-4 text-brass" />
+                  {contact.data?.contact_phone || "Phone not shared"}
                 </p>
-              ) : (
-                <div className="mt-4 grid gap-2 text-sm">
-                  <p className="flex items-center gap-2">
-                    <Phone className="size-4 text-brass" />
-                    {contact.data?.contact_phone || "Phone not shared"}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <Mail className="size-4 text-brass" />
-                    {contact.data?.linkedin_url || "LinkedIn not shared"}
-                  </p>
-                </div>
-              )}
+                <p className="flex items-center gap-2">
+                  <Mail className="size-4 text-brass" />
+                  {contact.data?.linkedin_url || "LinkedIn not shared"}
+                </p>
+              </div>
             </section>
           )}
 
@@ -546,8 +513,6 @@ function MemberProfile() {
                       size="lg"
                       className="justify-self-start"
                       onClick={() => setOpenInterest(true)}
-                      aria-expanded={openInterest}
-                      aria-controls="interest-note-panel"
                     >
                       <Heart /> Express interest
                     </Button>
@@ -586,16 +551,9 @@ function MemberProfile() {
 
               {copilotLinks.length > 0 &&
                 (openSuggest ? (
-                  <div
-                    role="group"
-                    aria-label="Suggest this profile to a family co-pilot"
-                    className="grid gap-3 border border-border p-4"
-                  >
-                    <label htmlFor="family-note" className="text-sm font-semibold">
-                      Suggest to your family member
-                    </label>
+                  <div className="grid gap-3 border border-border p-4">
+                    <p className="text-sm font-semibold">Suggest to your family member</p>
                     <Textarea
-                      id="family-note"
                       rows={3}
                       maxLength={600}
                       value={familyNote}
@@ -609,11 +567,6 @@ function MemberProfile() {
                           variant="outline"
                           onClick={() => suggest.mutate(c)}
                           disabled={suggest.isPending}
-                          // Every row rendered an identical "Share suggestion"
-                          // label, so with two co-pilots a screen-reader user
-                          // heard the same button twice and could not tell
-                          // which family member each one belonged to.
-                          aria-label={`Share this suggestion with ${c.copilot_name || c.copilot_email || "your family member"}`}
                         >
                           Share suggestion
                         </Button>
@@ -628,8 +581,6 @@ function MemberProfile() {
                     variant="outline"
                     className="justify-self-start"
                     onClick={() => setOpenSuggest(true)}
-                    aria-expanded={openSuggest}
-                    aria-controls="family-note"
                   >
                     <UsersRound /> Suggest to family member
                   </Button>
@@ -640,9 +591,6 @@ function MemberProfile() {
                 className="justify-self-start"
                 disabled={toggleSave.isPending}
                 onClick={() => toggleSave.mutate(!isSaved)}
-                // Expose the toggle state programmatically, not just via the
-                // icon and text swap.
-                aria-pressed={isSaved}
               >
                 {isSaved ? (
                   <>
@@ -656,11 +604,7 @@ function MemberProfile() {
               </Button>
 
               {openReport ? (
-                <div
-                  role="group"
-                  aria-label="Report this profile"
-                  className="grid gap-3 border border-border p-4"
-                >
+                <div className="grid gap-3 border border-border p-4">
                   <label htmlFor="report-reason" className="text-sm font-semibold">
                     Report this profile
                   </label>
@@ -702,8 +646,6 @@ function MemberProfile() {
                   size="sm"
                   className="justify-self-start text-muted-foreground"
                   onClick={() => setOpenReport(true)}
-                  aria-expanded={openReport}
-                  aria-controls="report-reason"
                 >
                   <Flag /> Report profile
                 </Button>

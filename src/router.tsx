@@ -1,7 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
-
-import { RoutePending } from "@/components/route-pending";
 import { routeTree } from "./routeTree.gen";
 
 export const getRouter = () => {
@@ -11,10 +9,7 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    // Keep preloaded (hovered) routes warm for 30s instead of throwing the data
-    // away instantly, so hover-then-click does not refetch from scratch.
-    defaultPreloadStaleTime: 30_000,
-    defaultPendingComponent: RoutePending,
+    defaultPreloadStaleTime: 0,
   });
 
   return router;

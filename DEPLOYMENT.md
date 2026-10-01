@@ -110,7 +110,6 @@ SELECT vault.create_secret('<same-random-value-as-CRON_SECRET>', 'cron_secret');
      * `subscription.pending`
      * `subscription.halted`
      * `subscription.cancelled`
-     * `subscription.completed`
      * `subscription.expired`
 
 ---
@@ -149,7 +148,7 @@ Run in this order; each step is verifiable on its own.
    demo-directory rows (guarded, see README) and repairs the `my_profile` view.
 5. **Storage**: `profile-photos` and `verification-docs` both private, 10 MB,
    MIME-limited (§3).
-6. **Razorpay**: webhook URL + secret + the nine events (§6), then a live ₹1
+6. **Razorpay**: webhook URL + secret + the eight events (§6), then a live ₹1
    test subscription to confirm `invoice.paid` flips the row to `active` and
    that an abandoned checkout does **not** show as a tier in Settings.
 7. **Desk**: appoint the first admin (§7) and the Grievance Officer details on
@@ -191,16 +190,7 @@ Run in this order; each step is verifiable on its own.
   placeholder until a real officer is appointed; publish the details before
   taking production traffic.
 
-## 12. Client TURN fallback (only when `turn-credentials` is absent)
-
-The production path is server-minted, TTL-bound credentials from the
-`turn-credentials` edge function (§4); in production no client-side variable
-holds a long-lived TURN credential. The variables below are the legacy
-self-hosted fallback only (see `.env.example`, and note
-`getIceServersAsync()` prefers the function).
-
-Set them in the Cloudflare/hosting dashboard only if you are deliberately
-running without `turn-credentials`:
+Set your client environment variables in Cloudflare/hosting dashboard:
 
 ```env
 VITE_TURN_URLS="turn:turn.yourdomain.com:3478,turns:turn.yourdomain.com:5349"
@@ -208,4 +198,4 @@ VITE_TURN_USERNAME="turnuser"
 VITE_TURN_CREDENTIAL="turnpassword"
 ```
 
-Either way, verify calls connect reliably between users on 4G/5G mobile carriers (Jio, Airtel) and corporate networks — without working TURN, symmetric-NAT callers simply fail.
+This ensures WebRTC calls connect reliably between users on 4G/5G mobile carriers (Jio, Airtel) and corporate networks.

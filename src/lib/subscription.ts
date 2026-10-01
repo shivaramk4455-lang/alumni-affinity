@@ -70,9 +70,7 @@ export function useMySubscription() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      // Unlike the free tier below, a failed session read is an error, not a
-      // legitimate `null` — otherwise a paying member sees the free-tier upsell.
-      if (!user) throw new Error("session unavailable");
+      if (!user) return null;
 
       const { data, error } = await supabase
         .from("subscriptions")

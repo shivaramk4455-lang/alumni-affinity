@@ -77,10 +77,6 @@ const TEMPLATES: Record<string, (p: Record<string, unknown>, d: Destination) => 
     subject: "A document detail needs your attention",
     body: "The desk needs one more document or detail before your membership can be confirmed.\n\nSign in to review your verification status.",
   }),
-  verification_rejected: () => ({
-    subject: "Your verification application was not accepted",
-    body: "The membership desk was unable to verify this profile. The reason, if recorded, is shown on your verification page.\n\nSign in to review it.",
-  }),
   copilot_invite_accepted: (p) => ({
     subject: `${p.from_name} accepted your co-pilot request`,
     body: "You can now nominate a family member or friend as your co-pilot.\n\nSign in to continue.",

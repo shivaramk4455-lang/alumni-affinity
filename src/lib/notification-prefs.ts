@@ -30,6 +30,13 @@ export const DEFAULT_PREFERENCES: NotificationPreferences = {
 
 const PREF_KEY = ["notification-preferences"];
 
+/** Coarse delivery status, so the desk can see a backlog without reading logs. */
+export type OutboxStatus = {
+  sent: number;
+  queued: number;
+  failed: number;
+};
+
 export function useNotificationPreferences() {
   return useQuery({
     queryKey: PREF_KEY,
@@ -37,9 +44,7 @@ export function useNotificationPreferences() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      // A failed session read must not masquerade as "defaults": that would let
-      // the UI render switch states the member never set. Surface it instead.
-      if (!user) throw new Error("session unavailable");
+      if (!user) return DEFAULT_PREFERENCES;
 
       const { data, error } = await supabase
         .from("notification_preferences")
@@ -81,5 +86,23 @@ export function useSaveNotificationPreferences() {
       qc.invalidateQueries({ queryKey: PREF_KEY });
     },
     onError: () => toast.error("Could not save your notification settings."),
+  });
+}
+
+/** The member's own delivery history — read-only, straight from the outbox. */
+export function useOutboxHistory() {
+  return useQuery({
+    queryKey: ["notification-outbox"],
+    queryFn: async (): Promise<
+      { id: string; channel: string; template: string; status: string; sent_at: string | null }[]
+    > => {
+      const { data, error } = await supabase
+        .from("notification_outbox")
+        .select("id, channel, template, status, sent_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 }

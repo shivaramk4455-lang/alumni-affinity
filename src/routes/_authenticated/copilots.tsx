@@ -6,7 +6,6 @@ import { Copy, ShieldCheck, Trash2, UserRoundPlus, UsersRound } from "lucide-rea
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { RELATIONS } from "@/lib/profile-options";
@@ -32,7 +31,6 @@ const selectCls = "h-10 w-full border border-input bg-background px-3 text-sm";
 function Copilots() {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [relation, setRelation] = useState(RELATIONS[0]!);
 
@@ -125,8 +123,6 @@ function Copilots() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recommendations"] });
     },
-    // A failed delete was completely silent, so the row simply stayed put.
-    onError: () => toast.error("Could not remove the suggestion. Please try again."),
   });
 
   const myId = me.data?.id;
@@ -146,16 +142,9 @@ function Copilots() {
 
   function submitInvite() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      // Inline as well as a toast: the field kept no `aria-invalid`, so the
-      // only signal was a message that disappeared.
-      setEmailError("Enter a valid email address.");
-      document.getElementById("copilot-email-error")?.scrollIntoView({
-        block: "nearest",
-        behavior: "smooth",
-      });
+      toast.error("Enter a valid email address.");
       return;
     }
-    setEmailError(null);
     if (mine.filter((c) => c.status !== "revoked").length >= 2) {
       toast.error("At most two active co-pilots.");
       return;
@@ -195,48 +184,19 @@ function Copilots() {
           We save the invitation here. Ask them to sign in and open the link below — the invitation
           email arrives from your own message for now, so share the link directly.
         </p>
-        {/* A real <form> so Enter in the email field submits. */}
-        <form
-          className="mt-5 grid gap-4 sm:grid-cols-3"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitInvite();
-          }}
-        >
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <label className="grid gap-2 text-sm font-semibold">
             Email
             <Input
-              type="email"
-              autoComplete="email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setEmailError(null);
-              }}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
               inputMode="email"
-              aria-invalid={emailError ? true : undefined}
-              aria-describedby={emailError ? "copilot-email-error" : undefined}
             />
-            {emailError && (
-              <span
-                id="copilot-email-error"
-                role="alert"
-                className="text-sm font-normal leading-6 text-destructive"
-              >
-                {emailError}
-              </span>
-            )}
           </label>
           <label className="grid gap-2 text-sm font-semibold">
             Name
-            <Input
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Optional"
-            />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" />
           </label>
           <label className="grid gap-2 text-sm font-semibold">
             Relation
@@ -250,38 +210,16 @@ function Copilots() {
               ))}
             </select>
           </label>
-          <div className="sm:col-span-3">
-            <Button type="submit" disabled={invite.isPending} aria-busy={invite.isPending}>
-              <UserRoundPlus /> {invite.isPending ? "Creating…" : "Create invitation"}
-            </Button>
-          </div>
-        </form>
+        </div>
+        <Button className="mt-5" onClick={submitInvite} disabled={invite.isPending}>
+          <UserRoundPlus /> Create invitation
+        </Button>
       </section>
 
       <section className="mt-6 grid gap-4">
         <h2 className="font-serif text-2xl font-semibold">Your co-pilots</h2>
         {links.isLoading ? (
-          <div className="grid gap-3" aria-busy="true">
-            <span className="sr-only">Loading your co-pilots…</span>
-            <Skeleton className="h-28 w-full" />
-          </div>
-        ) : links.isError ? (
-          // Must be checked before the empty branch: a failed read told the
-          // member they had no co-pilots when we simply could not see them.
-          <p
-            role="alert"
-            className="border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
-          >
-            Your co-pilots could not be loaded.{" "}
-            <button
-              type="button"
-              className="font-semibold underline underline-offset-2"
-              onClick={() => void links.refetch()}
-              disabled={links.isFetching}
-            >
-              {links.isFetching ? "Retrying…" : "Retry"}
-            </button>
-          </p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         ) : !mine.length ? (
           <p className="border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             No co-pilots yet. Many members invite one parent.
@@ -293,8 +231,8 @@ function Copilots() {
               <article key={c.id} className="border border-border bg-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{c.copilot_name || c.copilot_email}</p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    <p className="font-semibold">{c.copilot_name || c.copilot_email}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {c.relation} · {c.copilot_email}
                     </p>
                   </div>
@@ -312,19 +250,9 @@ function Copilots() {
                     <Button
                       variant="outline"
                       size="sm"
-                      // The promise is unawaited, so an insecure origin, a denied
-                      // permission, or Safari's user-gesture rules all reported
-                      // "copied" while nothing was copied — and this button is
-                      // the whole point of the page.
                       onClick={() => {
-                        navigator.clipboard
-                          .writeText(url)
-                          .then(() => toast.success("Invitation link copied."))
-                          .catch(() =>
-                            toast.error(
-                              "Could not copy automatically — select the link and copy it.",
-                            ),
-                          );
+                        navigator.clipboard.writeText(url);
+                        toast.success("Invitation link copied.");
                       }}
                     >
                       <Copy /> Copy
@@ -352,18 +280,9 @@ function Copilots() {
         </p>
         <div className="mt-5 grid gap-4">
           {!myRecs.length ? (
-            // A dead end for the person most likely to land here empty — a
-            // co-pilot with nothing suggested. Give them the route to fix it.
-            <div className="border border-dashed border-border p-8 text-center">
-              <p className="text-sm leading-6 text-muted-foreground">
-                No suggestions yet. Open a member profile from search and choose{" "}
-                <span className="font-medium text-foreground">Suggest to family member</span> to
-                send one here.
-              </p>
-              <Button asChild variant="outline" className="mt-4">
-                <Link to="/members">Search members</Link>
-              </Button>
-            </div>
+            <p className="border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              No suggestions yet.
+            </p>
           ) : (
             myRecs.map((r) => {
               const p = (recPeople.data ?? []).find((x) => x.id === r.recommended_profile_id);
