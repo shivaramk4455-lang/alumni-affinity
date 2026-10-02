@@ -30,6 +30,7 @@ import { CONSENT_LABELS, useConsentLog, recordConsent, type ConsentPurpose } fro
 import { GENDERS, INSTITUTIONS, PHOTO_VISIBILITY, RELOCATION } from "@/lib/profile-options";
 import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/access-log";
 import { PhotoGalleryManager } from "@/components/photo-gallery";
+import { useDecidePhotoRequest, useIncomingPhotoRequests } from "@/lib/photo-requests";
 
 import {
   inr,
@@ -274,6 +275,10 @@ function Settings() {
 
   const notifPrefs = useNotificationPreferences();
   const saveNotifPrefs = useSaveNotificationPreferences();
+
+  // Photograph consent: incoming requests for the owner to allow or decline.
+  const photoRequests = useIncomingPhotoRequests();
+  const decidePhoto = useDecidePhotoRequest();
 
   const plans = usePlans();
   const subscription = useMySubscription();
@@ -535,6 +540,80 @@ function Settings() {
         <div className="mt-6">
           <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />
         </div>
+      </section>
+
+      <section className="mt-6 border border-border bg-card p-6 md:p-8">
+        <h2 className="font-serif text-2xl font-semibold">Photograph requests</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Members asking to see your photograph. This only applies while your photographs are set to
+          “After an accepted introduction” — allowing a request lets that one member see them
+          without an introduction. They are never sent the file itself; access is granted request by
+          request and can be ended by declining later requests.
+        </p>
+
+        {photoRequests.isError ? (
+          <p role="alert" className="mt-5 text-sm text-destructive">
+            Requests could not be loaded — this is not the same as having none.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void photoRequests.refetch()}
+              disabled={photoRequests.isFetching}
+            >
+              {photoRequests.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        ) : photoRequests.isLoading ? (
+          <div className="mt-5 grid gap-3" aria-busy="true">
+            <span className="sr-only">Loading photograph requests…</span>
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : !photoRequests.data?.length ? (
+          <p className="mt-5 text-sm text-muted-foreground">
+            No pending requests. Nobody has asked to see your photographs.
+          </p>
+        ) : (
+          <ul className="mt-5 divide-y divide-border border border-border">
+            {photoRequests.data.map((r) => {
+              const pending = decidePhoto.isPending && decidePhoto.variables?.id === r.id;
+              return (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-medium">{who(r.requester_id)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Asked{" "}
+                      {new Date(r.created_at).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      disabled={decidePhoto.isPending}
+                      onClick={() => decidePhoto.mutate({ id: r.id, status: "accepted" })}
+                    >
+                      {pending ? "Working…" : "Allow"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={decidePhoto.isPending}
+                      onClick={() => decidePhoto.mutate({ id: r.id, status: "declined" })}
+                    >
+                      Decline
+                    </Button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">

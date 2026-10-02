@@ -23,7 +23,7 @@ export function MemberPhoto({
   className?: string;
   name?: string | null;
 }) {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["photo", path],
     enabled: !!path,
     staleTime: 4 * 60 * 1000,
@@ -61,6 +61,16 @@ export function MemberPhoto({
           <p className="mt-3 text-xs leading-5">
             This photograph could not be loaded right now — not the same as one withheld.
           </p>
+          {/* Retry matters most here: once the owner allows a request, the refusal
+              is cached, and only a refetch brings the photograph in. */}
+          <button
+            type="button"
+            className="mt-2 text-xs font-semibold underline underline-offset-2"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+          >
+            {isFetching ? "Retrying…" : "Retry"}
+          </button>
         </div>
       </div>
     );

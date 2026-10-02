@@ -31,6 +31,7 @@ import { DIRECTORY_COLUMNS } from "@/lib/profile-columns";
 import { formatHeight } from "@/lib/profile-options";
 import { PhotoSlideshow } from "@/components/photo-gallery";
 import { useMemberGallery } from "@/lib/gallery";
+import { useMyPhotoRequest, useRequestPhoto } from "@/lib/photo-requests";
 
 export const Route = createFileRoute("/_authenticated/members/$id")({
   head: () => ({
@@ -298,6 +299,17 @@ function MemberProfile() {
 
   const isSelf = me.data?.id === id;
 
+  /**
+   * Photograph consent flow. Only `accepted_only` is requestable: that is the
+   * setting that means "wait until we are properly introduced". `hidden` means
+   * nobody including matches, so offering a request there would quietly weaken
+   * the strongest setting the product offers.
+   */
+  const photoRequestable =
+    !isSelf && !!data?.photo_path && !canSeePhoto && data?.photo_visibility === "accepted_only";
+  const myPhotoRequest = useMyPhotoRequest(photoRequestable ? id : null);
+  const requestPhoto = useRequestPhoto();
+
   return (
     <main className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
       <Link
@@ -393,12 +405,48 @@ function MemberProfile() {
                 name={data.full_name}
               />
             ) : (
-              <MemberPhoto
-                path={null}
-                watermark={watermark}
-                name={data.full_name}
-                className="aspect-[4/5] w-full"
-              />
+              <div className="grid gap-3">
+                <MemberPhoto
+                  path={null}
+                  watermark={watermark}
+                  name={data.full_name}
+                  className="aspect-[4/5] w-full"
+                />
+                {photoRequestable && (
+                  <div className="border border-border bg-secondary/40 p-3">
+                    {myPhotoRequest.data?.status === "pending" ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Photograph requested. You will see it here if they allow.
+                      </p>
+                    ) : myPhotoRequest.data?.status === "declined" ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        They chose not to share this photograph. You can ask once more later.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          They share their photograph only with members they choose.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 w-full"
+                          disabled={requestPhoto.isPending || myPhotoRequest.isLoading}
+                          onClick={() => requestPhoto.mutate(id)}
+                        >
+                          {requestPhoto.isPending ? "Sending…" : "Request photograph"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+                {!photoRequestable && data.photo_visibility === "hidden" && (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    This member keeps their photograph private, including from matches. That setting
+                    is not requestable.
+                  </p>
+                )}
+              </div>
             )}
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-success">
