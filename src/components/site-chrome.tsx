@@ -1,6 +1,16 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Bell, Landmark, LogOut, Menu, ShieldCheck, Video, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bell,
+  ChevronDown,
+  Landmark,
+  LogOut,
+  Menu,
+  ShieldCheck,
+  Video,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { GRIEVANCE_OFFICER } from "@/lib/legal-identity";
@@ -47,6 +57,79 @@ const adminNav = [
   { to: "/admin", label: "Desk" },
   { to: "/settings", label: "Settings" },
 ] as const;
+
+/** Every nav item shape, so a shared menu can hold any of the three arrays. */
+type NavItem = (typeof publicNav)[number] | (typeof memberNav)[number] | (typeof adminNav)[number];
+
+/**
+ * Overflow menu for the crowded primary nav.
+ *
+ * Members once had every destination listed inline — nine items once Messages
+ * and Shortlist landed — which pushed the bell, email and Sign out off the
+ * row at normal laptop widths. The four daily destinations stay visible; the
+ * rest live behind this.
+ *
+ * ARIA menu-button pattern: `aria-haspopup` + `aria-expanded`, Escape closes,
+ * and an outside click closes so a stray click never leaves it stuck open.
+ */
+function NavMenu({ label, items }: { label: string; items: NavItem[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {label}
+        <ChevronDown
+          aria-hidden="true"
+          className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label={label}
+          className="absolute right-0 top-full z-50 mt-2 min-w-44 border border-border bg-card p-1 shadow-paper"
+        >
+          {items.map((item) => (
+            <Link
+              key={item.label}
+              role="menuitem"
+              to={item.to}
+              {...("hash" in item ? { hash: item.hash } : {})}
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -348,6 +431,17 @@ export function SiteHeader() {
   const queryClient = useQueryClient();
   const me = useMyProfile();
   const nav = user ? (me.data?.is_admin ? adminNav : memberNav) : publicNav;
+  /**
+   * Split the nav for the inline row. Four daily destinations stay visible —
+   * every listed item is checked at 1280px and above — and the rest go behind
+   * "More", so the bell, email and Sign out keep their place on the row.
+   */
+  const primaryNav: NavItem[] = nav.filter((i): i is NavItem =>
+    ["Home", "Search", "Introductions", "Messages"].includes(i.label),
+  );
+  const overflowNav: NavItem[] = nav.filter(
+    (i): i is NavItem => !["Home", "Search", "Introductions", "Messages"].includes(i.label),
+  );
 
   async function signOut() {
     setOpen(false);
@@ -381,7 +475,7 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Primary navigation">
-          {nav.map((item) => (
+          {primaryNav.map((item) => (
             <Link
               key={item.label}
               to={item.to}
@@ -396,6 +490,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          {overflowNav.length > 0 && <NavMenu label="More" items={overflowNav} />}
           {!loading &&
             (user ? (
               <div className="flex items-center gap-3">
