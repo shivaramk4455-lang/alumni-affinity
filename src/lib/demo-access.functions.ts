@@ -6,9 +6,14 @@ const DEMO_EMAIL = "guest.demo@meritcircle.example";
  * Guest preview: ensures one shared, verified demo member exists and returns a
  * session for it. The password never leaves the server.
  */
+// DEV-ONLY entry point. Also enforces the bypass guard server-side, so an
+// accidental client import can never mint a guest session from production.
 export const startDemoSession = createServerFn({ method: "POST" }).handler(async () => {
+  if (process.env["NODE_ENV"] === "production") {
+    throw new Error("Guest preview is unavailable right now.");
+  }
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const password = `Demo-${process.env['SUPABASE_URL']?.slice(8, 20) ?? "circle"}-Guest!2026`;
+  const password = `Demo-${process.env["SUPABASE_URL"]?.slice(8, 20) ?? "circle"}-Guest!2026`;
 
   const { error: createError } = await supabaseAdmin.auth.admin.createUser({
     email: DEMO_EMAIL,
@@ -22,9 +27,13 @@ export const startDemoSession = createServerFn({ method: "POST" }).handler(async
   }
 
   const { createClient } = await import("@supabase/supabase-js");
-  const anon = createClient(process.env['SUPABASE_URL']!, process.env['SUPABASE_PUBLISHABLE_KEY']!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const anon = createClient(
+    process.env["SUPABASE_URL"]!,
+    process.env["SUPABASE_PUBLISHABLE_KEY"]!,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
   let { data: signed, error } = await anon.auth.signInWithPassword({ email: DEMO_EMAIL, password });
   if (error || !signed.session) {
     // Existing account with a different password: find it and reset.

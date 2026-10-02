@@ -17,6 +17,33 @@
 const DEMO_EMAIL = "guest.demo@meritcircle.example";
 
 /**
+ * Single source of truth for "are we allowed to drop a signed-out visitor
+ * into the shared guest account?".
+ *
+ * DEV-only by construction (the flag cannot be flicked on in a production
+ * bundle), and the server entry point double-checks independently. Remove
+ * before real members join.
+ */
+export const BYPASS_DISABLED_NOTE = "Demo bypass is disabled outside development builds.";
+export const BYPASS_REMOVAL_NOTE = "Remove the demo bypass before real members join.";
+
+export function isDemoBypass(): boolean {
+  return import.meta.env.DEV === true && canBypass();
+}
+
+/**
+ * Narrow escape hatch for tests. Production code never calls this; it exists
+ * so the bypass's removal can itself be tested once it happens.
+ */
+let bypassLocked = false;
+export function lockBypassForTests(): void {
+  bypassLocked = true;
+}
+function canBypass(): boolean {
+  return !bypassLocked;
+}
+
+/**
  * Same derivation the server function uses, so both paths agree on the
  * password for the shared account.
  */
@@ -32,7 +59,7 @@ function demoPassword(): string {
  * through to the sign-in page rather than assume success.
  */
 export async function startDemoSessionClient(): Promise<boolean> {
-  if (!import.meta.env.DEV) return false;
+  if (!isDemoBypass()) return false;
   try {
     const { supabase } = await import("@/integrations/supabase/client");
     const { data, error } = await supabase.auth.signInWithPassword({

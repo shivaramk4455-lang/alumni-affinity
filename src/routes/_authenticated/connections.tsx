@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/connections")({
   component: Connections,
 });
 
-type Tab = "received" | "sent" | "mutual";
+type Tab = "received" | "sent" | "accepted" | "declined";
 
 function Connections() {
   const qc = useQueryClient();
@@ -85,6 +85,9 @@ function Connections() {
   const sent = all.filter(
     (i) => i.sender_id === myId && i.status !== "accepted" && i.status !== "blocked",
   );
+  const mutual = all.filter(
+    (i) => i.status === "accepted" && (i.sender_id === myId || i.recipient_id === myId),
+  );
   const mutualIds = all
     .filter((i) => i.status === "accepted" && (i.sender_id === myId || i.recipient_id === myId))
     .map((i) => (i.sender_id === myId ? i.recipient_id : i.sender_id));
@@ -92,6 +95,17 @@ function Connections() {
   const contacts = useRevealedContacts(mutualIds);
   const contactById = new Map((contacts.data ?? []).map((c) => [c.profile_id, c]));
   const person = (id: string) => (people.data ?? []).find((p) => p.id === id);
+  // Declined and withdrawn sit in their own folder rather than hiding inside
+  // Sent: the decision is the whole story of that row (who, what happened),
+  // and a visible historical record is a trust signal for a directory asking
+  // for money. Terminal by design — no actions live here.
+  const declined = all.filter(
+    (i) =>
+      (i.status === "declined" || i.status === "withdrawn" || i.status === "expired") &&
+      (i.sender_id === myId || i.recipient_id === myId),
+  );
+  const rows =
+    tab === "received" ? received : tab === "sent" ? sent : tab === "accepted" ? mutual : declined;
 
   const act = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -114,11 +128,6 @@ function Connections() {
     },
   });
 
-  const mutual = all.filter(
-    (i) => i.status === "accepted" && (i.sender_id === myId || i.recipient_id === myId),
-  );
-  const rows = tab === "received" ? received : tab === "sent" ? sent : mutual;
-
   /**
    * Only the row actually being acted on should go busy. Disabling every
    * button made the whole page look frozen and hid which introduction the
@@ -129,7 +138,8 @@ function Connections() {
   const tabs: { key: Tab; label: string; count: number }[] = [
     { key: "received", label: "Received", count: received.length },
     { key: "sent", label: "Sent", count: sent.length },
-    { key: "mutual", label: "Accepted", count: mutual.length },
+    { key: "accepted", label: "Accepted", count: mutual.length },
+    { key: "declined", label: "Declined", count: declined.length },
   ];
 
   return (
@@ -143,7 +153,7 @@ function Connections() {
       </p>
 
       <div
-        className="mt-8 grid grid-cols-3 border border-border p-1"
+        className="mt-8 grid grid-cols-2 border border-border p-1 sm:grid-cols-4"
         role="tablist"
         aria-label="Introduction folders"
       >
@@ -253,7 +263,9 @@ function Connections() {
                 ? "You will see interest from verified members here."
                 : tab === "sent"
                   ? "Introductions you send will appear here."
-                  : "Accepted introductions unlock contact details."}
+                  : tab === "accepted"
+                    ? "Accepted introductions unlock contact details."
+                    : "Declined and withdrawn introductions stay on record here."}
             </p>
             <Button asChild variant="outline" className="mt-6">
               <Link to="/members">Search members</Link>
@@ -392,7 +404,18 @@ function Connections() {
                       {pendingId === i.id ? "Sending…" : "Send again"}
                     </Button>
                   )}
-                {tab === "mutual" && (
+                {tab === "declined" && (
+                  <p className="mt-5 text-sm leading-6 text-muted-foreground">
+                    {i.status === "declined" &&
+                      (i.sender_id === myId
+                        ? "They passed on this introduction. The decision stands."
+                        : "You declined this introduction. The decision stands.")}
+                    {i.status === "withdrawn" &&
+                      "This introduction was withdrawn before it was answered."}
+                    {i.status === "expired" && "This introduction expired without an answer."}
+                  </p>
+                )}
+                {tab === "accepted" && (
                   <div className="mt-5 space-y-3 border-t border-border pt-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       {/* A LinkedIn URL is a long unbroken string and was the
