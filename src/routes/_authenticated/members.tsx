@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useDismissedIds } from "@/lib/dismissals";
 import { supabase } from "@/integrations/supabase/client";
 import { SEARCH_COLUMNS } from "@/lib/profile-columns";
 import {
@@ -122,6 +123,11 @@ function Members() {
     },
   });
 
+  // "Not for me" profiles. Deliberately not part of `enabled` below: a failed
+  // dismissal read would otherwise block the directory entirely, which trades
+  // search availability for a filter that can be wrong only in a transient way.
+  const dismissed = useDismissedIds(!!me.data);
+
   const saved = useQuery({
     queryKey: ["saved"],
     enabled: !!me.data,
@@ -136,7 +142,7 @@ function Members() {
   // and pauses; the reporter's own blocks are excluded client-side below, so
   // rows + count stay in agreement. (Blocks are NOT an RLS clause: filtering
   // them in the policy would corrupt the page count — see migration 20261010.)
-  const hidden = blocked.data ?? [];
+  const hidden = [...new Set([...(blocked.data ?? []), ...(dismissed.data ?? [])])];
   const blockedKey = [...hidden].sort().join(",");
   const savedIds = saved.data ?? [];
   const savedKey = [...savedIds].sort().join(",");

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { startDemoSessionClient } from "@/lib/demo-access-dev";
 import { useAuth } from "@/hooks/use-auth";
 import { startDemoSession } from "@/lib/demo-access.functions";
 
@@ -532,17 +531,15 @@ function AuthPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  // Server path mints the shared guest account; in local dev the
-                  // service-role key is absent, so fall back to signing straight
-                  // into the account that already exists (dev-only).
-                  try {
-                    const tokens = await startDemoSession();
-                    await supabase.auth.setSession(tokens);
-                  } catch {
-                    if (!(await startDemoSessionClient())) {
-                      toast.error("Guest preview is unavailable right now.");
-                    }
-                  }
+                  // Server-minted only: a client sign-in would put the guest
+                  // password in the browser, and Vite inlines every VITE_*
+                  // value into the public bundle.
+                  const tokens = await startDemoSession();
+                  await supabase.auth.setSession(tokens);
+                } catch {
+                  toast.error(
+                    "Guest preview is unavailable right now. It needs the local guest secrets configured.",
+                  );
                 } finally {
                   setBusy(false);
                 }

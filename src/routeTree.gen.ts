@@ -18,6 +18,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedCallsRouteImport } from './routes/_authenticated/calls'
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedCopilotsRouteImport } from './routes/_authenticated/copilots'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -75,6 +76,11 @@ const TermsRoute = TermsRouteImport.update({
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCallsRoute = AuthenticatedCallsRouteImport.update({
+  id: '/calls',
+  path: '/calls',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConnectionsRoute =
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/standards': typeof StandardsRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/calls': typeof AuthenticatedCallsRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/copilots': typeof AuthenticatedCopilotsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/standards': typeof StandardsRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/calls': typeof AuthenticatedCallsRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/copilots': typeof AuthenticatedCopilotsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/standards': typeof StandardsRoute
   '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/calls': typeof AuthenticatedCallsRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/copilots': typeof AuthenticatedCopilotsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/standards'
     | '/terms'
     | '/admin'
+    | '/calls'
     | '/connections'
     | '/copilots'
     | '/dashboard'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/standards'
     | '/terms'
     | '/admin'
+    | '/calls'
     | '/connections'
     | '/copilots'
     | '/dashboard'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/standards'
     | '/terms'
     | '/_authenticated/admin'
+    | '/_authenticated/calls'
     | '/_authenticated/connections'
     | '/_authenticated/copilots'
     | '/_authenticated/dashboard'
@@ -378,6 +390,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/calls': {
+      id: '/_authenticated/calls'
+      path: '/calls'
+      fullPath: '/calls'
+      preLoaderRoute: typeof AuthenticatedCallsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/connections': {
@@ -494,6 +513,7 @@ const AuthenticatedMembersRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedCallsRoute: typeof AuthenticatedCallsRoute
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedCopilotsRoute: typeof AuthenticatedCopilotsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -511,6 +531,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedCallsRoute: AuthenticatedCallsRoute,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedCopilotsRoute: AuthenticatedCopilotsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,

@@ -757,6 +757,42 @@ export type Database = {
           },
         ]
       }
+      profile_dismissals: {
+        Row: {
+          created_at: string
+          dismissed_id: string
+          dismisser_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_id: string
+          dismisser_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_id?: string
+          dismisser_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_dismissals_dismissed_id_fkey"
+            columns: ["dismissed_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_dismissals_dismisser_id_fkey"
+            columns: ["dismisser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_photos: {
         Row: {
           created_at: string

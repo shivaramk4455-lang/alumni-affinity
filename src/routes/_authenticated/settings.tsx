@@ -32,6 +32,7 @@ import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/acces
 import { PhotoGalleryManager } from "@/components/photo-gallery";
 import { useDecidePhotoRequest, useIncomingPhotoRequests } from "@/lib/photo-requests";
 import { profileCompleteness } from "@/lib/profile-completeness";
+import { useDismissedIds, useRestoreProfile } from "@/lib/dismissals";
 
 import {
   inr,
@@ -282,6 +283,22 @@ function Settings() {
   // Photograph consent: incoming requests for the owner to allow or decline.
   const photoRequests = useIncomingPhotoRequests();
   const decidePhoto = useDecidePhotoRequest();
+
+  // "Not for me" profiles, so a private dismissal has one place to be undone.
+  const dismissedIds = useDismissedIds();
+  const restoreProfile = useRestoreProfile();
+  const dismissedPeople = useQuery({
+    queryKey: ["dismissed-people", (dismissedIds.data ?? []).join(",")],
+    enabled: dismissedIds.isSuccess && (dismissedIds.data?.length ?? 0) > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, profession, city")
+        .in("id", dismissedIds.data ?? []);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const plans = usePlans();
   const subscription = useMySubscription();
@@ -622,6 +639,73 @@ function Settings() {
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-6 border border-border bg-card p-6 md:p-8">
+        <h2 className="font-serif text-2xl font-semibold">Hidden from search</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Profiles you chose <em>Not for me</em>. They are never told, and nothing about any
+          introduction changes — restore one and it reappears in your next search.
+        </p>
+
+        {dismissedIds.isError ? (
+          <p role="alert" className="mt-5 text-sm text-destructive">
+            This list could not be loaded — hidden profiles are still being filtered.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void dismissedIds.refetch()}
+              disabled={dismissedIds.isFetching}
+            >
+              {dismissedIds.isFetching ? "Retrying…" : "Retry"}
+            </button>
+          </p>
+        ) : dismissedIds.isLoading ? (
+          <div className="mt-5 grid gap-3" aria-busy="true">
+            <span className="sr-only">Loading hidden profiles…</span>
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : !(dismissedIds.data?.length ?? 0) ? (
+          <p className="mt-5 text-sm text-muted-foreground">
+            Nothing hidden. Use <em>Not for me</em> on a profile to keep it out of your search.
+          </p>
+        ) : (
+          <ul className="mt-5 divide-y divide-border border border-border">
+            {(dismissedPeople.data ?? []).map((p) => {
+              const restoring = restoreProfile.isPending && restoreProfile.variables === p.id;
+              return (
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-medium">{p.full_name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {[p.profession, p.city].filter(Boolean).join(" · ") || "Member"}
+                    </span>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={restoreProfile.isPending}
+                    onClick={() => restoreProfile.mutate(p.id)}
+                    aria-label={`Show ${p.full_name} in your search again`}
+                  >
+                    {restoring ? "Restoring…" : "Show again"}
+                  </Button>
+                </li>
+              );
+            })}
+            {dismissedIds.data?.some(
+              (id) => !(dismissedPeople.data ?? []).some((p) => p.id === id),
+            ) && (
+              <li className="p-4 text-xs text-muted-foreground">
+                Some hidden profiles could not be named, so they are not listed. Their dismissal
+                still applies.
+              </li>
+            )}
           </ul>
         )}
       </section>

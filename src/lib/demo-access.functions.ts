@@ -5,15 +5,23 @@ const DEMO_EMAIL = "guest.demo@meritcircle.example";
 /**
  * Guest preview: ensures one shared, verified demo member exists and returns a
  * session for it. The password never leaves the server.
+ *
+ * SECURITY: the password is an operator-supplied secret, never derived from
+ * anything public. It previously came from a formula over the project URL, which
+ * is public, so the credential was reconstructible by anyone reading the client
+ * bundle. Requiring `DEMO_GUEST_PASSWORD` means no usable secret exists unless
+ * an operator deliberately sets one.
  */
-// DEV-ONLY entry point. Also enforces the bypass guard server-side, so an
-// accidental client import can never mint a guest session from production.
 export const startDemoSession = createServerFn({ method: "POST" }).handler(async () => {
+  // Local/CI only: a deployed server refuses outright, so the demo path cannot
+  // become a production sign-in even if this module is reached.
   if (process.env["NODE_ENV"] === "production") {
     throw new Error("Guest preview is unavailable right now.");
   }
+  const password = process.env["DEMO_GUEST_PASSWORD"];
+  if (!password) throw new Error("Guest preview is not configured.");
+
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const password = `Demo-${process.env["SUPABASE_URL"]?.slice(8, 20) ?? "circle"}-Guest!2026`;
 
   const { error: createError } = await supabaseAdmin.auth.admin.createUser({
     email: DEMO_EMAIL,

@@ -38,6 +38,7 @@ const memberNav = [
   { to: "/members", label: "Search" },
   { to: "/connections", label: "Introductions" },
   { to: "/messages", label: "Messages" },
+  { to: "/calls", label: "Calls" },
   { to: "/shortlist", label: "Shortlist" },
   { to: "/notifications", label: "Notifications" },
   { to: "/copilots", label: "Co-pilots" },
@@ -50,6 +51,7 @@ const adminNav = [
   { to: "/members", label: "Search" },
   { to: "/connections", label: "Introductions" },
   { to: "/messages", label: "Messages" },
+  { to: "/calls", label: "Calls" },
   { to: "/shortlist", label: "Shortlist" },
   { to: "/notifications", label: "Notifications" },
   { to: "/copilots", label: "Co-pilots" },
@@ -432,15 +434,16 @@ export function SiteHeader() {
   const me = useMyProfile();
   const nav = user ? (me.data?.is_admin ? adminNav : memberNav) : publicNav;
   /**
-   * Split the nav for the inline row. Four daily destinations stay visible —
-   * every listed item is checked at 1280px and above — and the rest go behind
-   * "More", so the bell, email and Sign out keep their place on the row.
+   * Split the nav for the inline row. Five daily destinations stay visible —
+   * checked at 1280px and above — and the rest go behind "More", so the bell,
+   * email and Sign out keep their place on the row.
    */
   const primaryNav: NavItem[] = nav.filter((i): i is NavItem =>
-    ["Home", "Search", "Introductions", "Messages"].includes(i.label),
+    ["Home", "Search", "Introductions", "Messages", "Calls"].includes(i.label),
   );
   const overflowNav: NavItem[] = nav.filter(
-    (i): i is NavItem => !["Home", "Search", "Introductions", "Messages"].includes(i.label),
+    (i): i is NavItem =>
+      !["Home", "Search", "Introductions", "Messages", "Calls"].includes(i.label),
   );
 
   async function signOut() {

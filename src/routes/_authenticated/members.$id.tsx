@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,6 +9,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Check,
+  EyeOff,
   Flag,
   Heart,
   Mail,
@@ -32,6 +33,7 @@ import { formatHeight } from "@/lib/profile-options";
 import { PhotoSlideshow } from "@/components/photo-gallery";
 import { useMemberGallery } from "@/lib/gallery";
 import { useMyPhotoRequest, useRequestPhoto } from "@/lib/photo-requests";
+import { useDismissProfile } from "@/lib/dismissals";
 
 export const Route = createFileRoute("/_authenticated/members/$id")({
   head: () => ({
@@ -51,6 +53,7 @@ export const Route = createFileRoute("/_authenticated/members/$id")({
 
 function MemberProfile() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [note, setNote] = useState("");
   const [openInterest, setOpenInterest] = useState(false);
@@ -224,6 +227,13 @@ function MemberProfile() {
     },
     onError: () => toast.error("Could not share this suggestion. It may already be on their list."),
   });
+
+  /**
+   * Private, one-way dismissal — deliberately NOT a report (desk alert) and NOT
+   * a block (terminal, ends the introduction). Nothing reaches the other
+   * member in either direction, and Settings undoes it.
+   */
+  const dismiss = useDismissProfile();
 
   const report = useMutation({
     mutationFn: async () => {
@@ -745,16 +755,32 @@ function MemberProfile() {
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-self-start text-muted-foreground"
-                  onClick={() => setOpenReport(true)}
-                  aria-expanded={openReport}
-                  aria-controls="report-reason"
-                >
-                  <Flag /> Report profile
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={dismiss.isPending}
+                    onClick={() =>
+                      dismiss.mutate(id, {
+                        onSuccess: () => navigate({ to: "/members" }),
+                      })
+                    }
+                    aria-label={`Hide ${data.full_name ?? "this member"} from your search`}
+                  >
+                    <EyeOff className="size-4" />
+                    {dismiss.isPending ? "Hiding…" : "Not for me"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => setOpenReport(true)}
+                    aria-expanded={openReport}
+                    aria-controls="report-reason"
+                  >
+                    <Flag /> Report profile
+                  </Button>
+                </div>
               )}
             </section>
           )}
