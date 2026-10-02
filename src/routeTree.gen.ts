@@ -25,6 +25,7 @@ import { Route as AuthenticatedMembersRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedShortlistRouteImport } from './routes/_authenticated/shortlist'
 import { Route as AuthenticatedVerificationRouteImport } from './routes/_authenticated/verification'
 import { Route as AuthenticatedCallCallIdRouteImport } from './routes/_authenticated/call.$callId'
 import { Route as AuthenticatedCopilotInviteCodeRouteImport } from './routes/_authenticated/copilot-invite.$code'
@@ -113,6 +114,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedShortlistRoute = AuthenticatedShortlistRouteImport.update({
+  id: '/shortlist',
+  path: '/shortlist',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedVerificationRoute =
   AuthenticatedVerificationRouteImport.update({
     id: '/verification',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/shortlist': typeof AuthenticatedShortlistRoute
   '/verification': typeof AuthenticatedVerificationRoute
   '/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/copilot-invite/$code': typeof AuthenticatedCopilotInviteCodeRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/shortlist': typeof AuthenticatedShortlistRoute
   '/verification': typeof AuthenticatedVerificationRoute
   '/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/copilot-invite/$code': typeof AuthenticatedCopilotInviteCodeRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/shortlist': typeof AuthenticatedShortlistRoute
   '/_authenticated/verification': typeof AuthenticatedVerificationRoute
   '/_authenticated/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/_authenticated/copilot-invite/$code': typeof AuthenticatedCopilotInviteCodeRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/onboarding'
     | '/settings'
+    | '/shortlist'
     | '/verification'
     | '/call/$callId'
     | '/copilot-invite/$code'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/onboarding'
     | '/settings'
+    | '/shortlist'
     | '/verification'
     | '/call/$callId'
     | '/copilot-invite/$code'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/_authenticated/notifications'
     | '/_authenticated/onboarding'
     | '/_authenticated/settings'
+    | '/_authenticated/shortlist'
     | '/_authenticated/verification'
     | '/_authenticated/call/$callId'
     | '/_authenticated/copilot-invite/$code'
@@ -417,6 +429,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/shortlist': {
+      id: '/_authenticated/shortlist'
+      path: '/shortlist'
+      fullPath: '/shortlist'
+      preLoaderRoute: typeof AuthenticatedShortlistRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/verification': {
       id: '/_authenticated/verification'
       path: '/verification'
@@ -482,6 +501,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedShortlistRoute: typeof AuthenticatedShortlistRoute
   AuthenticatedVerificationRoute: typeof AuthenticatedVerificationRoute
   AuthenticatedCallCallIdRoute: typeof AuthenticatedCallCallIdRoute
   AuthenticatedCopilotInviteCodeRoute: typeof AuthenticatedCopilotInviteCodeRoute
@@ -498,6 +518,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedShortlistRoute: AuthenticatedShortlistRoute,
   AuthenticatedVerificationRoute: AuthenticatedVerificationRoute,
   AuthenticatedCallCallIdRoute: AuthenticatedCallCallIdRoute,
   AuthenticatedCopilotInviteCodeRoute: AuthenticatedCopilotInviteCodeRoute,
