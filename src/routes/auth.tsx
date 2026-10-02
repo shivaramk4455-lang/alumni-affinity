@@ -7,10 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { startDemoSessionClient } from "@/lib/demo-access-dev";
 import { useAuth } from "@/hooks/use-auth";
 import { startDemoSession } from "@/lib/demo-access.functions";
 
-const searchSchema = z.object({ redirect: z.string().optional() });
+const searchSchema = z.object({
+  redirect: z.string().optional(),
+  // Lets a navbar CTA land on a specific tab (e.g. "Become a member" -> signup).
+  mode: z.enum(["signin", "signup", "reset"]).optional(),
+});
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s) => searchSchema.parse(s),
@@ -67,10 +72,10 @@ function parseRedirect(raw: string | undefined): { pathname: string; search: str
 }
 
 function AuthPage() {
-  const { redirect } = Route.useSearch();
+  const { redirect, mode: modeParam } = Route.useSearch();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">(modeParam ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -527,10 +532,17 @@ function AuthPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const tokens = await startDemoSession();
-                  await supabase.auth.setSession(tokens);
-                } catch {
-                  toast.error("Guest preview is unavailable right now.");
+                  // Server path mints the shared guest account; in local dev the
+                  // service-role key is absent, so fall back to signing straight
+                  // into the account that already exists (dev-only).
+                  try {
+                    const tokens = await startDemoSession();
+                    await supabase.auth.setSession(tokens);
+                  } catch {
+                    if (!(await startDemoSessionClient())) {
+                      toast.error("Guest preview is unavailable right now.");
+                    }
+                  }
                 } finally {
                   setBusy(false);
                 }

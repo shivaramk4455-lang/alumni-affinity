@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { GraduationCap, MapPin, Search, ShieldCheck, UserRound, UsersRound } from "lucide-react";
@@ -47,6 +47,14 @@ const PAGE_SIZE = 24;
 const year = new Date().getFullYear();
 
 function Members() {
+  const matchRoute = useMatchRoute();
+  /**
+   * `/members/$id` is a CHILD of this route in the file-based tree, so this
+   * component is its parent and must hand rendering over to it. Without this,
+   * opening a profile showed the search list under a "Member profile" title:
+   * the child's head() applied, but its component was never mounted.
+   */
+  const onProfilePage = !!matchRoute({ to: "/members/$id" });
   const [q, setQ] = useState("");
   const [inst, setInst] = useState("");
   const [reloc, setReloc] = useState("");
@@ -153,6 +161,7 @@ function Members() {
       savedKey,
     ],
     enabled:
+      !onProfilePage &&
       !!me.data &&
       (me.data.verification_status === "verified" || isCopilot) &&
       blocked.isSuccess &&
@@ -214,6 +223,10 @@ function Members() {
   function resetPage() {
     setPage(0);
   }
+
+  // The profile route is this route's child: render it, don't draw the search
+  // screen around it. Checked after every hook above so hook order is stable.
+  if (onProfilePage) return <Outlet />;
 
   if (me.data && !me.data.onboarded && !isCopilot) {
     return (

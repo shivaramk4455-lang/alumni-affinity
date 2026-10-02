@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
+import { startDemoSessionClient } from "@/lib/demo-access-dev";
 import { startDemoSession } from "@/lib/demo-access.functions";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -10,7 +11,14 @@ export const Route = createFileRoute("/_authenticated")({
     if (data.user) return { user: data.user };
     // Demo bypass: signed-out visitors are signed in to the shared guest account.
     // Remove before real members join.
+    //
+    // In local dev the service-role key is absent, so the server path throws;
+    // the client fallback below signs into that same account directly.
     try {
+      if (import.meta.env.DEV && (await startDemoSessionClient())) {
+        const { data: s } = await supabase.auth.getUser();
+        if (s.user) return { user: s.user };
+      }
       const tokens = await startDemoSession();
       const { data: s } = await supabase.auth.setSession(tokens);
       if (s.user) {

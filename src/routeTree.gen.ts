@@ -29,6 +29,7 @@ import { Route as AuthenticatedVerificationRouteImport } from './routes/_authent
 import { Route as AuthenticatedCallCallIdRouteImport } from './routes/_authenticated/call.$callId'
 import { Route as AuthenticatedCopilotInviteCodeRouteImport } from './routes/_authenticated/copilot-invite.$code'
 import { Route as AuthenticatedMembersIdRouteImport } from './routes/_authenticated/members.$id'
+import { Route as AuthenticatedMessagesIndexRouteImport } from './routes/_authenticated/messages.index'
 import { Route as AuthenticatedMessagesInterestIdRouteImport } from './routes/_authenticated/messages.$interestId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -134,6 +135,12 @@ const AuthenticatedMembersIdRoute = AuthenticatedMembersIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AuthenticatedMembersRoute,
 } as any)
+const AuthenticatedMessagesIndexRoute =
+  AuthenticatedMessagesIndexRouteImport.update({
+    id: '/messages/',
+    path: '/messages/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMessagesInterestIdRoute =
   AuthenticatedMessagesInterestIdRouteImport.update({
     id: '/messages/$interestId',
@@ -162,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/copilot-invite/$code': typeof AuthenticatedCopilotInviteCodeRoute
   '/members/$id': typeof AuthenticatedMembersIdRoute
   '/messages/$interestId': typeof AuthenticatedMessagesInterestIdRoute
+  '/messages/': typeof AuthenticatedMessagesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -184,6 +192,7 @@ export interface FileRoutesByTo {
   '/copilot-invite/$code': typeof AuthenticatedCopilotInviteCodeRoute
   '/members/$id': typeof AuthenticatedMembersIdRoute
   '/messages/$interestId': typeof AuthenticatedMessagesInterestIdRoute
+  '/messages': typeof AuthenticatedMessagesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -208,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/copilot-invite/$code': typeof AuthenticatedCopilotInviteCodeRoute
   '/_authenticated/members/$id': typeof AuthenticatedMembersIdRoute
   '/_authenticated/messages/$interestId': typeof AuthenticatedMessagesInterestIdRoute
+  '/_authenticated/messages/': typeof AuthenticatedMessagesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/copilot-invite/$code'
     | '/members/$id'
     | '/messages/$interestId'
+    | '/messages/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/copilot-invite/$code'
     | '/members/$id'
     | '/messages/$interestId'
+    | '/messages'
   id:
     | '__root__'
     | '/'
@@ -277,6 +289,7 @@ export interface FileRouteTypes {
     | '/_authenticated/copilot-invite/$code'
     | '/_authenticated/members/$id'
     | '/_authenticated/messages/$interestId'
+    | '/_authenticated/messages/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -432,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembersIdRouteImport
       parentRoute: typeof AuthenticatedMembersRoute
     }
+    '/_authenticated/messages/': {
+      id: '/_authenticated/messages/'
+      path: '/messages'
+      fullPath: '/messages/'
+      preLoaderRoute: typeof AuthenticatedMessagesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/messages/$interestId': {
       id: '/_authenticated/messages/$interestId'
       path: '/messages/$interestId'
@@ -466,6 +486,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCallCallIdRoute: typeof AuthenticatedCallCallIdRoute
   AuthenticatedCopilotInviteCodeRoute: typeof AuthenticatedCopilotInviteCodeRoute
   AuthenticatedMessagesInterestIdRoute: typeof AuthenticatedMessagesInterestIdRoute
+  AuthenticatedMessagesIndexRoute: typeof AuthenticatedMessagesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -481,6 +502,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCallCallIdRoute: AuthenticatedCallCallIdRoute,
   AuthenticatedCopilotInviteCodeRoute: AuthenticatedCopilotInviteCodeRoute,
   AuthenticatedMessagesInterestIdRoute: AuthenticatedMessagesInterestIdRoute,
+  AuthenticatedMessagesIndexRoute: AuthenticatedMessagesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

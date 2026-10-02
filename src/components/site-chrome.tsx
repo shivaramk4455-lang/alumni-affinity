@@ -17,15 +17,17 @@ import { notificationDestination } from "@/lib/safe-link";
 const publicNav = [
   { to: "/", label: "Membership" },
   { to: "/apply", label: "How to apply" },
-  // Honest label for a member-only page: a logged-out click goes to sign-in
-  // and returns here afterwards. The old "Verification preview" wording
-  // promised a look before sign-in that the route could not deliver.
-  { to: "/verification", label: "Verification" },
+  // Verification is a member-only route, so a logged-out click bounced to
+  // sign-in and looked identical to "Sign in". This points at the real
+  // standards/verification section on the home page instead, so the item
+  // shows something of its own.
+  { to: "/", label: "Verification", hash: "verification" },
 ] as const;
 const memberNav = [
   { to: "/dashboard", label: "Home" },
   { to: "/members", label: "Search" },
   { to: "/connections", label: "Introductions" },
+  { to: "/messages", label: "Messages" },
   { to: "/notifications", label: "Notifications" },
   { to: "/copilots", label: "Co-pilots" },
   { to: "/verification", label: "Verification" },
@@ -36,6 +38,7 @@ const adminNav = [
   { to: "/dashboard", label: "Home" },
   { to: "/members", label: "Search" },
   { to: "/connections", label: "Introductions" },
+  { to: "/messages", label: "Messages" },
   { to: "/notifications", label: "Notifications" },
   { to: "/copilots", label: "Co-pilots" },
   { to: "/verification", label: "Verification" },
@@ -378,9 +381,13 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-6 md:flex" aria-label="Primary navigation">
           {nav.map((item) => (
             <Link
-              key={item.to}
+              key={item.label}
               to={item.to}
-              activeOptions={{ exact: item.to === "/" }}
+              {...("hash" in item ? { hash: item.hash } : {})}
+              activeOptions={{
+                exact: item.to === "/" && !("hash" in item),
+                includeHash: "hash" in item,
+              }}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               activeProps={{ className: "text-foreground" }}
             >
@@ -407,7 +414,7 @@ export function SiteHeader() {
                   Sign in
                 </Link>
                 <Button asChild size="lg">
-                  <Link to="/auth">
+                  <Link to="/auth" search={{ mode: "signup" }}>
                     Become a member <ArrowUpRight />
                   </Link>
                 </Button>
@@ -436,8 +443,9 @@ export function SiteHeader() {
           <div className="mx-auto grid max-w-7xl gap-1">
             {nav.map((item) => (
               <Link
-                key={item.to}
+                key={item.label}
                 to={item.to}
+                {...("hash" in item ? { hash: item.hash } : {})}
                 className="border-b border-border py-3 text-sm font-medium"
                 onClick={() => setOpen(false)}
               >

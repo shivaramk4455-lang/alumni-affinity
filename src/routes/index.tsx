@@ -155,7 +155,7 @@ function Index() {
         </div>
       </section>
 
-      <section className="border-b border-border px-5 py-16 md:px-8 md:py-24">
+      <section id="verification" className="border-b border-border px-5 py-16 md:px-8 md:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">
             <div>
