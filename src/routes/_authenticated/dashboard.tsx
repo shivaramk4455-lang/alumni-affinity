@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { verificationLabel } from "@/lib/profile-options";
+import { profileCompleteness } from "@/lib/profile-completeness";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -64,6 +65,8 @@ function DashboardPage() {
   const myId = p?.id;
   const firstName = p?.full_name?.split(" ")[0] || "there";
   const status = verificationLabel(p?.verification_status);
+  // Weighted so substance carries the score; see profile-completeness.ts.
+  const completeness = profileCompleteness(p);
   const all = interests.data ?? [];
   const received = all.filter((i) => i.recipient_id === myId && i.status === "pending").length;
   const accepted = all.filter(
@@ -107,6 +110,68 @@ function DashboardPage() {
         </div>
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <div className="space-y-6">
+            <section className="border border-border bg-card p-5 shadow-paper md:p-7">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-brass">
+                    Profile strength
+                  </p>
+                  <h2 className="mt-2 font-serif text-2xl font-semibold">
+                    {completeness.percent === 100
+                      ? "Your profile is complete"
+                      : `${completeness.percent}% complete`}
+                  </h2>
+                </div>
+                <span className="shrink-0 border border-brass bg-brass/10 px-2.5 py-1 text-xs font-semibold text-brass-strong">
+                  {completeness.percent}%
+                </span>
+              </div>
+
+              {/* A meter only a member can see: never shown to others, and the
+                  score is weighted so a photoless or silent profile cannot
+                  reach 100%. */}
+              <div
+                className="mt-7 h-1.5 overflow-hidden bg-muted"
+                role="progressbar"
+                aria-valuenow={completeness.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Profile completeness"
+              >
+                <div className="h-full bg-brass" style={{ width: `${completeness.percent}%` }} />
+              </div>
+
+              {completeness.missing.length === 0 ? (
+                <p className="mt-5 text-sm leading-6 text-muted-foreground">
+                  Nothing outstanding. Keep it current as things change.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-5 text-sm leading-6 text-muted-foreground">
+                    {completeness.missing.length === 1
+                      ? "One thing would strengthen your profile:"
+                      : `${completeness.missing.length} things would strengthen your profile:`}
+                  </p>
+                  <ul className="mt-4 grid gap-3">
+                    {completeness.missing.map((m) => (
+                      <li key={m.label} className="flex items-start gap-3 text-sm">
+                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brass" />
+                        <span className="min-w-0">
+                          <span className="font-medium text-foreground">{m.label}</span>
+                          <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                            {m.hint}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button asChild variant="outline" className="mt-5">
+                    <Link to="/onboarding">Edit your profile</Link>
+                  </Button>
+                </>
+              )}
+            </section>
+
             <section className="border border-border bg-card p-5 shadow-paper md:p-7">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
                 <div className="min-w-0">

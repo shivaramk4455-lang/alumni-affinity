@@ -31,6 +31,7 @@ import { GENDERS, INSTITUTIONS, PHOTO_VISIBILITY, RELOCATION } from "@/lib/profi
 import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/access-log";
 import { PhotoGalleryManager } from "@/components/photo-gallery";
 import { useDecidePhotoRequest, useIncomingPhotoRequests } from "@/lib/photo-requests";
+import { profileCompleteness } from "@/lib/profile-completeness";
 
 import {
   inr,
@@ -145,6 +146,8 @@ function Settings() {
 
   const me = useMyProfile();
   const p = me.data;
+  // Same weighted score as the dashboard, so the two never disagree.
+  const completeness = profileCompleteness(p);
 
   const prefs = useQuery({
     queryKey: ["partner-preferences"],
@@ -479,6 +482,13 @@ function Settings() {
               {p?.degree ? `${p.degree}, ` : ""}
               {p?.institution ? `${p.institution} · ` : ""}
               {p?.city || "Profile setup"}
+            </p>
+            {/* Weighted, same scorer as the dashboard. A count-based bar reaches
+                100% on a photoless profile, which would be a false all-clear. */}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Profile {completeness.percent}% complete
+              {completeness.missing.length > 0 &&
+                ` — next: ${completeness.missing[0]?.label ?? ""}`}
             </p>
           </div>
           <Button asChild variant="outline">
