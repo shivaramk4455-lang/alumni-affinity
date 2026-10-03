@@ -147,6 +147,26 @@ Run in this order; each step is verifiable on its own.
    `20261010000001_phase2_regression_assertions`, which *fails loudly* if any
    Phase-2 fix regressed. On a production database this also removes residual
    demo-directory rows (guarded, see README) and repairs the `my_profile` view.
+
+   Two migrations added since this checklist was written are **not applied on any
+   environment yet** and are required by features that are already merged:
+
+   | Migration | Enables |
+   |---|---|
+   | `20261017000000_photo_view_requests` | "Request photograph" (consent flow for `accepted_only`) |
+   | `20261018000000_profile_dismissals` | "Not for me" (private, reversible hide from search) |
+
+   Until they land, `/settings` reports "Requests could not be loaded" and
+   "Hidden from search" reports a load error. Both are the honest error states
+   working — not silent empties.
+
+   Link once, then push (the database password is prompted, never passed here):
+
+   ```sh
+   supabase link --project-ref <your-project-ref>
+   supabase db push
+   ```
+
 5. **Storage**: `profile-photos` and `verification-docs` both private, 10 MB,
    MIME-limited (§3).
 6. **Razorpay**: webhook URL + secret + the nine events (§6), then a live ₹1
@@ -154,11 +174,18 @@ Run in this order; each step is verifiable on its own.
    that an abandoned checkout does **not** show as a tier in Settings.
 7. **Desk**: appoint the first admin (§7) and the Grievance Officer details on
    `/grievance` (currently a marked placeholder).
-8. **Smoke tests**: signup → onboarding → verification submit → admin approve →
+8. **Guest preview account**: `guest.demo@meritcircle.example` is a real,
+   verified, onboarded account used for demos. Its password was previously
+   derivable from the project URL, which shipped in the public browser bundle —
+   treat it as **compromised**. Rotate it (Dashboard → Authentication → Users →
+   reset password) or delete the account before launch. The client can no longer
+   sign into it at all; only the server function can, and only with
+   `DEMO_GUEST_PASSWORD` set and `NODE_ENV` not production.
+9. **Smoke tests**: signup → onboarding → verification submit → admin approve →
    search → interest → accept → contact reveal → message → call → block → logout.
-9. **Cron**: `select * from cron.job;` shows `notify-dispatch` (`*/5`) and
-   `weekly-digest` (`30 6 * * 2`); manually `POST` `notify-dispatch` with the
-   `X-Cron-Secret` header and confirm `{"ok":true,...}`.
+10. **Cron**: `select * from cron.job;` shows `notify-dispatch` (`*/5`) and
+    `weekly-digest` (`30 6 * * 2`); manually `POST` `notify-dispatch` with the
+    `X-Cron-Secret` header and confirm `{"ok":true,...}`.
 
 ## 10. Rollback Plan
 
