@@ -41,32 +41,32 @@ Required environment: copy `.env.example` to `.env` and fill it in. `SUPABASE_UR
 
 Apply everything in `supabase/migrations/` in order:
 
-| Migration                              | What it adds                                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `2026092503*`                          | `profiles`, `interests`, `copilots`, recommendations, storage policies, `private.*` helpers                  |
-| `20260926000000_completion`            | buckets, `is_admin`, `reports`, `notifications`, co-pilot cap, verified-column guard                         |
-| `20260927000000_desk_review_hardening` | verification audit columns, `verification_rejected` outcome                                                  |
-| `20260927000100_seed_directory`        | curated demo directory (no `auth.users` counterparts)                                                        |
-| `20260927000200_saved_profiles`        | member shortlist                                                                                             |
-| `20260928000000_consent_hardening`     | introduction state machine, notification whitelisting, email-bound co-pilot invites, verified-only directory |
-| `20260928000100_private_fields`        | column grants, `my_profile` view, `reveal_contact(s)`, `desk_review_queue`, `desk_reports`                   |
-| `20260928000200_storage_and_integrity` | bucket size/MIME limits, foreign keys to `profiles` and `auth.users`                                         |
-| `20260930000000_gated_messaging`       | post-acceptance messaging: `conversations`, `messages`, realtime-safe RLS, `get_or_create_conversation()`    |
-| `20261001000000_calls`                 | P2P video calls: `calls`, `call_signals`, call-state guards, signal purge on end, `call_missed` inbox        |
-| `20261002000000_partner_preferences`   | `partner_preferences` (owner-only criteria: age band, gender, institutions, cities, relocation)              |
-| `20261003000000_pacing`                | 5-active quota, 14-day expiry + day-7 reminder, `expired` state, `interest_expired/_reminder` inbox          |
-| `20261004000000_dpdp_governance`       | append-only `consent_events` ledger, `record_consent()`, sabbatical pause, deletion-ready directory          |
-| `20261008000000_subscriptions`         | Razorpay tiers: `subscription_plans`, `subscriptions`, `entitlement()`, `record_intro_usage()`               |
-| `20261010000000_phase2_fix_batch`      | tier enforcement + `created` no longer entitles, `my_profile` repair, `blocked` state, server-side inbox rows, `sweep_stale_calls()` |
-| `20261010000001_phase2_regression_assertions` | fail-loud migrate-time assertions for the fixes above                                                 |
+| Migration                                     | What it adds                                                                                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `2026092503*`                                 | `profiles`, `interests`, `copilots`, recommendations, storage policies, `private.*` helpers                                          |
+| `20260926000000_completion`                   | buckets, `is_admin`, `reports`, `notifications`, co-pilot cap, verified-column guard                                                 |
+| `20260927000000_desk_review_hardening`        | verification audit columns, `verification_rejected` outcome                                                                          |
+| `20260927000100_seed_directory`               | curated demo directory (no `auth.users` counterparts)                                                                                |
+| `20260927000200_saved_profiles`               | member shortlist                                                                                                                     |
+| `20260928000000_consent_hardening`            | introduction state machine, notification whitelisting, email-bound co-pilot invites, verified-only directory                         |
+| `20260928000100_private_fields`               | column grants, `my_profile` view, `reveal_contact(s)`, `desk_review_queue`, `desk_reports`                                           |
+| `20260928000200_storage_and_integrity`        | bucket size/MIME limits, foreign keys to `profiles` and `auth.users`                                                                 |
+| `20260930000000_gated_messaging`              | post-acceptance messaging: `conversations`, `messages`, realtime-safe RLS, `get_or_create_conversation()`                            |
+| `20261001000000_calls`                        | P2P video calls: `calls`, `call_signals`, call-state guards, signal purge on end, `call_missed` inbox                                |
+| `20261002000000_partner_preferences`          | `partner_preferences` (owner-only criteria: age band, gender, institutions, cities, relocation)                                      |
+| `20261003000000_pacing`                       | 5-active quota, 14-day expiry + day-7 reminder, `expired` state, `interest_expired/_reminder` inbox                                  |
+| `20261004000000_dpdp_governance`              | append-only `consent_events` ledger, `record_consent()`, sabbatical pause, deletion-ready directory                                  |
+| `20261008000000_subscriptions`                | Razorpay tiers: `subscription_plans`, `subscriptions`, `entitlement()`, `record_intro_usage()`                                       |
+| `20261010000000_phase2_fix_batch`             | tier enforcement + `created` no longer entitles, `my_profile` repair, `blocked` state, server-side inbox rows, `sweep_stale_calls()` |
+| `20261010000001_phase2_regression_assertions` | fail-loud migrate-time assertions for the fixes above                                                                                |
 
 ### Paid tiers (as enforced — not just sold)
 
-| Tier        | Price / month | Introduction allowance          | Discovery pacing  |
-| ----------- | ------------- | ------------------------------- | ----------------- |
-| Free        | —             | 5 outstanding at any time       | 14-day expiry     |
-| Concierge   | ₹1,499        | 20 per billing month            | as free           |
-| Founder     | ₹3,999        | unlimited                       | as free           |
+| Tier      | Price / month | Introduction allowance    | Discovery pacing |
+| --------- | ------------- | ------------------------- | ---------------- |
+| Free      | —             | 5 outstanding at any time | 14-day expiry    |
+| Concierge | ₹1,499        | 20 per billing month      | as free          |
+| Founder   | ₹3,999        | unlimited                 | as free          |
 
 Enforcement lives in the database (`interests_allowance` trigger calling
 `public.entitlement()`), never in the browser, and an **unpaid checkout never
@@ -76,7 +76,7 @@ Change prices or allowances in `subscription_plans`; no code change is needed.
 
 > One product decision was made for you and is marked `SAFE DEFAULT` in
 > `20261010000000_phase2_fix_batch.sql`: the free tier keeps the 5-outstanding
-> pacing quota *and* paid allowances are monthly. Adjust both there if the
+> pacing quota _and_ paid allowances are monthly. Adjust both there if the
 > membership desk wants different numbers.
 
 ### Demo directory safety

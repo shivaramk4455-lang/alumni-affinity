@@ -16,6 +16,7 @@ dist-ssr
 .vinxi
 .tanstack/**
 .nitro
+.vercel
 *.local
 
 # Environment. Never commit keys — SUPABASE_SERVICE_ROLE_KEY goes here only.

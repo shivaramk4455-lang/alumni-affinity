@@ -18,16 +18,13 @@ const WEBHOOK_SECRET = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 
-const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
+// No CORS headers on this function: it is called only by Razorpay's servers,
+// never from a browser. Returning Access-Control-Allow-Origin: * would invite
+// browser-based probing; the HMAC signature check is the entire boundary.
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...CORS },
+    headers: { "content-type": "application/json" },
   });
 }
 
@@ -77,7 +74,7 @@ type InvoiceEntity = {
 const iso = (seconds?: number) => (seconds ? new Date(seconds * 1000).toISOString() : null);
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: CORS });
+  // Razorpay calls POST only; no browser preflight is expected.
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY || !WEBHOOK_SECRET) {
     return json({ error: "Server configuration error" }, 500);
@@ -92,14 +89,44 @@ serve(async (req) => {
     return json({ error: "Invalid signature" }, 401);
   }
 
-  let event: { event?: string; payload?: Record<string, unknown> };
+  let event: {
+    event?: string;
+    id?: string;
+    payload?: Record<string, unknown>;
+    created_at?: number;
+  };
   try {
     event = JSON.parse(raw);
   } catch {
     return json({ error: "Malformed body" }, 400);
   }
 
+  // Create the service-role client once and reuse throughout the handler.
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+  // F-02: Idempotency via event_id dedup.
+  // Razorpay signs only the body (no timestamp envelope), so a captured,
+  // validly-signed request is replayable indefinitely. We store the Razorpay
+  // event.id in a dedup table; any id we have seen before gets a 200
+  // immediately without touching the subscriptions table.
+  // The unique constraint on webhook_events.event_id turns a duplicate into
+  // a conflict; ON CONFLICT DO NOTHING means the insert is a no-op on replay.
+  const eventId = event.id ?? null;
+  if (eventId) {
+    const { error: dedupError } = await admin
+      .from("webhook_events")
+      .insert({ event_id: eventId, event_type: event.event ?? null });
+    if (dedupError) {
+      // error code 23505 = unique_violation: this event was already processed.
+      if (dedupError.code === "23505") {
+        console.info("razorpay-webhook: duplicate event_id, skipping", eventId);
+        return json({ ok: true, ignored: true, duplicate: true, event: event.event });
+      }
+      // Any other dedup error: log and continue rather than dropping the event.
+      console.warn("razorpay-webhook: dedup insert failed, continuing:", dedupError.message);
+    }
+  }
+
   const entity = (event.payload?.subscription?.entity ?? event.payload?.entity ?? {}) as
     SubscriptionEntity | InvoiceEntity;
   const rzpSubscriptionId =

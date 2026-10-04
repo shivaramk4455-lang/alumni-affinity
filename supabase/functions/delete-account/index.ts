@@ -83,16 +83,33 @@ serve(async (req) => {
     return json({ error: `Type "${CONFIRMATION}" to confirm deletion` }, 400);
   }
 
+  // F-10: Cooldown rate limit. Check if an account_deletion consent event was
+  // already attempted within the last 30 seconds to prevent hammer loops.
+  const { data: recentAttempts } = await admin
+    .from("consent_events")
+    .select("recorded_at")
+    .eq("user_id", user.id)
+    .eq("purpose", "account_deletion")
+    .gte("recorded_at", new Date(Date.now() - 30_000).toISOString())
+    .limit(1);
+
+  if (recentAttempts && recentAttempts.length > 0) {
+    return json({ error: "A deletion request is already processing. Please wait a moment." }, 429);
+  }
+
   // Record the request before anything is removed: the ledger row itself is
   // cascaded away with the profile, but it gives the desk a trail for the few
   // seconds the account still exists and survives a partial failure.
-  await admin.from("consent_events").insert({
+  const { error: consentErr } = await admin.from("consent_events").insert({
     user_id: user.id,
     purpose: "account_deletion",
     granted: true,
     policy_version: "2026-09",
     note: "Member-initiated deletion via settings",
   });
+  if (consentErr) {
+    console.warn("delete-account: consent insert warning:", consentErr.message);
+  }
 
   let objects = 0;
   for (const bucket of BUCKETS) {

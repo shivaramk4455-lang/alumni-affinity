@@ -70,7 +70,9 @@ const PUBLIC_SUPABASE_KEY =
   process.env["SUPABASE_PUBLISHABLE_KEY"] ||
   "sb_publishable_6lPH6KNKcSiWYBfFKjBDxQ_Fmzd29vv";
 const PUBLIC_SUPABASE_PROJECT_ID =
-  process.env["VITE_SUPABASE_PROJECT_ID"] || process.env["SUPABASE_PROJECT_ID"] || "eopcauzciqflikfdhmcj";
+  process.env["VITE_SUPABASE_PROJECT_ID"] ||
+  process.env["SUPABASE_PROJECT_ID"] ||
+  "eopcauzciqflikfdhmcj";
 
 // Server-side fallbacks (SSR + server functions read process.env).
 process.env["SUPABASE_URL"] ||= PUBLIC_SUPABASE_URL;

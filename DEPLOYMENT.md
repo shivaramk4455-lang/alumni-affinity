@@ -31,8 +31,9 @@ supabase db push
 ## 3. Storage Buckets Verification
 
 The migrations automatically configure private storage buckets with strict MIME types and 10MB limits:
-* `profile-photos`: `image/jpeg`, `image/png` (private)
-* `verification-docs`: `application/pdf`, `image/jpeg`, `image/png` (private)
+
+- `profile-photos`: `image/jpeg`, `image/png` (private)
+- `verification-docs`: `application/pdf`, `image/jpeg`, `image/png` (private)
 
 Verify in Supabase Dashboard under **Storage** that both buckets have **Public Bucket = OFF**.
 
@@ -78,7 +79,8 @@ supabase secrets set \
 > `notify-dispatch` and `weekly-digest` answer 500 to every caller including
 > pg_cron (fail-closed by design). `TURN_STATIC_SECRET` must match coturn's
 > `static-auth-secret` or minted credentials will not authenticate.
-```
+
+````
 
 ---
 
@@ -92,26 +94,26 @@ Run the following SQL snippet in the Supabase SQL Editor to register the HTTP we
 SELECT vault.create_secret('https://<your-project-id>.supabase.co', 'project_url');
 SELECT vault.create_secret('<your-service-role-key>', 'service_role_key');
 SELECT vault.create_secret('<same-random-value-as-CRON_SECRET>', 'cron_secret');
-```
+````
 
 ---
 
 ## 6. Razorpay Webhook Configuration
 
 1. In Razorpay Dashboard → **Settings** → **Webhooks**, add a new webhook:
-   * **Webhook URL:** `https://<your-project-id>.supabase.co/functions/v1/razorpay-webhook`
-   * **Secret:** (Set the same secret used in `RAZORPAY_WEBHOOK_SECRET` above)
-   * **Alert Email:** `compliance@themeritcircle.in`
-   * **Active Events:**
-     * `subscription.activated`
-     * `subscription.authenticated`
-     * `invoice.paid`
-     * `invoice.payment_failed`
-     * `subscription.pending`
-     * `subscription.halted`
-     * `subscription.cancelled`
-     * `subscription.completed`
-     * `subscription.expired`
+   - **Webhook URL:** `https://<your-project-id>.supabase.co/functions/v1/razorpay-webhook`
+   - **Secret:** (Set the same secret used in `RAZORPAY_WEBHOOK_SECRET` above)
+   - **Alert Email:** `compliance@themeritcircle.in`
+   - **Active Events:**
+     - `subscription.activated`
+     - `subscription.authenticated`
+     - `invoice.paid`
+     - `invoice.payment_failed`
+     - `subscription.pending`
+     - `subscription.halted`
+     - `subscription.cancelled`
+     - `subscription.completed`
+     - `subscription.expired`
 
 ---
 
@@ -120,10 +122,10 @@ SELECT vault.create_secret('<same-random-value-as-CRON_SECRET>', 'cron_secret');
 To designate an initial staff administrator for verification reviews, run:
 
 ```sql
-UPDATE public.profiles 
-   SET is_admin = true, 
-       verification_status = 'verified', 
-       onboarded = true 
+UPDATE public.profiles
+   SET is_admin = true,
+       verification_status = 'verified',
+       onboarded = true
  WHERE id = '<your-user-uuid>';
 ```
 
@@ -144,17 +146,17 @@ Run in this order; each step is verifiable on its own.
    `cron_secret` equal to `CRON_SECRET`, otherwise the two unattended functions
    answer 500 to pg_cron and no alert ever sends.
 4. **Migrations**: `supabase db push` — applies through
-   `20261010000001_phase2_regression_assertions`, which *fails loudly* if any
+   `20261010000001_phase2_regression_assertions`, which _fails loudly_ if any
    Phase-2 fix regressed. On a production database this also removes residual
    demo-directory rows (guarded, see README) and repairs the `my_profile` view.
 
    Two migrations added since this checklist was written are **not applied on any
    environment yet** and are required by features that are already merged:
 
-   | Migration | Enables |
-   |---|---|
+   | Migration                            | Enables                                                 |
+   | ------------------------------------ | ------------------------------------------------------- |
    | `20261017000000_photo_view_requests` | "Request photograph" (consent flow for `accepted_only`) |
-   | `20261018000000_profile_dismissals` | "Not for me" (private, reversible hide from search) |
+   | `20261018000000_profile_dismissals`  | "Not for me" (private, reversible hide from search)     |
 
    Until they land, `/settings` reports "Requests could not be loaded" and
    "Hidden from search" reports a load error. Both are the honest error states

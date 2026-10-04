@@ -13,9 +13,14 @@ const DEMO_EMAIL = "guest.demo@meritcircle.example";
  * an operator deliberately sets one.
  */
 export const startDemoSession = createServerFn({ method: "POST" }).handler(async () => {
-  // Local/CI only: a deployed server refuses outright, so the demo path cannot
-  // become a production sign-in even if this module is reached.
-  if (process.env["NODE_ENV"] === "production") {
+  // SECURITY: The demo path must never be reachable in a deployed environment
+  // unless the operator has explicitly set ENABLE_DEMO_MODE=true. Gating on
+  // NODE_ENV is insufficient because staging deployments can have NODE_ENV
+  // set to values other than 'production' (e.g. 'staging', 'test').
+  // Both checks must pass: ENABLE_DEMO_MODE must be 'true' AND NODE_ENV must
+  // not be 'production'. Either restriction alone can be misconfigured.
+  const demoEnabled = process.env["ENABLE_DEMO_MODE"] === "true";
+  if (!demoEnabled || process.env["NODE_ENV"] === "production") {
     throw new Error("Guest preview is unavailable right now.");
   }
   const password = process.env["DEMO_GUEST_PASSWORD"];

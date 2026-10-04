@@ -201,11 +201,16 @@ serve(async (req) => {
 
   // Anything still 'sending' past the stuck window is from a run that died
   // mid-flight. Re-queue it; the attempt counter makes the loss bounded.
+  // F-08: Check status_changed_at (migration 20261019000002) rather than
+  // created_at so a row claimed into 'sending' recently is not prematurely re-queued.
+  const stuckCutoff = new Date(Date.now() - STUCK_AFTER_MINUTES * 60_000).toISOString();
   await admin
     .from("notification_outbox")
     .update({ status: "queued" })
     .eq("status", "sending")
-    .lt("created_at", new Date(Date.now() - STUCK_AFTER_MINUTES * 60_000).toISOString());
+    .or(
+      `status_changed_at.lt.${stuckCutoff},and(status_changed_at.is.null,created_at.lt.${stuckCutoff})`,
+    );
 
   const body = (await req.json().catch(() => null)) as { limit?: number } | null;
   const limit = Math.max(1, Math.min(body?.limit ?? DEFAULT_BATCH, 100));

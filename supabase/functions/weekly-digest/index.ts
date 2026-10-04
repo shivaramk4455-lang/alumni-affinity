@@ -45,6 +45,7 @@ serve(async (req) => {
 
   // Opted-in, onboarded, still discoverable. A paused member is deliberately
   // excluded: they have opted out of being pursued, and a digest is pursuit.
+  // F-09: Track if recipients hit the limit to alert operators when paging is needed.
   const { data: recipients, error: recipientError } = await admin
     .from("notification_preferences")
     .select("user_id, digest_skip_when_empty")
@@ -52,17 +53,31 @@ serve(async (req) => {
     .limit(MAX_MEMBERS);
   if (recipientError) return json({ error: recipientError.message }, 500);
 
-  const { data: eligible } = await admin
-    .from("profiles")
-    .select("id")
-    .in(
-      "id",
-      (recipients ?? []).map((r) => r.user_id),
-    )
-    .eq("onboarded", true)
-    .eq("verification_status", "verified")
-    .is("paused_until", null);
-  const eligibleIds = new Set((eligible ?? []).map((p) => p.id));
+  const hasMore = (recipients?.length ?? 0) >= MAX_MEMBERS;
+  if (hasMore) {
+    console.warn(
+      `weekly-digest: MAX_MEMBERS (${MAX_MEMBERS}) reached. Keyset pagination recommended.`,
+    );
+  }
+
+  // F-09: Chunk ID queries in batches of 100 to prevent HTTP 414 (Request-URI Too Large)
+  // in PostgREST when querying large sets of UUIDs.
+  const recipientIds = (recipients ?? []).map((r) => r.user_id);
+  const eligibleIds = new Set<string>();
+  const CHUNK_SIZE = 100;
+
+  for (let i = 0; i < recipientIds.length; i += CHUNK_SIZE) {
+    const chunk = recipientIds.slice(i, i + CHUNK_SIZE);
+    const { data: eligibleChunk } = await admin
+      .from("profiles")
+      .select("id")
+      .in("id", chunk)
+      .eq("onboarded", true)
+      .eq("verification_status", "verified")
+      .is("paused_until", null);
+    for (const p of eligibleChunk ?? []) eligibleIds.add(p.id);
+  }
+
   const skipWhenEmpty = new Map(
     (recipients ?? []).map((r) => [r.user_id, r.digest_skip_when_empty !== false]),
   );
@@ -92,11 +107,14 @@ serve(async (req) => {
 
   // "New members in your city" needs each member's own city, so it is the one
   // figure that cannot come from a single shared aggregate.
-  const { data: audience } = await admin
-    .from("profiles")
-    .select("id, city")
-    .in("id", [...eligibleIds])
-    .limit(MAX_MEMBERS);
+  // Chunked in batches of 100 to protect against URL length limits.
+  const eligibleIdList = [...eligibleIds];
+  const audience: { id: string; city: string | null }[] = [];
+  for (let i = 0; i < eligibleIdList.length; i += CHUNK_SIZE) {
+    const chunk = eligibleIdList.slice(i, i + CHUNK_SIZE);
+    const { data: audienceChunk } = await admin.from("profiles").select("id, city").in("id", chunk);
+    if (audienceChunk) audience.push(...audienceChunk);
+  }
   const cityCount = new Map<string, number>();
   for (const p of newMembers.data ?? []) {
     if (p.city) cityCount.set(p.city, (cityCount.get(p.city) ?? 0) + 1);
@@ -140,7 +158,7 @@ serve(async (req) => {
     }
   }
 
-  return json({ ok: true, ...summary });
+  return json({ ok: true, has_more: hasMore, ...summary });
 });
 
 /** Count rows into a map keyed by the given column. */

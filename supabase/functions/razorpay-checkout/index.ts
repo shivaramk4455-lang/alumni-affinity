@@ -79,6 +79,51 @@ serve(async (req) => {
   // Retired tiers keep entitling their payers but are never sold again.
   if (!plan.sellable) return json({ error: "This tier is no longer offered" }, 403);
 
+  // F-07 & F-10: Check for existing subscriptions and guard duplicate in-flight checkouts.
+  // 1. Prevent subscribing if already on an active or authenticated tier.
+  // 2. Reuse recent (<15m) uncompleted 'created' checkout session for the same plan
+  //    to prevent spawning orphan Razorpay subscription objects.
+  // 3. Throttle requests made within 10 seconds of each other.
+  const { data: existingSubs } = await admin
+    .from("subscriptions")
+    .select("id, status, plan_code, razorpay_subscription_id, created_at")
+    .eq("user_id", user.id)
+    .in("status", ["active", "authenticated", "pending", "created"])
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (existingSubs && existingSubs.length > 0) {
+    const activeSub = existingSubs.find(
+      (s) => s.status === "active" || s.status === "authenticated",
+    );
+    if (activeSub) {
+      return json({ error: "You already have an active subscription" }, 409);
+    }
+
+    const mostRecent = existingSubs[0];
+    const ageMs = Date.now() - new Date(mostRecent.created_at).getTime();
+
+    // Throttling: if user created a checkout attempt < 10 seconds ago, rate limit
+    if (ageMs < 10_000) {
+      return json({ error: "Please wait a moment before starting another checkout" }, 429);
+    }
+
+    // Reuse recent in-flight session (<15 min) for the same plan
+    if (
+      mostRecent.status === "created" &&
+      mostRecent.plan_code === plan.code &&
+      ageMs < 15 * 60_000
+    ) {
+      return json({
+        key_id: RAZORPAY_KEY_ID,
+        subscription_id: mostRecent.razorpay_subscription_id,
+        plan_code: plan.code,
+        amount_paise: plan.amount_paise,
+        currency: plan.currency,
+      });
+    }
+  }
+
   // The price is looked up, never taken from the client: a browser that
   // posts { plan_code: 'founder', amount: 1 } buys founder at list price.
   let subscription: Record<string, unknown>;

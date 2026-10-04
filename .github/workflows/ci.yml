@@ -64,7 +64,7 @@ jobs:
           # build here is the release blocker doing its job, and it cannot be
           # bypassed by flipping `published` because the gate also rejects
           # bracketed placeholders and `.invalid` mailboxes.
-          REQUIRE_LEGAL_IDENTITY: '1'
+          REQUIRE_LEGAL_IDENTITY: "1"
 
   migration-assertions:
     name: SQL Migrations & Regressions Drill

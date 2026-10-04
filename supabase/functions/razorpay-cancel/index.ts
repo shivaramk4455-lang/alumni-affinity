@@ -104,13 +104,20 @@ serve(async (req) => {
   if (updateError) return json({ error: updateError.message }, 500);
 
   // Record consent audit entry for cancellation.
-  await admin.from("consent_events").insert({
+  // NOTE: purpose "subscription_cancellation" must exist in the
+  // consent_events_purpose_valid CHECK constraint (migration 20261019000000).
+  // We log the error and continue — blocking a cancellation because the audit
+  // ledger is unavailable is worse than a missing receipt.
+  const { error: consentError } = await admin.from("consent_events").insert({
     user_id: user.id,
     purpose: "subscription_cancellation",
     granted: true,
     policy_version: "2026-10",
     note: "Member scheduled subscription cancellation for end of billing cycle.",
   });
+  if (consentError) {
+    console.error("razorpay-cancel: consent receipt failed:", consentError.message);
+  }
 
   return json({
     ok: true,

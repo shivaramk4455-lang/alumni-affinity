@@ -352,6 +352,22 @@ function Settings() {
 
   const save = useMutation({
     mutationFn: async (patch: Database["public"]["Tables"]["profiles"]["Update"]) => {
+      // F-12: Validate the LinkedIn URL server-side before writing it.
+      // The field is rendered as text now, but any future <a href> must not
+      // accept javascript: or arbitrary URLs. We also reject non-LinkedIn
+      // domains so the field stays semantically correct.
+      if (patch.linkedin_url) {
+        const url = patch.linkedin_url.trim();
+        const ok =
+          url === "" ||
+          url.startsWith("https://linkedin.com/") ||
+          url.startsWith("https://www.linkedin.com/");
+        if (!ok) {
+          throw new Error(
+            "LinkedIn URL must start with https://linkedin.com/ or https://www.linkedin.com/",
+          );
+        }
+      }
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("profiles").update(patch).eq("id", u.user!.id);
       if (error) throw error;

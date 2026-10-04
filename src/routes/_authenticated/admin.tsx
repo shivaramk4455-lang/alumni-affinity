@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -28,6 +28,20 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  // F-04: Server-side admin guard — defence-in-depth on top of the per-RPC
+  // is_admin() checks. The RPC guards remain the real authority; this
+  // beforeLoad prevents the admin UI from rendering at all for non-admins
+  // rather than relying solely on a client-side boolean check.
+  //
+  // We read my_profile via the already-authenticated Supabase client; the
+  // result is not trusted for the actual data operations (those go through
+  // the RPCs), only for the redirect decision.
+  beforeLoad: async () => {
+    const { data, error } = await supabase.from("my_profile").select("is_admin").maybeSingle();
+    if (error || !data?.is_admin) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: Admin,
 });
 
@@ -297,7 +311,10 @@ function Admin() {
             ))}
           </div>
         ) : pending.error ? (
-          <p role="alert" className="border border-destructive/40 p-5 text-sm leading-6 text-destructive">
+          <p
+            role="alert"
+            className="border border-destructive/40 p-5 text-sm leading-6 text-destructive"
+          >
             Could not load the queue.{" "}
             <button
               type="button"
