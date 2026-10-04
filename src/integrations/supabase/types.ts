@@ -1467,7 +1467,7 @@ export type Database = {
         }[]
       }
       desk_review_queue: {
-        Args: never
+        Args: { _limit?: number; _offset?: number }
         Returns: {
           alumni_email: string
           city: string
