@@ -757,6 +757,62 @@ export type Database = {
           },
         ]
       }
+      photo_view_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          id: string
+          owner_id: string
+          requester_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          id?: string
+          owner_id: string
+          requester_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          id?: string
+          owner_id?: string
+          requester_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_view_requests_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_view_requests_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_view_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_view_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_dismissals: {
         Row: {
           created_at: string
@@ -781,7 +837,21 @@ export type Database = {
             foreignKeyName: "profile_dismissals_dismissed_id_fkey"
             columns: ["dismissed_id"]
             isOneToOne: false
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_dismissals_dismissed_id_fkey"
+            columns: ["dismissed_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_dismissals_dismisser_id_fkey"
+            columns: ["dismisser_id"]
+            isOneToOne: false
+            referencedRelation: "my_profile"
             referencedColumns: ["id"]
           },
           {
@@ -829,48 +899,6 @@ export type Database = {
           {
             foreignKeyName: "profile_photos_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      photo_view_requests: {
-        Row: {
-          created_at: string
-          decided_at: string | null
-          id: string
-          owner_id: string
-          requester_id: string
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          decided_at?: string | null
-          id?: string
-          owner_id: string
-          requester_id: string
-          status?: string
-        }
-        Update: {
-          created_at?: string
-          decided_at?: string | null
-          id?: string
-          owner_id?: string
-          requester_id?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "photo_view_requests_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "photo_view_requests_requester_id_fkey"
-            columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1439,9 +1467,7 @@ export type Database = {
         }[]
       }
       desk_review_queue: {
-        // Paged server-side by migration 20261016. Regenerate with
-        // `supabase gen types` once the migration has been applied.
-        Args: { _limit?: number; _offset?: number };
+        Args: { _limit?: number; _offset?: number }
         Returns: {
           alumni_email: string
           city: string
