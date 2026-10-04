@@ -438,13 +438,14 @@ export function SiteHeader() {
    * checked at 1280px and above — and the rest go behind "More", so the bell,
    * email and Sign out keep their place on the row.
    */
-  const primaryNav: NavItem[] = nav.filter((i): i is NavItem =>
-    ["Home", "Search", "Introductions", "Messages", "Calls"].includes(i.label),
-  );
-  const overflowNav: NavItem[] = nav.filter(
-    (i): i is NavItem =>
-      !["Home", "Search", "Introductions", "Messages", "Calls"].includes(i.label),
-  );
+  const inline = ["Home", "Search", "Introductions", "Messages", "Calls"];
+  // Public nav is short — show it all inline; only members get "More".
+  const primaryNav: NavItem[] = user
+    ? nav.filter((i): i is NavItem => inline.includes(i.label))
+    : [...nav];
+  const overflowNav: NavItem[] = user
+    ? nav.filter((i): i is NavItem => !inline.includes(i.label))
+    : [];
 
   async function signOut() {
     setOpen(false);
