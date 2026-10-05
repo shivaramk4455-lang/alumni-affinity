@@ -64,7 +64,7 @@ function legalIdentityGate(): Plugin {
 const PUBLIC_SUPABASE_URL =
   process.env["VITE_SUPABASE_URL"] ||
   process.env["SUPABASE_URL"] ||
-  "https://eopcauzciqflikfdhmcj.supabase.co";
+  "https://beetszutyuihbnzzmokr.supabase.co";
 const PUBLIC_SUPABASE_KEY =
   process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
   process.env["SUPABASE_PUBLISHABLE_KEY"] ||
@@ -72,7 +72,7 @@ const PUBLIC_SUPABASE_KEY =
 const PUBLIC_SUPABASE_PROJECT_ID =
   process.env["VITE_SUPABASE_PROJECT_ID"] ||
   process.env["SUPABASE_PROJECT_ID"] ||
-  "eopcauzciqflikfdhmcj";
+  "beetszutyuihbnzzmokr";
 
 // Server-side fallbacks (SSR + server functions read process.env).
 process.env["SUPABASE_URL"] ||= PUBLIC_SUPABASE_URL;

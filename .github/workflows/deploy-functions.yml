@@ -15,7 +15,7 @@ jobs:
 
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.CRI || secrets.SUPABASE_ACCESS_TOKEN }}
-      PROJECT_ID: eopcauzciqflikfdhmcj
+      PROJECT_ID: beetszutyuihbnzzmokr
 
     steps:
       - name: Checkout repository

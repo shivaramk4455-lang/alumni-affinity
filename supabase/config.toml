@@ -1,4 +1,4 @@
-project_id = "eopcauzciqflikfdhmcj"
+project_id = "beetszutyuihbnzzmokr"
 
 # Health probes come from uptime monitors, not browsers: no JWT required.
 [functions.health]
