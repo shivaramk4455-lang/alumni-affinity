@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { startDemoSession } from "@/lib/demo-access.functions";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -88,6 +87,8 @@ function AuthPage() {
    */
   const [adultAttested, setAdultAttested] = useState(false);
   const [attestError, setAttestError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
   /**
    * Credential problems are reported inline as well as in a toast. A toast
    * disappears, is not tied to the field that caused it, and reaches the input
@@ -164,14 +165,20 @@ function AuthPage() {
     setFieldErrors({});
     setBusy(true);
     if (mode === "signup") {
-      // The attestation is checked here, before the account exists, because a
-      // Google OAuth signup never passes through this form's checkbox at all.
+      // The attestation and terms agreement are checked here, before the account exists,
+      // because a Google OAuth signup never passes through this form's checkbox at all.
       if (!adultAttested) {
         setBusy(false);
         setAttestError("Please confirm you are 21 or older to create an account.");
         return;
       }
+      if (!termsAccepted) {
+        setBusy(false);
+        setTermsError("Please agree to the terms of membership and privacy policy.");
+        return;
+      }
       setAttestError(null);
+      setTermsError(null);
       const { error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
@@ -223,13 +230,20 @@ function AuthPage() {
     toast.success("Confirmation link re-sent. Check your inbox.");
   }
   async function google() {
-    // On the signup tab the attestation applies to OAuth too, otherwise the
-    // checkbox is trivially bypassed by clicking the Google button instead.
-    if (mode === "signup" && !adultAttested) {
-      setAttestError("Please confirm you are 21 or older to create an account.");
-      return;
+    // On the signup tab the attestation and terms apply to OAuth too, otherwise
+    // the checkboxes are trivially bypassed by clicking the Google button instead.
+    if (mode === "signup") {
+      if (!adultAttested) {
+        setAttestError("Please confirm you are 21 or older to create an account.");
+        return;
+      }
+      if (!termsAccepted) {
+        setTermsError("Please agree to the terms of membership and privacy policy.");
+        return;
+      }
     }
     setAttestError(null);
+    setTermsError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -461,7 +475,7 @@ function AuthPage() {
                   )}
                 </div>
                 {mode === "signup" && (
-                  <div className="grid gap-2">
+                  <div className="grid gap-3">
                     <div className="flex items-start gap-3">
                       <input
                         id="adult-attested"
@@ -487,6 +501,48 @@ function AuthPage() {
                         className="text-sm text-destructive"
                       >
                         {attestError}
+                      </p>
+                    )}
+                    <div className="flex items-start gap-3">
+                      <input
+                        id="terms-accepted"
+                        type="checkbox"
+                        className="mt-0.5 size-6 shrink-0 accent-[var(--brass-strong)]"
+                        checked={termsAccepted}
+                        onChange={(e) => {
+                          setTermsAccepted(e.target.checked);
+                          if (e.target.checked) setTermsError(null);
+                        }}
+                        aria-invalid={termsError ? true : undefined}
+                        aria-describedby={termsError ? "terms-accepted-error" : undefined}
+                      />
+                      <label htmlFor="terms-accepted" className="text-sm leading-6">
+                        I agree to the{" "}
+                        <Link
+                          to="/terms"
+                          target="_blank"
+                          className="font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                        >
+                          terms of membership
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                          to="/privacy"
+                          target="_blank"
+                          className="font-semibold text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                        >
+                          privacy policy
+                        </Link>
+                        .
+                      </label>
+                    </div>
+                    {termsError && (
+                      <p
+                        id="terms-accepted-error"
+                        role="alert"
+                        className="text-sm text-destructive"
+                      >
+                        {termsError}
                       </p>
                     )}
                   </div>
@@ -523,47 +579,35 @@ function AuthPage() {
             <Button variant="outline" size="lg" className="w-full" onClick={google}>
               Continue with Google
             </Button>
-            <Button
-              variant="ghost"
-              size="lg"
-              className="mt-3 w-full"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  // Server-minted only: a client sign-in would put the guest
-                  // password in the browser, and Vite inlines every VITE_*
-                  // value into the public bundle.
-                  const tokens = await startDemoSession();
-                  await supabase.auth.setSession(tokens);
-                } catch {
-                  toast.error(
-                    "Guest preview is unavailable right now. It needs the local guest secrets configured.",
-                  );
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              Explore as guest (no sign-up)
-            </Button>
-            <p className="mt-6 text-sm leading-6 text-muted-foreground">
-              By continuing you agree to our{" "}
-              <Link
-                to="/terms"
-                className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
-              >
-                terms of membership
-              </Link>
-              . New here?{" "}
-              <Link
-                to="/apply"
-                className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
-              >
-                See what the application involves
-              </Link>
-              .
-            </p>
+            <div className="mt-8 border-t border-border pt-6 text-center text-sm leading-6 text-muted-foreground">
+              <p>
+                By continuing you agree to our{" "}
+                <Link
+                  to="/terms"
+                  className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                >
+                  terms of membership
+                </Link>{" "}
+                and{" "}
+                <Link
+                  to="/privacy"
+                  className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                >
+                  privacy policy
+                </Link>
+                .
+              </p>
+              <p className="mt-3">
+                New here?{" "}
+                <Link
+                  to="/apply"
+                  className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                >
+                  See what the application involves
+                </Link>
+                .
+              </p>
+            </div>
           </>
         )}
       </section>
