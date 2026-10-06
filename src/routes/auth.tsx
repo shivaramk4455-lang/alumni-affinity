@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -446,22 +448,38 @@ function AuthPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="auth-password">Password</Label>
-                  <Input
-                    id="auth-password"
-                    name="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                    aria-invalid={fieldErrors["password"] ? true : undefined}
-                    aria-describedby={
-                      fieldErrors["password"]
-                        ? "auth-password-error"
-                        : mode === "signup"
-                          ? "auth-password-hint"
-                          : undefined
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      id="auth-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      className="pr-10"
+                      aria-invalid={fieldErrors["password"] ? true : undefined}
+                      aria-describedby={
+                        fieldErrors["password"]
+                          ? "auth-password-error"
+                          : mode === "signup"
+                            ? "auth-password-hint"
+                            : undefined
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-0 top-0 flex h-full items-center px-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-r-md"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Eye className="size-4 shrink-0" aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
                   {fieldErrors["password"] ? (
                     <p id="auth-password-error" role="alert" className="text-sm text-destructive">
                       {fieldErrors["password"]}
