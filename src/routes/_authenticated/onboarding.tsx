@@ -15,11 +15,15 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   DIETS,
   GENDERS,
+  HEIGHT_OPTIONS,
+  INDIAN_STATES,
   INSTITUTIONS,
+  MAJOR_CITIES_BY_STATE,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
   RELOCATION,
   RESIDENCY_STATUSES,
+  detectStateFromCity,
 } from "@/lib/profile-options";
 import { APPLY_DRAFT_KEY } from "@/routes/apply";
 
@@ -134,6 +138,9 @@ function Onboarding() {
   const [step, setStep] = useState(0);
   const [f, setF] = useState<Form>(empty);
   const [saving, setSaving] = useState(false);
+  const [dob, setDob] = useState("");
+  const [selectedState, setSelectedState] = useState("");
+  const birthYears = Array.from({ length: 50 }, (_, i) => year - 21 - i);
   /** Per-field validation messages, keyed by the schema path, for this step. */
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = (k: keyof Form, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
@@ -176,6 +183,10 @@ function Onboarding() {
             birth_year: birthYear,
             is_visible: draft["ghost"] === false,
           }));
+          const dobStr = str("dob");
+          if (dobStr) setDob(dobStr);
+          else if (birthYear) setDob(`${birthYear}-01-01`);
+          if (str("city")) setSelectedState(detectStateFromCity(str("city")));
           // The alumni email cannot be recovered by re-running the wizard (it
           // drives verification), so a failed carry-over is reported rather than
           // bundled into the success claim.
@@ -223,6 +234,8 @@ function Onboarding() {
         bio: data.bio ?? "",
         is_visible: data.is_visible,
       });
+      if (data.birth_year) setDob(`${data.birth_year}-01-01`);
+      if (data.city) setSelectedState(detectStateFromCity(data.city));
     }
     loaded.current = true;
   }, [me.data, me.isLoading, prefill]);
@@ -402,32 +415,111 @@ function Onboarding() {
                   ))}
                 </select>
               </Field>
-              <Field label="Birth year" error={errors["birth_year"]}>
-                <Input
-                  inputMode="numeric"
-                  value={f.birth_year}
-                  onChange={(e) => set("birth_year", e.target.value)}
-                />
+              <Field
+                label="Date of birth / Age (21+)"
+                error={errors["birth_year"]}
+                note={
+                  f.birth_year && Number(f.birth_year) >= year - 70 && Number(f.birth_year) <= year - 21
+                    ? `${year - Number(f.birth_year)} years old · Born ${f.birth_year}`
+                    : "Membership is 21+"
+                }
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Input
+                    type="date"
+                    className="cursor-pointer"
+                    max={`${year - 21}-12-31`}
+                    min={`${year - 70}-01-01`}
+                    value={dob}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDob(val);
+                      if (val) {
+                        const yr = val.slice(0, 4);
+                        set("birth_year", yr);
+                      }
+                    }}
+                  />
+                  <select
+                    className={selectCls}
+                    value={f.birth_year}
+                    onChange={(e) => {
+                      const yr = e.target.value;
+                      set("birth_year", yr);
+                      if (yr) setDob(`${yr}-01-01`);
+                    }}
+                  >
+                    <option value="">Select birth year</option>
+                    {birthYears.map((yr) => (
+                      <option key={yr} value={String(yr)}>
+                        {yr} ({year - yr} yrs)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </Field>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="State / Region">
+                <select
+                  className={selectCls}
+                  value={selectedState}
+                  onChange={(e) => {
+                    const st = e.target.value;
+                    setSelectedState(st);
+                  }}
+                >
+                  <option value="">Select State / Region</option>
+                  {INDIAN_STATES.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Current city" error={errors["city"]}>
                 <Input
                   autoComplete="address-level2"
+                  placeholder="e.g. Bhopal"
                   value={f.city}
                   onChange={(e) => set("city", e.target.value)}
                 />
               </Field>
-              <Field label="Height (cm, optional)">
-                <Input
-                  inputMode="numeric"
-                  placeholder="e.g. 175"
+            </div>
+            {selectedState && MAJOR_CITIES_BY_STATE[selectedState] && (
+              <div className="-mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground font-medium">Popular in {selectedState}:</span>
+                {MAJOR_CITIES_BY_STATE[selectedState].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => set("city", c)}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      f.city === c
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-secondary/50 text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Height (optional)">
+                <select
+                  className={selectCls}
                   value={f.height_cm}
                   onChange={(e) => set("height_cm", e.target.value)}
-                />
+                >
+                  <option value="">Select height</option>
+                  {HEIGHT_OPTIONS.map((h) => (
+                    <option key={h.cm} value={String(h.cm)}>
+                      {h.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Marital status (optional)">
                 <select
                   className={selectCls}
@@ -440,6 +532,8 @@ function Onboarding() {
                   ))}
                 </select>
               </Field>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Dietary preference (optional)">
                 <select
                   className={selectCls}
@@ -452,8 +546,6 @@ function Onboarding() {
                   ))}
                 </select>
               </Field>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Mother tongue (optional)">
                 <select
                   className={selectCls}
@@ -466,6 +558,8 @@ function Onboarding() {
                   ))}
                 </select>
               </Field>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Residency / Nationality (optional)">
                 <select
                   className={selectCls}
@@ -609,11 +703,13 @@ function Field({
   label,
   children,
   error,
+  note,
 }: {
   label: string;
   children: React.ReactNode;
   // `| undefined` (not just `?`) because the project sets exactOptionalPropertyTypes.
   error?: string | undefined;
+  note?: string | undefined;
 }) {
   const id = useId();
   const control = isValidElement(children)
@@ -632,7 +728,10 @@ function Field({
     : children;
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-baseline justify-between gap-2">
+        <Label htmlFor={id}>{label}</Label>
+        {note && <span className="text-xs text-brass font-medium">{note}</span>}
+      </div>
       {control}
       {error && (
         <span
