@@ -17,6 +17,36 @@ export const INSTITUTIONS = [
   "XLRI Jamshedpur",
   "Other premier institute",
 ];
+
+export const DEGREES = [
+  "B.Tech",
+  "B.E.",
+  "Dual Degree (B.Tech + M.Tech)",
+  "MBA",
+  "PGDM / PGP",
+  "M.Tech",
+  "M.S.",
+  "M.Sc",
+  "B.S.",
+  "B.Sc",
+  "Integrated M.Sc",
+  "MBBS",
+  "MD",
+  "MS (Medical)",
+  "PhD",
+  "B.A. LL.B",
+  "LL.B",
+  "LL.M",
+  "B.Des",
+  "M.Des",
+  "B.Arch",
+  "B.Com",
+  "M.Com",
+  "B.A.",
+  "M.A.",
+  "Other",
+] as const;
+
 export const RELOCATION = [
   "Open to relocate",
   "Within India only",

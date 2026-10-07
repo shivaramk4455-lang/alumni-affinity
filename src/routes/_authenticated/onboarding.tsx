@@ -13,6 +13,7 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { recordConsent } from "@/lib/consent";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  DEGREES,
   DIETS,
   GENDERS,
   HEIGHT_OPTIONS,
@@ -109,12 +110,12 @@ const schemas = [
   }),
   z.object({
     institution: z.string().min(1, "Select institution"),
-    degree: z.string().trim().min(2, "Enter degree").max(80),
+    degree: z.string().trim().min(2, "Select or enter your degree").max(80),
     grad_year: z.coerce
-      .number()
+      .number({ invalid_type_error: "Select graduation year" })
       .int()
-      .min(1960)
-      .max(year + 2),
+      .min(1960, "Select graduation year")
+      .max(year + 2, "Check graduation year"),
   }),
   z.object({
     profession: z.string().trim().min(2, "Enter profession").max(80),
@@ -142,6 +143,11 @@ function Onboarding() {
   const [dob, setDob] = useState("");
   const [selectedState, setSelectedState] = useState("");
   const birthYears = Array.from({ length: 50 }, (_, i) => year - 21 - i);
+  const graduationYears = Array.from({ length: year + 2 - 1960 + 1 }, (_, i) => year + 2 - i);
+  const [customDegreeSelected, setCustomDegreeSelected] = useState(false);
+  const isCustomDegree = Boolean(
+    f.degree && !DEGREES.includes(f.degree as (typeof DEGREES)[number]),
+  );
   /** Per-field validation messages, keyed by the schema path, for this step. */
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = (k: keyof Form, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
@@ -646,7 +652,7 @@ function Onboarding() {
                 value={f.institution}
                 onChange={(e) => set("institution", e.target.value)}
               >
-                <option value="">Select</option>
+                <option value="">Select institution</option>
                 {INSTITUTIONS.map((g) => (
                   <option key={g}>{g}</option>
                 ))}
@@ -654,20 +660,63 @@ function Onboarding() {
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Degree" error={errors["degree"]}>
+                <select
+                  className={selectCls}
+                  value={
+                    isCustomDegree || customDegreeSelected
+                      ? "Other"
+                      : DEGREES.includes(f.degree as (typeof DEGREES)[number])
+                        ? f.degree
+                        : f.degree
+                          ? "Other"
+                          : ""
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Other") {
+                      setCustomDegreeSelected(true);
+                      if (DEGREES.includes(f.degree as (typeof DEGREES)[number])) {
+                        set("degree", "");
+                      }
+                    } else {
+                      setCustomDegreeSelected(false);
+                      set("degree", val);
+                    }
+                  }}
+                >
+                  <option value="">Select degree</option>
+                  {DEGREES.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Graduation year" error={errors["grad_year"]}>
+                <select
+                  className={selectCls}
+                  value={f.grad_year}
+                  onChange={(e) => set("grad_year", e.target.value)}
+                >
+                  <option value="">Select graduation year</option>
+                  {graduationYears.map((yr) => (
+                    <option key={yr} value={String(yr)}>
+                      {yr}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            {(isCustomDegree || customDegreeSelected) && (
+              <Field label="Specify degree" error={errors["degree"]} note="Enter your degree name">
                 <Input
-                  placeholder="B.Tech, MBA…"
+                  autoFocus
+                  placeholder="e.g. Master of Science, B.Pharm, M.Ch…"
                   value={f.degree}
                   onChange={(e) => set("degree", e.target.value)}
                 />
               </Field>
-              <Field label="Graduation year" error={errors["grad_year"]}>
-                <Input
-                  inputMode="numeric"
-                  value={f.grad_year}
-                  onChange={(e) => set("grad_year", e.target.value)}
-                />
-              </Field>
-            </div>
+            )}
             <p className="text-sm text-muted-foreground">
               Institution verification via alumni email or document review follows after onboarding.
             </p>
