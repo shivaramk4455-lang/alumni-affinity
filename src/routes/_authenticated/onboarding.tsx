@@ -16,14 +16,15 @@ import {
   DIETS,
   GENDERS,
   HEIGHT_OPTIONS,
-  INDIAN_STATES,
   INSTITUTIONS,
   MAJOR_CITIES_BY_STATE,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
   RELOCATION,
   RESIDENCY_STATUSES,
+  detectCountryAndStateFromCity,
   detectStateFromCity,
+  getRegionsForCountry,
 } from "@/lib/profile-options";
 import { APPLY_DRAFT_KEY } from "@/routes/apply";
 
@@ -186,7 +187,15 @@ function Onboarding() {
           const dobStr = str("dob");
           if (dobStr) setDob(dobStr);
           else if (birthYear) setDob(`${birthYear}-01-01`);
-          if (str("city")) setSelectedState(detectStateFromCity(str("city")));
+          const draftCity = str("city");
+          if (draftCity) {
+            const detected = detectCountryAndStateFromCity(draftCity);
+            if (detected.state) setSelectedState(detected.state);
+            else setSelectedState(detectStateFromCity(draftCity));
+            if (detected.country) {
+              setF((p) => ({ ...p, residency_status: p.residency_status || detected.country }));
+            }
+          }
           // The alumni email cannot be recovered by re-running the wizard (it
           // drives verification), so a failed carry-over is reported rather than
           // bundled into the success claim.
@@ -235,7 +244,14 @@ function Onboarding() {
         is_visible: data.is_visible,
       });
       if (data.birth_year) setDob(`${data.birth_year}-01-01`);
-      if (data.city) setSelectedState(detectStateFromCity(data.city));
+      if (data.city) {
+        const detected = detectCountryAndStateFromCity(data.city);
+        if (detected.state) setSelectedState(detected.state);
+        else setSelectedState(detectStateFromCity(data.city));
+        if (!data.residency_status && detected.country) {
+          setF((p) => ({ ...p, residency_status: detected.country }));
+        }
+      }
     }
     loaded.current = true;
   }, [me.data, me.isLoading, prefill]);
@@ -419,7 +435,9 @@ function Onboarding() {
                 label="Date of birth / Age (21+)"
                 error={errors["birth_year"]}
                 note={
-                  f.birth_year && Number(f.birth_year) >= year - 70 && Number(f.birth_year) <= year - 21
+                  f.birth_year &&
+                  Number(f.birth_year) >= year - 70 &&
+                  Number(f.birth_year) <= year - 21
                     ? `${year - Number(f.birth_year)} years old · Born ${f.birth_year}`
                     : "Membership is 21+"
                 }
@@ -460,7 +478,38 @@ function Onboarding() {
               </Field>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="State / Region">
+              <Field label="Country / Residency">
+                <select
+                  className={selectCls}
+                  value={f.residency_status}
+                  onChange={(e) => {
+                    const country = e.target.value;
+                    set("residency_status", country);
+                    const validRegions = getRegionsForCountry(country);
+                    if (selectedState && !validRegions.includes(selectedState)) {
+                      setSelectedState("");
+                    }
+                  }}
+                >
+                  <option value="">Select country / residency</option>
+                  {RESIDENCY_STATUSES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label={
+                  f.residency_status === "Canada"
+                    ? "Province / Territory"
+                    : f.residency_status?.startsWith("US")
+                      ? "State"
+                      : f.residency_status === "United Kingdom"
+                        ? "Region / Country"
+                        : "State / Province"
+                }
+              >
                 <select
                   className={selectCls}
                   value={selectedState}
@@ -469,26 +518,54 @@ function Onboarding() {
                     setSelectedState(st);
                   }}
                 >
-                  <option value="">Select State / Region</option>
-                  {INDIAN_STATES.map((st) => (
+                  <option value="">
+                    {f.residency_status === "Canada"
+                      ? "Select Province"
+                      : f.residency_status?.startsWith("US")
+                        ? "Select State"
+                        : "Select State / Province"}
+                  </option>
+                  {getRegionsForCountry(f.residency_status).map((st) => (
                     <option key={st} value={st}>
                       {st}
                     </option>
                   ))}
                 </select>
               </Field>
-              <Field label="Current city" error={errors["city"]}>
-                <Input
-                  autoComplete="address-level2"
-                  placeholder="e.g. Bhopal"
-                  value={f.city}
-                  onChange={(e) => set("city", e.target.value)}
-                />
-              </Field>
             </div>
+            <Field label="Current city" error={errors["city"]}>
+              <Input
+                autoComplete="address-level2"
+                placeholder={
+                  f.residency_status === "Canada"
+                    ? "e.g. Toronto, Vancouver, Montreal"
+                    : f.residency_status?.startsWith("US")
+                      ? "e.g. San Francisco, New York, Seattle"
+                      : f.residency_status === "United Kingdom"
+                        ? "e.g. London, Manchester"
+                        : "e.g. Bhopal, Bengaluru, Mumbai"
+                }
+                value={f.city}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  set("city", val);
+                  if (!f.residency_status || !selectedState) {
+                    const detected = detectCountryAndStateFromCity(val);
+                    if (detected.state && !selectedState) {
+                      setSelectedState(detected.state);
+                    }
+                    if (detected.country && !f.residency_status) {
+                      set("residency_status", detected.country);
+                    }
+                  }
+                }}
+              />
+            </Field>
             {selectedState && MAJOR_CITIES_BY_STATE[selectedState] && (
               <div className="-mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground font-medium">Popular in {selectedState}:</span>
+                <span className="text-muted-foreground font-medium">
+                  Popular in {selectedState}:
+                </span>
                 {MAJOR_CITIES_BY_STATE[selectedState].map((c) => (
                   <button
                     key={c}
@@ -555,20 +632,6 @@ function Onboarding() {
                   <option value="">Select</option>
                   {MOTHER_TONGUES.map((m) => (
                     <option key={m}>{m}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Residency / Nationality (optional)">
-                <select
-                  className={selectCls}
-                  value={f.residency_status}
-                  onChange={(e) => set("residency_status", e.target.value)}
-                >
-                  <option value="">Select</option>
-                  {RESIDENCY_STATUSES.map((r) => (
-                    <option key={r}>{r}</option>
                   ))}
                 </select>
               </Field>

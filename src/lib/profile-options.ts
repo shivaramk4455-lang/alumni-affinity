@@ -102,77 +102,226 @@ export const HEIGHT_OPTIONS = [
   { cm: 213, label: "7' 0\" (213 cm)" },
 ] as const;
 
-export const INDIAN_STATES = [
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Delhi NCR",
-  "Karnataka",
-  "Telangana",
-  "Tamil Nadu",
-  "Uttar Pradesh",
-  "Gujarat",
-  "West Bengal",
-  "Rajasthan",
-  "Kerala",
-  "Punjab",
-  "Haryana",
-  "Bihar",
-  "Odisha",
-  "Andhra Pradesh",
-  "Assam",
-  "Jharkhand",
-  "Chhattisgarh",
-  "Uttarakhand",
-  "Himachal Pradesh",
-  "Goa",
-  "Chandigarh",
-  "Jammu & Kashmir",
-  "USA / North America",
-  "UK / Europe",
-  "UAE / Middle East",
-  "Singapore / Southeast Asia",
-  "Other",
-] as const;
-
-export const MAJOR_CITIES_BY_STATE: Record<string, string[]> = {
-  "Madhya Pradesh": ["Bhopal", "Indore", "Gwalior", "Jabalpur", "Ujjain"],
-  "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik", "Thane", "Navi Mumbai"],
-  "Delhi NCR": ["New Delhi", "Gurugram", "Noida", "Faridabad", "Ghaziabad"],
-  "Karnataka": ["Bengaluru", "Mysuru", "Mangaluru", "Hubli-Dharwad"],
-  "Telangana": ["Hyderabad", "Warangal", "Secunderabad"],
-  "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli"],
-  "Uttar Pradesh": ["Lucknow", "Noida", "Kanpur", "Varanasi", "Agra", "Prayagraj"],
-  "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Gandhinagar"],
-  "West Bengal": ["Kolkata", "Howrah", "Siliguri", "Durgapur"],
-  "Rajasthan": ["Jaipur", "Jodhpur", "Udaipur", "Kota"],
-  "Kerala": ["Kochi", "Thiruvananthapuram", "Kozhikode", "Thrissur"],
-  "Punjab": ["Chandigarh", "Ludhiana", "Amritsar", "Jalandhar", "Mohali"],
-  "Haryana": ["Gurugram", "Faridabad", "Panipat", "Ambala", "Panchkula"],
-  "Bihar": ["Patna", "Gaya", "Muzaffarpur", "Bhagalpur"],
-  "Odisha": ["Bhubaneswar", "Cuttack", "Rourkela"],
-  "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Tirupati"],
-  "Assam": ["Guwahati", "Silchar", "Dibrugarh"],
-  "Jharkhand": ["Ranchi", "Jamshedpur", "Dhanbad"],
-  "Chhattisgarh": ["Raipur", "Bhilai", "Bilaspur"],
-  "Uttarakhand": ["Dehradun", "Haridwar", "Rishikesh", "Nainital"],
-  "Himachal Pradesh": ["Shimla", "Dharamshala", "Manali"],
-  "Goa": ["Panaji", "Margao", "Vasco da Gama"],
-  "Chandigarh": ["Chandigarh", "Mohali", "Panchkula"],
-  "Jammu & Kashmir": ["Srinagar", "Jammu"],
-  "USA / North America": ["New York", "San Francisco / Bay Area", "Seattle", "Austin", "Boston", "Chicago", "Toronto", "Vancouver"],
-  "UK / Europe": ["London", "Dublin", "Amsterdam", "Berlin", "Paris", "Zurich"],
-  "UAE / Middle East": ["Dubai", "Abu Dhabi", "Doha", "Riyadh"],
-  "Singapore / Southeast Asia": ["Singapore", "Kuala Lumpur", "Bangkok"],
+export const REGIONS_BY_COUNTRY: Record<string, readonly string[]> = {
+  Canada: [
+    "Ontario",
+    "British Columbia",
+    "Alberta",
+    "Quebec",
+    "Manitoba",
+    "Saskatchewan",
+    "Nova Scotia",
+    "New Brunswick",
+    "Newfoundland and Labrador",
+    "Other Canadian Province",
+  ],
+  US: [
+    "California",
+    "New York",
+    "Washington",
+    "Texas",
+    "New Jersey",
+    "Massachusetts",
+    "Illinois",
+    "Georgia",
+    "Virginia",
+    "North Carolina",
+    "Pennsylvania",
+    "Michigan",
+    "Florida",
+    "Other US State",
+  ],
+  "United Kingdom": [
+    "Greater London",
+    "South East England",
+    "West Midlands",
+    "North West England",
+    "East of England",
+    "Scotland",
+    "Wales",
+    "Other UK",
+  ],
+  Singapore: ["Singapore (Central)", "Singapore (East)", "Singapore (West)", "Singapore (North)"],
+  "Middle East / UAE": [
+    "Dubai",
+    "Abu Dhabi",
+    "Sharjah",
+    "Doha (Qatar)",
+    "Riyadh (Saudi Arabia)",
+    "Other Middle East",
+  ],
+  Europe: ["Germany", "Netherlands", "Ireland", "Switzerland", "France", "Sweden", "Other Europe"],
+  India: [
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Delhi NCR",
+    "Karnataka",
+    "Telangana",
+    "Tamil Nadu",
+    "Uttar Pradesh",
+    "Gujarat",
+    "West Bengal",
+    "Rajasthan",
+    "Kerala",
+    "Punjab",
+    "Haryana",
+    "Bihar",
+    "Odisha",
+    "Andhra Pradesh",
+    "Assam",
+    "Jharkhand",
+    "Chhattisgarh",
+    "Uttarakhand",
+    "Himachal Pradesh",
+    "Goa",
+    "Chandigarh",
+    "Jammu & Kashmir",
+    "Other State / UT",
+  ],
+  "Other International": ["International"],
 };
 
-export function detectStateFromCity(city: string | null | undefined): string {
-  if (!city) return "";
+export const INDIAN_STATES = REGIONS_BY_COUNTRY["India"]!;
+
+export const MAJOR_CITIES_BY_STATE: Record<string, string[]> = {
+  // Canada Provinces
+  Ontario: [
+    "Toronto",
+    "Ottawa",
+    "Mississauga",
+    "Brampton",
+    "Waterloo",
+    "Hamilton",
+    "London",
+    "Markham",
+    "Vaughan",
+  ],
+  "British Columbia": ["Vancouver", "Surrey", "Burnaby", "Richmond", "Victoria", "Kelowna"],
+  Alberta: ["Calgary", "Edmonton", "Red Deer"],
+  Quebec: ["Montreal", "Quebec City", "Laval"],
+  Manitoba: ["Winnipeg"],
+  Saskatchewan: ["Saskatoon", "Regina"],
+  "Nova Scotia": ["Halifax"],
+
+  // US States
+  California: [
+    "San Francisco / Bay Area",
+    "San Jose",
+    "Sunnyvale",
+    "Los Angeles",
+    "San Diego",
+    "Irvine",
+  ],
+  "New York": ["New York City", "Manhattan", "Brooklyn", "Queens", "Jersey City area"],
+  Washington: ["Seattle", "Bellevue", "Redmond", "Kirkland"],
+  Texas: ["Austin", "Dallas", "Houston", "Plano", "Frisco"],
+  "New Jersey": ["Jersey City", "Edison", "Princeton", "Hoboken", "Newark"],
+  Massachusetts: ["Boston", "Cambridge", "Somerville"],
+  Illinois: ["Chicago", "Naperville", "Schaumburg"],
+  Georgia: ["Atlanta", "Alpharetta", "Cumming"],
+  Virginia: ["Arlington", "McLean", "Fairfax", "Richmond"],
+  "North Carolina": ["Raleigh", "Charlotte", "Cary", "Durham"],
+  Pennsylvania: ["Philadelphia", "Pittsburgh"],
+  Michigan: ["Detroit", "Ann Arbor", "Troy"],
+  Florida: ["Miami", "Tampa", "Orlando"],
+
+  // UK & Global
+  "Greater London": ["London", "Canary Wharf", "Westminster", "Croydon", "Harrow"],
+  "West Midlands": ["Birmingham", "Coventry"],
+  "North West England": ["Manchester", "Liverpool"],
+  Scotland: ["Edinburgh", "Glasgow", "Aberdeen"],
+  Dubai: ["Dubai", "Downtown", "Marina", "Deira"],
+  "Abu Dhabi": ["Abu Dhabi"],
+  "Singapore (Central)": ["Singapore"],
+  Germany: ["Berlin", "Munich", "Frankfurt", "Hamburg"],
+  Netherlands: ["Amsterdam", "Rotterdam", "The Hague", "Eindhoven"],
+  Ireland: ["Dublin", "Cork", "Galway"],
+  Switzerland: ["Zurich", "Geneva", "Basel"],
+
+  // India
+  "Madhya Pradesh": ["Bhopal", "Indore", "Gwalior", "Jabalpur", "Ujjain"],
+  Maharashtra: ["Mumbai", "Pune", "Nagpur", "Nashik", "Thane", "Navi Mumbai"],
+  "Delhi NCR": ["New Delhi", "Gurugram", "Noida", "Faridabad", "Ghaziabad"],
+  Karnataka: ["Bengaluru", "Mysuru", "Mangaluru", "Hubli-Dharwad"],
+  Telangana: ["Hyderabad", "Warangal", "Secunderabad"],
+  "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli"],
+  "Uttar Pradesh": ["Lucknow", "Noida", "Kanpur", "Varanasi", "Agra", "Prayagraj"],
+  Gujarat: ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Gandhinagar"],
+  "West Bengal": ["Kolkata", "Howrah", "Siliguri", "Durgapur"],
+  Rajasthan: ["Jaipur", "Jodhpur", "Udaipur", "Kota"],
+  Kerala: ["Kochi", "Thiruvananthapuram", "Kozhikode", "Thrissur"],
+  Punjab: ["Chandigarh", "Ludhiana", "Amritsar", "Jalandhar", "Mohali"],
+  Haryana: ["Gurugram", "Faridabad", "Panipat", "Ambala", "Panchkula"],
+  Bihar: ["Patna", "Gaya", "Muzaffarpur", "Bhagalpur"],
+  Odisha: ["Bhubaneswar", "Cuttack", "Rourkela"],
+  "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Tirupati"],
+  Assam: ["Guwahati", "Silchar", "Dibrugarh"],
+  Jharkhand: ["Ranchi", "Jamshedpur", "Dhanbad"],
+  Chhattisgarh: ["Raipur", "Bhilai", "Bilaspur"],
+  Uttarakhand: ["Dehradun", "Haridwar", "Rishikesh", "Nainital"],
+  "Himachal Pradesh": ["Shimla", "Dharamshala", "Manali"],
+  Goa: ["Panaji", "Margao", "Vasco da Gama"],
+  Chandigarh: ["Chandigarh", "Mohali", "Panchkula"],
+  "Jammu & Kashmir": ["Srinagar", "Jammu"],
+};
+
+export function getRegionsForCountry(
+  residencyStatus: string | null | undefined,
+): readonly string[] {
+  if (!residencyStatus) return REGIONS_BY_COUNTRY["India"]!;
+  if (residencyStatus === "Canada") return REGIONS_BY_COUNTRY["Canada"]!;
+  if (residencyStatus.startsWith("US")) return REGIONS_BY_COUNTRY["US"]!;
+  if (residencyStatus === "United Kingdom") return REGIONS_BY_COUNTRY["United Kingdom"]!;
+  if (residencyStatus === "Singapore") return REGIONS_BY_COUNTRY["Singapore"]!;
+  if (residencyStatus === "Middle East / UAE") return REGIONS_BY_COUNTRY["Middle East / UAE"]!;
+  if (residencyStatus === "Europe") return REGIONS_BY_COUNTRY["Europe"]!;
+  if (residencyStatus === "Other International") return REGIONS_BY_COUNTRY["Other International"]!;
+  return REGIONS_BY_COUNTRY["India"]!;
+}
+
+export function detectCountryAndStateFromCity(city: string | null | undefined): {
+  country: string;
+  state: string;
+} {
+  if (!city) return { country: "India", state: "" };
   const clean = city.toLowerCase().trim();
-  for (const [st, cities] of Object.entries(MAJOR_CITIES_BY_STATE)) {
-    if (clean.includes(st.toLowerCase())) return st;
-    if (cities.some((c) => clean.includes(c.toLowerCase()))) return st;
+
+  // Check Canada
+  for (const prov of REGIONS_BY_COUNTRY["Canada"]!) {
+    if (clean.includes(prov.toLowerCase())) return { country: "Canada", state: prov };
+    const cities = MAJOR_CITIES_BY_STATE[prov] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "Canada", state: prov };
   }
-  return "";
+
+  // Check US
+  for (const st of REGIONS_BY_COUNTRY["US"]!) {
+    if (clean.includes(st.toLowerCase())) return { country: "US (H-1B / O-1 / L-1)", state: st };
+    const cities = MAJOR_CITIES_BY_STATE[st] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "US (H-1B / O-1 / L-1)", state: st };
+  }
+
+  // Check UK
+  for (const r of REGIONS_BY_COUNTRY["United Kingdom"]!) {
+    if (clean.includes(r.toLowerCase())) return { country: "United Kingdom", state: r };
+    const cities = MAJOR_CITIES_BY_STATE[r] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "United Kingdom", state: r };
+  }
+
+  // Check India
+  for (const st of REGIONS_BY_COUNTRY["India"]!) {
+    if (clean.includes(st.toLowerCase())) return { country: "India", state: st };
+    const cities = MAJOR_CITIES_BY_STATE[st] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase()))) return { country: "India", state: st };
+  }
+
+  return { country: "India", state: "" };
+}
+
+export function detectStateFromCity(city: string | null | undefined): string {
+  return detectCountryAndStateFromCity(city).state;
 }
 
 export const PHOTO_VISIBILITY = [
