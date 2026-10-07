@@ -174,7 +174,7 @@ function Index() {
               <Eligibility
                 icon={<GraduationCap />}
                 title="Indian institutions"
-                text="IITs, IIMs, BITS Pilani, AIIMS, IISc, ISI, NLSIU and a considered list of comparable institutions."
+                text="IITs, IIMs, BITS Pilani, FMS, JBIMS, NIFT, IISc, ISI, NLSIU and a considered list of comparable institutions."
               />
               <Eligibility
                 icon={<FileCheck2 />}
