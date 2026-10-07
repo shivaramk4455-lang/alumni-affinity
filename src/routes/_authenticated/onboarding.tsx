@@ -133,6 +133,7 @@ const schemas = [
 ];
 
 const selectCls = "h-10 w-full border border-input bg-background px-3 text-sm";
+const ONBOARDING_DRAFT_KEY = "alumni_onboarding_draft_v2";
 
 function Onboarding() {
   const navigate = useNavigate();
@@ -150,9 +151,33 @@ function Onboarding() {
   );
   /** Per-field validation messages, keyed by the schema path, for this step. */
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const set = (k: keyof Form, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
+  const set = (k: keyof Form, v: string | boolean) => {
+    setF((p) => ({ ...p, [k]: v }));
+    if (errors[k]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[k];
+        return next;
+      });
+    }
+  };
   const me = useMyProfile();
   const loaded = useRef(false);
+
+  // Automatically persist in-progress onboarding state to localStorage so refresh never wipes data
+  useEffect(() => {
+    if (!loaded.current) return;
+    if (!me.data?.onboarded) {
+      try {
+        localStorage.setItem(
+          ONBOARDING_DRAFT_KEY,
+          JSON.stringify({ step, f, dob, selectedState, customDegreeSelected }),
+        );
+      } catch {
+        /* storage quota */
+      }
+    }
+  }, [step, f, dob, selectedState, customDegreeSelected, me.data?.onboarded]);
 
   // Seed the form from the member's own row once (via the security-definer
   // view), then layer the application draft over it when prefill=1.
@@ -160,6 +185,36 @@ function Onboarding() {
     if (loaded.current || me.isLoading) return;
     const data = me.data;
     let prefilled = false;
+
+    // Check if there is an in-progress onboarding draft in localStorage (e.g. from page refresh)
+    if (!data?.onboarded) {
+      try {
+        const rawSaved = localStorage.getItem(ONBOARDING_DRAFT_KEY);
+        if (rawSaved) {
+          const draft = JSON.parse(rawSaved) as {
+            step?: number;
+            f?: Partial<Form>;
+            dob?: string;
+            selectedState?: string;
+            customDegreeSelected?: boolean;
+          };
+          if (draft && draft.f && typeof draft.f === "object") {
+            setF((prev) => ({ ...prev, ...draft.f }));
+            if (typeof draft.step === "number" && draft.step >= 0 && draft.step < steps.length) {
+              setStep(draft.step);
+            }
+            if (draft.dob) setDob(draft.dob);
+            if (draft.selectedState) setSelectedState(draft.selectedState);
+            if (typeof draft.customDegreeSelected === "boolean") {
+              setCustomDegreeSelected(draft.customDegreeSelected);
+            }
+            prefilled = true;
+          }
+        }
+      } catch {
+        /* start blank */
+      }
+    }
     if (prefill && !data?.onboarded) {
       try {
         const raw = localStorage.getItem(APPLY_DRAFT_KEY);
@@ -265,18 +320,20 @@ function Onboarding() {
   async function next() {
     const r = schemas[step]!.safeParse(f);
     if (!r.success) {
-      // Surface the failure on the field itself, not only in a toast that
-      // disappears: the member otherwise has to guess which step is wrong.
-      const first = r.error.issues[0];
-      if (first) {
-        const key = String(first.path[0]);
-        setErrors({ [key]: first.message });
-        // Move focus to the offending control so keyboard and screen-reader
-        // users are not left on a button that did nothing.
+      // Surface all failures on the fields of this step
+      const newErrors: Record<string, string> = {};
+      for (const issue of r.error.issues) {
+        const k = String(issue.path[0]);
+        if (!newErrors[k]) newErrors[k] = issue.message;
+      }
+      setErrors(newErrors);
+      // Move focus to the first offending control so keyboard and screen-reader
+      // users are directed to the first issue to fix.
+      setTimeout(() => {
         const node = document.querySelector<HTMLElement>(`[aria-invalid="true"]`);
         node?.focus();
         node?.scrollIntoView({ block: "center", behavior: "smooth" });
-      }
+      }, 0);
       return;
     }
     setErrors({});
@@ -327,6 +384,7 @@ function Onboarding() {
     }
     try {
       localStorage.removeItem(APPLY_DRAFT_KEY);
+      localStorage.removeItem(ONBOARDING_DRAFT_KEY);
     } catch {
       /* ignore */
     }
@@ -784,7 +842,10 @@ function Onboarding() {
             type="button"
             variant="outline"
             disabled={step === 0}
-            onClick={() => setStep(step - 1)}
+            onClick={() => {
+              setErrors({});
+              setStep(step - 1);
+            }}
           >
             Back
           </Button>
