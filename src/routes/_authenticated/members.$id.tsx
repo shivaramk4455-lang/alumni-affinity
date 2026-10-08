@@ -499,6 +499,23 @@ function MemberProfile() {
     return matchCount > 0;
   }, [hasCandidatePrefs, cp, me.data]);
 
+  const displayName = data
+    ? isSelf
+      ? data.full_name
+      : (data.full_name?.split(" ")[0] ?? data.full_name)
+    : "";
+  const age = data?.birth_year ? new Date().getFullYear() - data.birth_year : null;
+  const educationParts = [data?.degree, data?.institution].filter(Boolean).join(", ");
+  const educationDisplay = educationParts
+    ? data?.grad_year
+      ? `${educationParts} (${data.grad_year})`
+      : educationParts
+    : data?.grad_year
+      ? `Graduated ${data.grad_year}`
+      : null;
+  const subtitleParts = [data?.profession, data?.employer, data?.city].filter(Boolean);
+  const subtitle = subtitleParts.length > 0 ? subtitleParts.join(" · ") : null;
+
   return (
     <main className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
       <Link
@@ -513,17 +530,19 @@ function MemberProfile() {
         // "this profile is not available", which is a different, real answer.
         <div className="mt-8 border border-border bg-card p-6 md:p-10" aria-busy="true">
           <span className="sr-only">Loading this member profile…</span>
-          <div className="grid gap-8 sm:grid-cols-[240px_1fr]">
-            <Skeleton className="aspect-[4/5] w-full" />
-            <div className="min-w-0">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="mt-3 h-9 w-56" />
-              <Skeleton className="mt-3 h-4 w-64" />
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
+          <div className="flex flex-col md:flex-row items-stretch md:items-start gap-8 md:gap-10 lg:gap-12">
+            <div className="w-full max-w-[280px] md:w-[280px] lg:w-[300px] shrink-0 mx-auto md:mx-0">
+              <Skeleton className="aspect-[4/5] w-full rounded" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="mt-3 h-9 w-60" />
+              <Skeleton className="mt-2 h-4 w-48" />
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 border-t border-border/60 pt-5">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
             </div>
           </div>
@@ -613,83 +632,85 @@ function MemberProfile() {
               </button>
             </p>
           )}
-          <div className="grid gap-8 sm:grid-cols-[240px_1fr]">
-            {visiblePhotos.length > 0 ? (
-              <PhotoSlideshow
-                photos={visiblePhotos}
-                active={slideIndex}
-                onActive={setSlideIndex}
-                watermark={watermark}
-                name={data.full_name}
-              />
-            ) : (
-              <div className="grid gap-3">
-                <MemberPhoto
-                  path={null}
+          <div className="flex flex-col md:flex-row items-stretch md:items-start gap-8 md:gap-10 lg:gap-12">
+            <div className="w-full max-w-[280px] md:w-[280px] lg:w-[300px] shrink-0 mx-auto md:mx-0">
+              {visiblePhotos.length > 0 ? (
+                <PhotoSlideshow
+                  photos={visiblePhotos}
+                  active={slideIndex}
+                  onActive={setSlideIndex}
                   watermark={watermark}
                   name={data.full_name}
-                  className="aspect-[4/5] w-full"
                 />
-                {photoRequestable && (
-                  <div className="border border-border bg-secondary/40 p-3">
-                    {myPhotoRequest.data?.status === "pending" ? (
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        Photograph requested. You will see it here if they allow.
-                      </p>
-                    ) : myPhotoRequest.data?.status === "declined" ? (
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        They chose not to share this photograph. You can ask once more later.
-                      </p>
-                    ) : (
-                      <>
+              ) : (
+                <div className="grid gap-3">
+                  <MemberPhoto
+                    path={null}
+                    watermark={watermark}
+                    name={data.full_name}
+                    className="aspect-[4/5] w-full"
+                  />
+                  {photoRequestable && (
+                    <div className="border border-border bg-secondary/40 p-3">
+                      {myPhotoRequest.data?.status === "pending" ? (
                         <p className="text-xs leading-5 text-muted-foreground">
-                          They share their photograph only with members they choose.
+                          Photograph requested. You will see it here if they allow.
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 w-full"
-                          disabled={requestPhoto.isPending || myPhotoRequest.isLoading}
-                          onClick={() => requestPhoto.mutate(id)}
-                        >
-                          {requestPhoto.isPending ? "Sending…" : "Request photograph"}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-                {!photoRequestable && data.photo_visibility === "hidden" && (
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    This member keeps their photograph private, including from matches. That setting
-                    is not requestable.
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="min-w-0">
+                      ) : myPhotoRequest.data?.status === "declined" ? (
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          They chose not to share this photograph. You can ask once more later.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            They share their photograph only with members they choose.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 w-full"
+                            disabled={requestPhoto.isPending || myPhotoRequest.isLoading}
+                            onClick={() => requestPhoto.mutate(id)}
+                          >
+                            {requestPhoto.isPending ? "Sending…" : "Request photograph"}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {!photoRequestable && data.photo_visibility === "hidden" && (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      This member keeps their photograph private, including from matches. That
+                      setting is not requestable.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-success">
-                <ShieldCheck className="size-4" />
+                <ShieldCheck className="size-4 shrink-0" />
                 {data.verification_status === "verified"
                   ? "Verified member"
                   : "Verification under way"}
               </div>
-              <h1 className="mt-3 font-serif text-4xl font-semibold">
-                {data.full_name?.split(" ")[0]}
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                {data.profession}
-                {data.employer ? ` · ${data.employer}` : ""}
-              </p>
-              <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
-                <Row
-                  k="Education"
-                  v={`${data.degree ?? ""}, ${data.institution ?? ""} (${data.grad_year ?? ""})`}
-                />
+              <div className="mt-2.5 flex flex-wrap items-baseline gap-2.5">
+                <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+                  {displayName}
+                </h1>
+                {age !== null && (
+                  <span className="font-serif text-2xl sm:text-3xl font-normal text-muted-foreground">
+                    · {age} yrs
+                  </span>
+                )}
+              </div>
+              {subtitle && (
+                <p className="mt-1.5 text-sm sm:text-base text-muted-foreground">{subtitle}</p>
+              )}
+              <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 border-t border-border/60 pt-5 text-sm">
+                <Row k="Education" v={educationDisplay} />
                 <Row k="City" v={data.city} />
-                <Row
-                  k="Age"
-                  v={data.birth_year ? String(new Date().getFullYear() - data.birth_year) : null}
-                />
+                <Row k="Age" v={age !== null ? `${age} yrs` : null} />
                 <Row k="Relocation" v={data.relocation} />
                 {data.height_cm && <Row k="Height" v={formatHeight(data.height_cm)} />}
                 {data.marital_status && <Row k="Marital status" v={data.marital_status} />}
@@ -740,7 +761,7 @@ function MemberProfile() {
               </div>
 
               {hasCandidatePrefs && cp && (
-                <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+                <dl className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
                   {(cp.min_age !== null || cp.max_age !== null) && (
                     <Row
                       k="Age range"
@@ -1066,9 +1087,9 @@ function MemberProfile() {
 
 function Row({ k, v }: { k: string; v: string | null }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{k}</dt>
-      <dd className="mt-1">{v || "—"}</dd>
+      <dd className="mt-1 font-medium text-foreground break-words">{v || "—"}</dd>
     </div>
   );
 }
