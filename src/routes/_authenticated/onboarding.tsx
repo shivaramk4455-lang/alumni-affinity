@@ -490,7 +490,20 @@ function Onboarding() {
       const { data: u, error: authError } = await supabase.auth.getUser();
       if (authError || !u.user) throw new Error("Your session has expired. Please sign in again.");
       const { error } = await supabase.from("profiles").update(profileUpdates).eq("id", u.user.id);
-      if (error) throw error;
+      if (
+        error &&
+        (error.code === "PGRST204" ||
+          error.message?.includes("religion") ||
+          error.message?.includes("caste") ||
+          error.message?.includes("gotra"))
+      ) {
+        console.warn("Retrying profile save without community columns:", error.message);
+        const { religion, caste, gotra, ...safeUpdates } = profileUpdates;
+        const retry = await supabase.from("profiles").update(safeUpdates).eq("id", u.user.id);
+        if (retry.error) throw retry.error;
+      } else if (error) {
+        throw error;
+      }
 
       // Save partner preferences if any were set
       const minAgeNum = f.pref_min_age ? Number(f.pref_min_age) : null;

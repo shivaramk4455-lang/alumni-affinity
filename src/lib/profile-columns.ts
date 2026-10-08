@@ -31,11 +31,14 @@ export type MyProfileRow = Omit<
  * public.my_profile view instead. Selecting them fails loudly rather than
  * leaking quietly, so never add them back to this list.
  */
-// Written as string literals on purpose: supabase-js infers the row type from
-// the literal type of the argument, so a `.join(", ")` (widened to `string`)
-// would degrade every result to `GenericStringError`.
+export const BASE_DIRECTORY_COLUMNS =
+  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status";
+
 export const DIRECTORY_COLUMNS =
   "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status, religion, caste, gotra";
+
+export const BASE_SEARCH_COLUMNS =
+  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility";
 
 /** The lighter projection used for search result cards. */
 export const SEARCH_COLUMNS =
@@ -48,3 +51,55 @@ export const SEARCH_COLUMNS =
   // firing a request that storage RLS will refuse. Both columns are inside the
   // existing column-level GRANT on profiles.
   "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility, religion, caste, gotra";
+
+export type MemberDirectoryProfile = {
+  id: string;
+  full_name: string;
+  city: string | null;
+  institution: string | null;
+  degree: string | null;
+  grad_year: number | null;
+  profession: string | null;
+  employer: string | null;
+  relocation: string | null;
+  birth_year: number | null;
+  gender: string | null;
+  values_statement: string | null;
+  bio: string | null;
+  photo_path: string | null;
+  photo_visibility: string;
+  verification_status: string;
+  is_visible: boolean;
+  onboarded: boolean;
+  height_cm: number | null;
+  marital_status: string | null;
+  diet: string | null;
+  mother_tongue: string | null;
+  residency_status: string | null;
+  religion?: string | null;
+  caste?: string | null;
+  gotra?: string | null;
+};
+
+export type SearchResultRow = {
+  id: string;
+  full_name: string;
+  city: string | null;
+  institution: string | null;
+  degree: string | null;
+  grad_year: number | null;
+  profession: string | null;
+  relocation: string | null;
+  birth_year: number | null;
+  gender: string | null;
+  height_cm: number | null;
+  marital_status: string | null;
+  diet: string | null;
+  mother_tongue: string | null;
+  residency_status: string | null;
+  photo_path: string | null;
+  photo_visibility: string;
+  religion?: string | null;
+  caste?: string | null;
+  gotra?: string | null;
+};

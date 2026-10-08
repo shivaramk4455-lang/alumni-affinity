@@ -29,7 +29,11 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { recordProfileView } from "@/lib/access-log";
 import { supabase } from "@/integrations/supabase/client";
 import { EMPTY_PREFERENCES, alignCandidate, type Alignment } from "@/lib/alignment";
-import { DIRECTORY_COLUMNS } from "@/lib/profile-columns";
+import {
+  BASE_DIRECTORY_COLUMNS,
+  DIRECTORY_COLUMNS,
+  type MemberDirectoryProfile,
+} from "@/lib/profile-columns";
 import { formatHeight } from "@/lib/profile-options";
 import { PhotoSlideshow } from "@/components/photo-gallery";
 import { useMemberGallery } from "@/lib/gallery";
@@ -76,7 +80,10 @@ function MemberProfile() {
           "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
         )
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.warn("Could not load partner preferences:", error.message);
+        return { ...EMPTY_PREFERENCES };
+      }
       if (!data) return { ...EMPTY_PREFERENCES };
       return {
         min_age: data.min_age,
@@ -115,16 +122,102 @@ function MemberProfile() {
 
   // Never request private columns directly: post-hardening they are revoked
   // from `authenticated`, and selecting them errors instead of leaking.
+  const isViewingSelf = Boolean(me.data && me.data.id === id);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["member", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryKey: ["member", id, isViewingSelf],
+    initialData:
+      me.data && me.data.id === id
+        ? ({
+            ...me.data,
+            religion: me.data.religion ?? null,
+            caste: me.data.caste ?? null,
+            gotra: me.data.gotra ?? null,
+          } as MemberDirectoryProfile)
+        : undefined,
+    queryFn: async (): Promise<MemberDirectoryProfile | null> => {
+      // 1. If viewing own profile and me.data is available, immediately return it
+      if (me.data && me.data.id === id) {
+        return {
+          ...me.data,
+          religion: me.data.religion ?? null,
+          caste: me.data.caste ?? null,
+          gotra: me.data.gotra ?? null,
+        } as MemberDirectoryProfile;
+      }
+
+      // Check if session user is the profile owner (handles initial direct load or refresh)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData.session?.user?.id;
+      if (currentUserId && currentUserId === id) {
+        const { data: myData, error: myError } = await supabase
+          .from("my_profile")
+          .select("*")
+          .maybeSingle();
+        if (!myError && myData) {
+          return {
+            ...myData,
+            religion: (myData as { religion?: string | null }).religion ?? null,
+            caste: (myData as { caste?: string | null }).caste ?? null,
+            gotra: (myData as { gotra?: string | null }).gotra ?? null,
+          } as MemberDirectoryProfile;
+        }
+      }
+
+      // 2. Query directory columns for another member
+      const res = await supabase
         .from("profiles")
         .select(DIRECTORY_COLUMNS)
         .eq("id", id)
         .maybeSingle();
-      if (error) throw error;
-      return data;
+
+      if (!res.error && res.data) {
+        return res.data as MemberDirectoryProfile;
+      }
+
+      // 3. Graceful fallback if unmigrated community columns caused failure
+      if (res.error) {
+        console.warn("Retrying profile query with BASE_DIRECTORY_COLUMNS:", res.error.message);
+        const fallback = await supabase
+          .from("profiles")
+          .select(BASE_DIRECTORY_COLUMNS)
+          .eq("id", id)
+          .maybeSingle();
+
+        if (!fallback.error && fallback.data) {
+          return {
+            ...fallback.data,
+            religion: null,
+            caste: null,
+            gotra: null,
+          } as MemberDirectoryProfile;
+        }
+
+        // If fallback also failed, and this is self, try me.data as infallible source
+        if (me.data && me.data.id === id) {
+          return {
+            ...me.data,
+            religion: me.data.religion ?? null,
+            caste: me.data.caste ?? null,
+            gotra: me.data.gotra ?? null,
+          } as MemberDirectoryProfile;
+        }
+
+        if (fallback.error) {
+          throw fallback.error;
+        }
+      }
+
+      // If res.data is null, but this is self, return me.data if available
+      if (me.data && me.data.id === id) {
+        return {
+          ...me.data,
+          religion: me.data.religion ?? null,
+          caste: me.data.caste ?? null,
+          gotra: me.data.gotra ?? null,
+        } as MemberDirectoryProfile;
+      }
+
+      return (res.data as MemberDirectoryProfile | null) ?? null;
     },
   });
 
@@ -138,7 +231,7 @@ function MemberProfile() {
 
   const interest = useQuery({
     queryKey: ["interest", id],
-    enabled: !!me.data,
+    enabled: !!me.data && me.data.id !== id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("interests")
@@ -157,7 +250,7 @@ function MemberProfile() {
   const accepted = interest.data?.status === "accepted";
   const contact = useQuery({
     queryKey: ["contact", id, interest.data?.status],
-    enabled: !!me.data && accepted,
+    enabled: !!me.data && accepted && me.data.id !== id,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("reveal_contact", { _profile: id });
       if (error) throw error;
@@ -167,7 +260,7 @@ function MemberProfile() {
 
   const myCopilotFor = useQuery({
     queryKey: ["copiloting"],
-    enabled: !!me.data,
+    enabled: !!me.data && me.data.id !== id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("copilots")

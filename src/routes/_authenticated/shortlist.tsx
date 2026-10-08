@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { supabase } from "@/integrations/supabase/client";
-import { SEARCH_COLUMNS } from "@/lib/profile-columns";
+import { BASE_SEARCH_COLUMNS, SEARCH_COLUMNS } from "@/lib/profile-columns";
 
 export const Route = createFileRoute("/_authenticated/shortlist")({
   head: () => ({
@@ -52,9 +52,22 @@ function ShortlistPage() {
     queryFn: async () => {
       const ids = saved.data ?? [];
       if (!ids.length) return [];
-      const { data, error } = await supabase.from("profiles").select(SEARCH_COLUMNS).in("id", ids);
-      if (error) throw error;
-      return data ?? [];
+      const res = await supabase.from("profiles").select(SEARCH_COLUMNS).in("id", ids);
+      if (!res.error && res.data) return res.data;
+      if (res.error) {
+        console.warn("Retrying shortlist query with BASE_SEARCH_COLUMNS:", res.error.message);
+        const fallback = await supabase.from("profiles").select(BASE_SEARCH_COLUMNS).in("id", ids);
+        if (!fallback.error && fallback.data) {
+          return fallback.data.map((r) => ({
+            ...r,
+            religion: null,
+            caste: null,
+            gotra: null,
+          }));
+        }
+        throw fallback.error || res.error;
+      }
+      return [];
     },
   });
 

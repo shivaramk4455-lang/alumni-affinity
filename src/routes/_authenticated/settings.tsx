@@ -172,7 +172,10 @@ function Settings() {
           "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
         )
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.warn("Could not load partner preferences:", error.message);
+        return { ...EMPTY_PREFERENCES };
+      }
       if (!data) return { ...EMPTY_PREFERENCES };
       return {
         min_age: data.min_age,

@@ -10,7 +10,7 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDismissedIds } from "@/lib/dismissals";
 import { supabase } from "@/integrations/supabase/client";
-import { SEARCH_COLUMNS } from "@/lib/profile-columns";
+import { BASE_SEARCH_COLUMNS, SEARCH_COLUMNS, type SearchResultRow } from "@/lib/profile-columns";
 import {
   DIETS,
   GENDERS,
@@ -47,6 +47,153 @@ export const Route = createFileRoute("/_authenticated/members")({
 const selectCls = "h-10 w-full border border-input bg-background px-3 text-sm";
 const PAGE_SIZE = 24;
 const year = new Date().getFullYear();
+
+interface RunMemberDirectoryQueryParams {
+  pageNumber: number;
+  currentUserId: string;
+  hidden: string[];
+  savedOnly: boolean;
+  savedIds: string[];
+  inst: string;
+  reloc: string;
+  gender: string;
+  diet: string;
+  maritalStatus: string;
+  residency: string;
+  tongue: string;
+  religion: string;
+  minHeight: string;
+  ageBand: string;
+  year: number;
+  sort: string;
+  debouncedQ: string;
+  signal?: AbortSignal;
+}
+
+async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
+  const {
+    pageNumber,
+    currentUserId,
+    hidden,
+    savedOnly,
+    savedIds,
+    inst,
+    reloc,
+    gender,
+    diet,
+    maritalStatus,
+    residency,
+    tongue,
+    religion,
+    minHeight,
+    ageBand,
+    year,
+    sort,
+    debouncedQ,
+    signal,
+  } = params;
+
+  if (savedOnly && !savedIds.length) return { rows: [], total: 0, hasMore: false };
+
+  let query = supabase
+    .from("profiles")
+    .select(SEARCH_COLUMNS, { count: "exact" })
+    .eq("onboarded", true)
+    .eq("is_visible", true)
+    .eq("verification_status", "verified")
+    .neq("id", currentUserId);
+
+  if (hidden.length) query = query.filter("id", "not.in", `(${hidden.join(",")})`);
+  if (savedOnly) query = query.filter("id", "in", `(${savedIds.join(",")})`);
+  if (inst) query = query.eq("institution", inst);
+  if (reloc) query = query.eq("relocation", reloc);
+  if (gender) query = query.eq("gender", gender);
+  if (diet) query = query.eq("diet", diet);
+  if (maritalStatus) query = query.eq("marital_status", maritalStatus);
+  if (residency) query = query.eq("residency_status", residency);
+  if (tongue) query = query.eq("mother_tongue", tongue);
+  if (religion) query = query.eq("religion", religion);
+  if (minHeight) query = query.gte("height_cm", Number(minHeight));
+  if (ageBand === "20s") query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
+  if (ageBand === "30s") query = query.gte("birth_year", year - 39).lte("birth_year", year - 30);
+  if (ageBand === "40plus") query = query.lte("birth_year", year - 40);
+  if (sort === "youngest") query = query.order("birth_year", { ascending: false });
+  else if (sort === "grad") query = query.order("grad_year", { ascending: false });
+  else query = query.order("updated_at", { ascending: false });
+
+  const term = debouncedQ
+    .trim()
+    .replace(/[%,()]/g, "")
+    .slice(0, 60);
+  if (term)
+    query = query.or(
+      `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%,caste.ilike.%${term}%,gotra.ilike.%${term}%`,
+    );
+
+  query = query.range(pageNumber * PAGE_SIZE, pageNumber * PAGE_SIZE + PAGE_SIZE - 1);
+  const initialRes = signal ? await query.abortSignal(signal) : await query;
+  let data = initialRes.data;
+  let count = initialRes.count;
+
+  if (initialRes.error) {
+    console.warn("Retrying directory search with BASE_SEARCH_COLUMNS:", initialRes.error.message);
+    let fallbackQuery = supabase
+      .from("profiles")
+      .select(BASE_SEARCH_COLUMNS, { count: "exact" })
+      .eq("onboarded", true)
+      .eq("is_visible", true)
+      .eq("verification_status", "verified")
+      .neq("id", currentUserId);
+
+    if (hidden.length)
+      fallbackQuery = fallbackQuery.filter("id", "not.in", `(${hidden.join(",")})`);
+    if (savedOnly) fallbackQuery = fallbackQuery.filter("id", "in", `(${savedIds.join(",")})`);
+    if (inst) fallbackQuery = fallbackQuery.eq("institution", inst);
+    if (reloc) fallbackQuery = fallbackQuery.eq("relocation", reloc);
+    if (gender) fallbackQuery = fallbackQuery.eq("gender", gender);
+    if (diet) fallbackQuery = fallbackQuery.eq("diet", diet);
+    if (maritalStatus) fallbackQuery = fallbackQuery.eq("marital_status", maritalStatus);
+    if (residency) fallbackQuery = fallbackQuery.eq("residency_status", residency);
+    if (tongue) fallbackQuery = fallbackQuery.eq("mother_tongue", tongue);
+    if (minHeight) fallbackQuery = fallbackQuery.gte("height_cm", Number(minHeight));
+    if (ageBand === "20s")
+      fallbackQuery = fallbackQuery.gte("birth_year", year - 29).lte("birth_year", year - 21);
+    if (ageBand === "30s")
+      fallbackQuery = fallbackQuery.gte("birth_year", year - 39).lte("birth_year", year - 30);
+    if (ageBand === "40plus") fallbackQuery = fallbackQuery.lte("birth_year", year - 40);
+    if (sort === "youngest")
+      fallbackQuery = fallbackQuery.order("birth_year", { ascending: false });
+    else if (sort === "grad")
+      fallbackQuery = fallbackQuery.order("grad_year", { ascending: false });
+    else fallbackQuery = fallbackQuery.order("updated_at", { ascending: false });
+
+    if (term)
+      fallbackQuery = fallbackQuery.or(
+        `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`,
+      );
+
+    fallbackQuery = fallbackQuery.range(
+      pageNumber * PAGE_SIZE,
+      pageNumber * PAGE_SIZE + PAGE_SIZE - 1,
+    );
+    const fbRes = signal ? await fallbackQuery.abortSignal(signal) : await fallbackQuery;
+    if (fbRes.error) throw fbRes.error;
+
+    data = (fbRes.data ?? []).map((r: Record<string, unknown>) => ({
+      ...r,
+      religion: null,
+      caste: null,
+      gotra: null,
+    })) as unknown as typeof data;
+    count = fbRes.count;
+  }
+
+  return {
+    rows: (data ?? []) as SearchResultRow[],
+    total: count ?? 0,
+    hasMore: (count ?? 0) > (pageNumber + 1) * PAGE_SIZE,
+  };
+}
 
 function Members() {
   const matchRoute = useMatchRoute();
@@ -104,7 +251,10 @@ function Members() {
           "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
         )
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.warn("Could not load partner preferences:", error.message);
+        return { ...EMPTY_PREFERENCES };
+      }
       if (!data) return { ...EMPTY_PREFERENCES };
       return {
         min_age: data.min_age,
@@ -187,58 +337,28 @@ function Members() {
       (me.data.verification_status === "verified" || isCopilot) &&
       blocked.isSuccess &&
       (!savedOnly || saved.isSuccess),
-    // `signal` is threaded through to PostgREST so superseded searches (fast
-    // typing, rapid filter changes) are aborted instead of racing to land.
     queryFn: async ({ signal }) => {
-      if (savedOnly && !savedIds.length) return { rows: [], total: 0, hasMore: false };
-      let query = supabase
-        .from("profiles")
-        .select(SEARCH_COLUMNS, { count: "exact" })
-        .eq("onboarded", true)
-        .eq("is_visible", true)
-        .eq("verification_status", "verified")
-        .neq("id", me.data!.id);
-      if (hidden.length) query = query.filter("id", "not.in", `(${hidden.join(",")})`);
-      if (savedOnly) query = query.filter("id", "in", `(${savedIds.join(",")})`);
-      if (inst) query = query.eq("institution", inst);
-      if (reloc) query = query.eq("relocation", reloc);
-      if (gender) query = query.eq("gender", gender);
-      if (diet) query = query.eq("diet", diet);
-      if (maritalStatus) query = query.eq("marital_status", maritalStatus);
-      if (residency) query = query.eq("residency_status", residency);
-      if (tongue) query = query.eq("mother_tongue", tongue);
-      if (religion) query = query.eq("religion", religion);
-      if (minHeight) query = query.gte("height_cm", Number(minHeight));
-      if (ageBand === "20s")
-        query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
-      if (ageBand === "30s")
-        query = query.gte("birth_year", year - 39).lte("birth_year", year - 30);
-      if (ageBand === "40plus") query = query.lte("birth_year", year - 40);
-      if (sort === "youngest") query = query.order("birth_year", { ascending: false });
-      else if (sort === "grad") query = query.order("grad_year", { ascending: false });
-      else if (sort === "match") {
-        // Best match re-orders the same page client-side instead of pushing a
-        // 200-row window: scoring runs on directory-visible fields only and
-        // the count stays server-authoritative. A larger page keeps the first
-        // screen meaningful without changing pagination math.
-        query = query.order("updated_at", { ascending: false });
-      } else query = query.order("updated_at", { ascending: false });
-      const term = debouncedQ
-        .trim()
-        .replace(/[%,()]/g, "")
-        .slice(0, 60);
-      if (term)
-        query = query.or(
-          `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%,caste.ilike.%${term}%,gotra.ilike.%${term}%`,
-        );
-      query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
-      const { data, error, count } = await query.abortSignal(signal);
-      if (error) throw error;
-      return {
-        rows: data ?? [],
-        total: count ?? 0,
-        hasMore: (count ?? 0) > (page + 1) * PAGE_SIZE,
-      };
+      return runMemberDirectoryQuery({
+        pageNumber: page,
+        currentUserId: me.data!.id,
+        hidden,
+        savedOnly,
+        savedIds,
+        inst,
+        reloc,
+        gender,
+        diet,
+        maritalStatus,
+        residency,
+        tongue,
+        religion,
+        minHeight,
+        ageBand,
+        year,
+        sort,
+        debouncedQ,
+        signal,
+      });
     },
   });
 
@@ -270,49 +390,26 @@ function Members() {
       queryKey: nextKey,
       staleTime: 4 * 60 * 1000,
       queryFn: async () => {
-        if (savedOnly && !savedIds.length) return { rows: [], total: 0, hasMore: false };
-        let query = supabase
-          .from("profiles")
-          .select(SEARCH_COLUMNS, { count: "exact" })
-          .eq("onboarded", true)
-          .eq("is_visible", true)
-          .eq("verification_status", "verified")
-          .neq("id", me.data!.id);
-        if (hidden.length) query = query.filter("id", "not.in", `(${hidden.join(",")})`);
-        if (savedOnly) query = query.filter("id", "in", `(${savedIds.join(",")})`);
-        if (inst) query = query.eq("institution", inst);
-        if (reloc) query = query.eq("relocation", reloc);
-        if (gender) query = query.eq("gender", gender);
-        if (diet) query = query.eq("diet", diet);
-        if (maritalStatus) query = query.eq("marital_status", maritalStatus);
-        if (residency) query = query.eq("residency_status", residency);
-        if (tongue) query = query.eq("mother_tongue", tongue);
-        if (religion) query = query.eq("religion", religion);
-        if (minHeight) query = query.gte("height_cm", Number(minHeight));
-        if (ageBand === "20s")
-          query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
-        if (ageBand === "30s")
-          query = query.gte("birth_year", year - 39).lte("birth_year", year - 30);
-        if (ageBand === "40plus") query = query.lte("birth_year", year - 40);
-        if (sort === "youngest") query = query.order("birth_year", { ascending: false });
-        else if (sort === "grad") query = query.order("grad_year", { ascending: false });
-        else query = query.order("updated_at", { ascending: false });
-        const term = debouncedQ
-          .trim()
-          .replace(/[%,()]/g, "")
-          .slice(0, 60);
-        if (term)
-          query = query.or(
-            `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%,caste.ilike.%${term}%,gotra.ilike.%${term}%`,
-          );
-        query = query.range(nextPage * PAGE_SIZE, nextPage * PAGE_SIZE + PAGE_SIZE - 1);
-        const { data, error, count } = await query;
-        if (error) throw error;
-        return {
-          rows: data ?? [],
-          total: count ?? 0,
-          hasMore: (count ?? 0) > (nextPage + 1) * PAGE_SIZE,
-        };
+        return runMemberDirectoryQuery({
+          pageNumber: nextPage,
+          currentUserId: me.data!.id,
+          hidden,
+          savedOnly,
+          savedIds,
+          inst,
+          reloc,
+          gender,
+          diet,
+          maritalStatus,
+          residency,
+          tongue,
+          religion,
+          minHeight,
+          ageBand,
+          year,
+          sort,
+          debouncedQ,
+        });
       },
     });
   }, [
