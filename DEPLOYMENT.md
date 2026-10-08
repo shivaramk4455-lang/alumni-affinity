@@ -30,10 +30,10 @@ supabase db push
 
 ## 3. Storage Buckets Verification
 
-The migrations automatically configure private storage buckets with strict MIME types and 10MB limits:
+The migrations automatically configure private storage buckets with strict MIME types and file limits:
 
-- `profile-photos`: `image/jpeg`, `image/png` (private)
-- `verification-docs`: `application/pdf`, `image/jpeg`, `image/png` (private)
+- `profile-photos`: `image/jpeg`, `image/png` (private, up to 20 MB)
+- `verification-docs`: `application/pdf`, `image/jpeg`, `image/png` (private, up to 10 MB)
 
 Verify in Supabase Dashboard under **Storage** that both buckets have **Public Bucket = OFF**.
 
@@ -169,7 +169,7 @@ Run in this order; each step is verifiable on its own.
    supabase db push
    ```
 
-5. **Storage**: `profile-photos` and `verification-docs` both private, 10 MB,
+5. **Storage**: `profile-photos` (20 MB) and `verification-docs` (10 MB) both private,
    MIME-limited (§3).
 6. **Razorpay**: webhook URL + secret + the nine events (§6), then a live ₹1
    test subscription to confirm `invoice.paid` flips the row to `active` and
