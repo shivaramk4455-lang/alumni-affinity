@@ -420,7 +420,7 @@ export function useUploadGalleryPhoto() {
       // photo is saved and live regardless of whether profile_photos table exists!
       const { error: profSyncErr } = await supabase
         .from("profiles")
-        .update({ photo_path: path, updated_at: new Date().toISOString() })
+        .update({ photo_path: path })
         .eq("id", u.user.id);
 
       if (profSyncErr) {
@@ -484,6 +484,8 @@ export function useUploadGalleryPhoto() {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["my-profile"] });
       qc.invalidateQueries({ queryKey: ["photo"] });
+      qc.invalidateQueries({ queryKey: ["navbar-avatar"] });
+      qc.invalidateQueries({ queryKey: ["search-photo"] });
       toast.success("Photograph uploaded successfully.");
     },
     onError: (e) => {

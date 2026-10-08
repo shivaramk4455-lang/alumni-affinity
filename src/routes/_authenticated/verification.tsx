@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { BadgeCheck, Clock3, FileCheck2, Mail, Upload } from "lucide-react";
+import { BadgeCheck, Clock3, Eye, FileCheck2, Mail, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,10 +200,24 @@ function Verification() {
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">
-        Membership desk
-      </p>
-      <h1 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">Verification & privacy</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">
+            Membership desk
+          </p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold md:text-4xl">
+            Verification & privacy
+          </h1>
+        </div>
+        {p?.id && (
+          <Button asChild variant="outline" className="gap-2 border-brass/40 hover:bg-brass/5">
+            <Link to="/members/$id" params={{ id: p.id }}>
+              <Eye className="size-4 text-brass" />
+              Preview My Profile
+            </Link>
+          </Button>
+        )}
+      </div>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
         Credentials are reviewed privately. Documents are visible only to you and never shown to
         other members.
@@ -325,12 +339,29 @@ function Verification() {
       </section>
 
       <section id="photos" className="mt-6 border border-border bg-card p-6 md:p-8 scroll-mt-24">
-        <h2 className="font-serif text-2xl font-semibold">Photograph &amp; gallery</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Upload up to 6 photographs. Verified members see them according to your visibility
-          setting; each rendered copy is stamped with the viewer’s name and the time of viewing.
-          Screenshots cannot be prevented — report misuse and the membership desk will act.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-serif text-2xl font-semibold">Photograph &amp; gallery</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Upload up to 6 photographs. Verified members see them according to your visibility
+              setting; each rendered copy is stamped with the viewer’s name and the time of viewing.
+              Screenshots cannot be prevented — report misuse and the membership desk will act.
+            </p>
+          </div>
+          {p?.id && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-brass/40 hover:bg-brass/5"
+            >
+              <Link to="/members/$id" params={{ id: p.id }}>
+                <Eye className="size-3.5 text-brass" />
+                View in Profile Preview
+              </Link>
+            </Button>
+          )}
+        </div>
         <div className="mt-6 grid gap-6">
           <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />
           <div className="grid max-w-sm gap-2">
@@ -417,16 +448,35 @@ function Verification() {
         </Button>
       </section>
 
-      <p className="mt-8 text-sm text-muted-foreground">
-        Profile details such as education and city live in{" "}
-        <Link
-          to="/onboarding"
-          className="font-semibold text-foreground underline underline-offset-4"
-        >
-          your profile
-        </Link>
-        .
-      </p>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border border-brass/30 bg-brass/5 p-4 sm:p-5">
+        <div>
+          <p className="font-serif text-base font-semibold text-foreground">
+            See your profile as other members see it
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Preview your full profile card, portrait gallery, religion, caste, gotra, and partner
+            preferences.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1.5 border-border">
+            <Link to="/onboarding">Edit Profile</Link>
+          </Button>
+          {p?.id && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-brass/50 bg-background hover:bg-brass/10"
+            >
+              <Link to="/members/$id" params={{ id: p.id }}>
+                <Eye className="size-4 text-brass" />
+                Preview Public Profile
+              </Link>
+            </Button>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

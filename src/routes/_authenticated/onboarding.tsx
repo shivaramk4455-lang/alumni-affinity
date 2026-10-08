@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cloneElement, isValidElement, useId, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Check, CircleAlert } from "lucide-react";
+import { Check, CircleAlert, Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -603,13 +603,23 @@ function Onboarding() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12 md:px-8 md:py-20">
       {me.data?.onboarded && (
-        <div className="mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <Link
             to="/dashboard"
             className="inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             ← Back to membership desk
           </Link>
+          {me.data?.id && (
+            <Link
+              to="/members/$id"
+              params={{ id: me.data.id }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-brass hover:text-brass-strong transition-colors"
+            >
+              <Eye className="size-3.5" />
+              Preview My Profile
+            </Link>
+          )}
         </div>
       )}
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">

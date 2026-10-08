@@ -534,10 +534,22 @@ function Settings() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-12 md:px-8 md:py-16">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">
-        Membership settings
-      </p>
-      <h1 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">Privacy & account</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">
+            Membership settings
+          </p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold md:text-4xl">Privacy & account</h1>
+        </div>
+        {p?.id && (
+          <Button asChild variant="outline" className="gap-2 border-brass/40 hover:bg-brass/5">
+            <Link to="/members/$id" params={{ id: p.id }}>
+              <Eye className="size-4 text-brass" />
+              Preview My Profile
+            </Link>
+          </Button>
+        )}
+      </div>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
         Most controls save the moment you change them. Contact details, the sabbatical and partner
         preferences each need an explicit Save.
@@ -625,11 +637,28 @@ function Settings() {
         </div>
       </section>
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
-        <h2 className="font-serif text-2xl font-semibold">Photograph gallery</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Manage your portraits (up to 6). Reorder or set a primary photograph to appear in search
-          and match cards.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-serif text-2xl font-semibold">Photograph gallery</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Manage your portraits (up to 6). Reorder or set a primary photograph to appear in
+              search and match cards.
+            </p>
+          </div>
+          {p?.id && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-brass/40 hover:bg-brass/5"
+            >
+              <Link to="/members/$id" params={{ id: p.id }}>
+                <Eye className="size-3.5 text-brass" />
+                Preview Profile
+              </Link>
+            </Button>
+          )}
+        </div>
         <div className="mt-6">
           <PhotoGalleryManager watermark="Your own view" name={p?.full_name ?? null} />
         </div>

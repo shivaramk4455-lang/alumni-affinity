@@ -8,6 +8,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Check,
+  Eye,
   EyeOff,
   Flag,
   Heart,
@@ -473,6 +474,35 @@ function MemberProfile() {
         </div>
       ) : (
         <article className="mt-8 border border-border bg-card p-6 md:p-10">
+          {isSelf && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-brass/40 bg-brass/10 p-4">
+              <div className="flex items-center gap-2.5">
+                <Eye className="size-5 shrink-0 text-brass" />
+                <div>
+                  <p className="font-serif text-base font-semibold text-foreground">
+                    Your Profile Preview
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This is how your profile and photographs appear to other verified members in the
+                    directory.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/onboarding">Edit Details</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/verification" hash="photos">
+                    Manage Photos
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/settings">Settings</Link>
+                </Button>
+              </div>
+            </div>
+          )}
           {memberGallery.isError && (
             <p
               role="alert"
