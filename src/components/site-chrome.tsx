@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { User } from "@supabase/supabase-js";
 import {
   ArrowUpRight,
   Bell,
@@ -7,13 +8,16 @@ import {
   Landmark,
   LogOut,
   Menu,
+  Settings,
   ShieldCheck,
+  UserRound,
   Video,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { GRIEVANCE_OFFICER } from "@/lib/legal-identity";
+import type { MyProfileRow } from "@/lib/profile-columns";
 
 import { toast } from "sonner";
 
@@ -127,6 +131,204 @@ function NavMenu({ label, items }: { label: string; items: NavItem[] }) {
               {item.label}
             </Link>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Signed photo URL for member avatar thumbnail in navbar/menus. */
+function useUserAvatar(path?: string | null) {
+  return useQuery({
+    queryKey: ["navbar-avatar", path],
+    enabled: !!path,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage
+        .from("profile-photos")
+        .createSignedUrl(path!, 3600);
+      if (error) return null;
+      return data?.signedUrl ?? null;
+    },
+  });
+}
+
+/**
+ * Round thumbnail avatar button that opens a user profile card and menu.
+ * Replaces the raw explicit email in the header to preserve privacy while
+ * keeping the email, profile link, and settings one tap away.
+ */
+function UserNavMenu({
+  user,
+  profile,
+  onSignOut,
+}: {
+  user: User;
+  profile: MyProfileRow | null | undefined;
+  onSignOut: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  const avatar = useUserAvatar(profile?.photo_path);
+  const displayName = profile?.full_name?.trim() || user.email?.split("@")[0] || "Member";
+  const initials = profile?.full_name?.trim()
+    ? profile.full_name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join("")
+    : (user.email?.[0]?.toUpperCase() ?? "M");
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account menu for ${user.email ?? "member"}`}
+        onClick={() => setOpen((v) => !v)}
+        className="group flex items-center gap-1.5 rounded-full p-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brass"
+      >
+        <span className="relative grid size-9 place-items-center overflow-hidden rounded-full border border-border bg-secondary shadow-sm transition-transform group-hover:scale-105 group-hover:border-brass/70">
+          {avatar.data ? (
+            <img
+              src={avatar.data}
+              alt={displayName}
+              className="size-full object-cover"
+              loading="eager"
+            />
+          ) : (
+            <span className="font-serif text-xs font-semibold text-foreground">{initials}</span>
+          )}
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={`size-3 text-muted-foreground transition-transform duration-200 group-hover:text-foreground ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="User account options"
+          className="absolute right-0 top-full z-50 mt-2 w-72 border border-border bg-card p-0 shadow-paper"
+        >
+          {/* Header section with User Thumbnail, Full Name, and Email */}
+          <div className="border-b border-border bg-secondary/25 p-4">
+            <div className="flex items-center gap-3">
+              <div className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary">
+                {avatar.data ? (
+                  <img src={avatar.data} alt={displayName} className="size-full object-cover" />
+                ) : (
+                  <span className="font-serif text-sm font-semibold text-foreground">
+                    {initials}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-serif text-sm font-semibold text-foreground">
+                  {displayName}
+                </p>
+                {/* User email shown prominently when pressed */}
+                <p
+                  className="mt-0.5 select-all truncate text-xs text-muted-foreground"
+                  title={user.email ?? ""}
+                >
+                  {user.email}
+                </p>
+                {profile?.verification_status === "verified" ? (
+                  <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-brass">
+                    <ShieldCheck className="size-3" /> Identity verified
+                  </span>
+                ) : (
+                  <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    Verification pending
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation items */}
+          <div className="p-1">
+            {user.id && (
+              <Link
+                role="menuitem"
+                to="/members/$id"
+                params={{ id: user.id }}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <UserRound className="size-4" />
+                <span>My Profile</span>
+              </Link>
+            )}
+            <Link
+              role="menuitem"
+              to="/settings"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Settings className="size-4" />
+              <span>Settings & Preferences</span>
+            </Link>
+            <Link
+              role="menuitem"
+              to="/verification"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ShieldCheck className="size-4" />
+              <span>Verification Status</span>
+            </Link>
+            {profile?.is_admin && (
+              <Link
+                role="menuitem"
+                to="/admin"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-brass transition-colors hover:bg-muted"
+              >
+                <Landmark className="size-4" />
+                <span>Admin Desk</span>
+              </Link>
+            )}
+          </div>
+
+          {/* Sign out button */}
+          <div className="border-t border-border p-1">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                void onSignOut();
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="size-4" />
+              <span>Sign out</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -447,6 +649,17 @@ export function SiteHeader() {
     ? nav.filter((i): i is NavItem => !inline.includes(i.label))
     : [];
 
+  const mobileAvatar = useUserAvatar(me.data?.photo_path);
+  const mobileDisplayName = me.data?.full_name?.trim() || user?.email?.split("@")[0] || "Member";
+  const mobileInitials = me.data?.full_name?.trim()
+    ? me.data.full_name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join("")
+    : (user?.email?.[0]?.toUpperCase() ?? "M");
+
   async function signOut() {
     setOpen(false);
     await queryClient.cancelQueries();
@@ -499,15 +712,7 @@ export function SiteHeader() {
             (user ? (
               <div className="flex items-center gap-3">
                 <NotificationBell />
-                <span
-                  className="max-w-40 truncate text-xs text-muted-foreground"
-                  title={user.email ?? ""}
-                >
-                  {user.email}
-                </span>
-                <Button variant="outline" onClick={signOut}>
-                  <LogOut /> Sign out
-                </Button>
+                <UserNavMenu user={user} profile={me.data} onSignOut={signOut} />
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -523,17 +728,24 @@ export function SiteHeader() {
             ))}
         </nav>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          aria-controls="mobile-nav"
-        >
-          {open ? <X /> : <Menu />}
-        </Button>
+        <div className="flex items-center gap-2 md:hidden">
+          {!loading && user && (
+            <>
+              <NotificationBell />
+              <UserNavMenu user={user} profile={me.data} onSignOut={signOut} />
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+          >
+            {open ? <X /> : <Menu />}
+          </Button>
+        </div>
       </div>
       {open && (
         <nav
@@ -542,6 +754,31 @@ export function SiteHeader() {
           aria-label="Mobile navigation"
         >
           <div className="mx-auto grid max-w-7xl gap-1">
+            {!loading && user && (
+              <div className="mb-2 flex items-center gap-3 border-b border-border pb-3">
+                <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary shadow-sm">
+                  {mobileAvatar.data ? (
+                    <img
+                      src={mobileAvatar.data}
+                      alt={mobileDisplayName}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-serif text-sm font-semibold text-foreground">
+                      {mobileInitials}
+                    </span>
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-serif text-sm font-semibold text-foreground">
+                    {mobileDisplayName}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground" title={user.email ?? ""}>
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+            )}
             {nav.map((item) => (
               <Link
                 key={item.label}
@@ -558,9 +795,9 @@ export function SiteHeader() {
                 <button
                   type="button"
                   onClick={signOut}
-                  className="flex items-center gap-2 py-3 text-left text-sm font-medium"
+                  className="flex items-center gap-2 py-3 text-left text-sm font-medium text-destructive transition-colors hover:opacity-85"
                 >
-                  <LogOut className="size-4" /> Sign out ({user.email})
+                  <LogOut className="size-4" /> Sign out
                 </button>
               ) : (
                 <Link
