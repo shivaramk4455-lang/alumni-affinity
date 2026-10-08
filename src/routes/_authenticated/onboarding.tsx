@@ -15,9 +15,11 @@ import type { MyProfileRow } from "@/lib/profile-columns";
 import { recordConsent } from "@/lib/consent";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  CASTES,
   DEGREES,
   DIETS,
   GENDERS,
+  GOTRAS,
   HEIGHT_OPTIONS,
   INSTITUTIONS,
   MAJOR_CITIES_BY_STATE,
@@ -25,6 +27,7 @@ import {
   MOTHER_TONGUES,
   PROFESSION_GROUPS,
   PROFESSIONS,
+  RELIGIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
   detectCountryAndStateFromCity,
@@ -58,6 +61,9 @@ type Form = {
   diet: string;
   mother_tongue: string;
   residency_status: string;
+  religion: string;
+  caste: string;
+  gotra: string;
   institution: string;
   degree: string;
   grad_year: string;
@@ -78,6 +84,9 @@ const empty: Form = {
   diet: "",
   mother_tongue: "",
   residency_status: "",
+  religion: "",
+  caste: "",
+  gotra: "",
   institution: "",
   degree: "",
   grad_year: "",
@@ -111,6 +120,9 @@ const schemas = [
     diet: z.string().optional(),
     mother_tongue: z.string().optional(),
     residency_status: z.string().optional(),
+    religion: z.string().optional(),
+    caste: z.string().optional(),
+    gotra: z.string().optional(),
   }),
   z.object({
     institution: z.string().min(1, "Select institution"),
@@ -161,6 +173,14 @@ function Onboarding() {
     !PROFESSIONS.includes(f.profession as (typeof PROFESSIONS)[number]) &&
     f.profession !== "Other",
   );
+  const [customCasteSelected, setCustomCasteSelected] = useState(false);
+  const isCustomCaste = Boolean(
+    f.caste && !CASTES.includes(f.caste as (typeof CASTES)[number]) && f.caste !== "Other",
+  );
+  const [customGotraSelected, setCustomGotraSelected] = useState(false);
+  const isCustomGotra = Boolean(
+    f.gotra && !GOTRAS.includes(f.gotra as (typeof GOTRAS)[number]) && f.gotra !== "Other",
+  );
   /** Per-field validation messages, keyed by the schema path, for this step. */
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = (k: keyof Form, v: string | boolean) => {
@@ -190,6 +210,8 @@ function Onboarding() {
             selectedState,
             customDegreeSelected,
             customProfessionSelected,
+            customCasteSelected,
+            customGotraSelected,
           }),
         );
       } catch {
@@ -203,6 +225,8 @@ function Onboarding() {
     selectedState,
     customDegreeSelected,
     customProfessionSelected,
+    customCasteSelected,
+    customGotraSelected,
     me.data?.onboarded,
   ]);
 
@@ -225,6 +249,8 @@ function Onboarding() {
             selectedState?: string;
             customDegreeSelected?: boolean;
             customProfessionSelected?: boolean;
+            customCasteSelected?: boolean;
+            customGotraSelected?: boolean;
           };
           if (draft && draft.f && typeof draft.f === "object") {
             setF((prev) => ({ ...prev, ...draft.f }));
@@ -238,6 +264,12 @@ function Onboarding() {
             }
             if (typeof draft.customProfessionSelected === "boolean") {
               setCustomProfessionSelected(draft.customProfessionSelected);
+            }
+            if (typeof draft.customCasteSelected === "boolean") {
+              setCustomCasteSelected(draft.customCasteSelected);
+            }
+            if (typeof draft.customGotraSelected === "boolean") {
+              setCustomGotraSelected(draft.customGotraSelected);
             }
             prefilled = true;
           }
@@ -325,6 +357,9 @@ function Onboarding() {
         diet: data.diet ?? "",
         mother_tongue: data.mother_tongue ?? "",
         residency_status: data.residency_status ?? "",
+        religion: data.religion ?? "",
+        caste: data.caste ?? "",
+        gotra: data.gotra ?? "",
         institution: data.institution ?? "",
         degree: data.degree ?? "",
         grad_year: data.grad_year?.toString() ?? "",
@@ -387,6 +422,9 @@ function Onboarding() {
       diet: f.diet || null,
       mother_tongue: f.mother_tongue || null,
       residency_status: f.residency_status || null,
+      religion: f.religion ? f.religion.trim() : null,
+      caste: f.caste ? f.caste.trim() : null,
+      gotra: f.gotra ? f.gotra.trim() : null,
       institution: f.institution,
       degree: f.degree.trim(),
       grad_year: Number(f.grad_year),
@@ -745,6 +783,92 @@ function Onboarding() {
                     <option key={m}>{m}</option>
                   ))}
                 </select>
+              </Field>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Field label="Religion (optional)">
+                <select
+                  className={selectCls}
+                  value={f.religion}
+                  onChange={(e) => set("religion", e.target.value)}
+                >
+                  <option value="">Select religion</option>
+                  {RELIGIONS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Caste / Community (optional)">
+                <select
+                  className={selectCls}
+                  value={isCustomCaste || customCasteSelected ? "Other" : f.caste}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Other") {
+                      setCustomCasteSelected(true);
+                      if (CASTES.includes(f.caste as (typeof CASTES)[number])) {
+                        set("caste", "");
+                      }
+                    } else {
+                      setCustomCasteSelected(false);
+                      set("caste", val);
+                    }
+                  }}
+                >
+                  <option value="">Select caste / community</option>
+                  {CASTES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                {(isCustomCaste || customCasteSelected) && (
+                  <Input
+                    className="mt-2"
+                    placeholder="Specify caste or community"
+                    value={f.caste}
+                    onChange={(e) => set("caste", e.target.value)}
+                    maxLength={80}
+                    autoFocus
+                  />
+                )}
+              </Field>
+              <Field label="Gotra (optional)">
+                <select
+                  className={selectCls}
+                  value={isCustomGotra || customGotraSelected ? "Other" : f.gotra}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Other") {
+                      setCustomGotraSelected(true);
+                      if (GOTRAS.includes(f.gotra as (typeof GOTRAS)[number])) {
+                        set("gotra", "");
+                      }
+                    } else {
+                      setCustomGotraSelected(false);
+                      set("gotra", val);
+                    }
+                  }}
+                >
+                  <option value="">Select gotra</option>
+                  {GOTRAS.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+                {(isCustomGotra || customGotraSelected) && (
+                  <Input
+                    className="mt-2"
+                    placeholder="Specify gotra"
+                    value={f.gotra}
+                    onChange={(e) => set("gotra", e.target.value)}
+                    maxLength={80}
+                    autoFocus
+                  />
+                )}
               </Field>
             </div>
           </>

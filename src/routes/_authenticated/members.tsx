@@ -17,6 +17,7 @@ import {
   INSTITUTIONS,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
+  RELIGIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
   formatHeight,
@@ -65,6 +66,7 @@ function Members() {
   const [maritalStatus, setMaritalStatus] = useState("");
   const [residency, setResidency] = useState("");
   const [tongue, setTongue] = useState("");
+  const [religion, setReligion] = useState("");
   const [minHeight, setMinHeight] = useState("");
   const [sort, setSort] = useState<"recent" | "youngest" | "grad" | "match">("recent");
   const [page, setPage] = useState(0);
@@ -162,6 +164,7 @@ function Members() {
       maritalStatus,
       residency,
       tongue,
+      religion,
       minHeight,
       sort,
       page,
@@ -196,6 +199,7 @@ function Members() {
       if (maritalStatus) query = query.eq("marital_status", maritalStatus);
       if (residency) query = query.eq("residency_status", residency);
       if (tongue) query = query.eq("mother_tongue", tongue);
+      if (religion) query = query.eq("religion", religion);
       if (minHeight) query = query.gte("height_cm", Number(minHeight));
       if (ageBand === "20s")
         query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
@@ -217,7 +221,7 @@ function Members() {
         .slice(0, 60);
       if (term)
         query = query.or(
-          `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`,
+          `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%,caste.ilike.%${term}%,gotra.ilike.%${term}%`,
         );
       query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       const { data, error, count } = await query.abortSignal(signal);
@@ -245,6 +249,7 @@ function Members() {
       maritalStatus,
       residency,
       tongue,
+      religion,
       minHeight,
       sort,
       nextPage,
@@ -274,6 +279,7 @@ function Members() {
         if (maritalStatus) query = query.eq("marital_status", maritalStatus);
         if (residency) query = query.eq("residency_status", residency);
         if (tongue) query = query.eq("mother_tongue", tongue);
+        if (religion) query = query.eq("religion", religion);
         if (minHeight) query = query.gte("height_cm", Number(minHeight));
         if (ageBand === "20s")
           query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
@@ -289,7 +295,7 @@ function Members() {
           .slice(0, 60);
         if (term)
           query = query.or(
-            `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`,
+            `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%,caste.ilike.%${term}%,gotra.ilike.%${term}%`,
           );
         query = query.range(nextPage * PAGE_SIZE, nextPage * PAGE_SIZE + PAGE_SIZE - 1);
         const { data, error, count } = await query;
@@ -313,6 +319,7 @@ function Members() {
     maritalStatus,
     residency,
     tongue,
+    religion,
     minHeight,
     sort,
     me.data,
@@ -566,6 +573,22 @@ function Members() {
           ))}
         </select>
         <select
+          aria-label="Religion"
+          className={selectCls}
+          value={religion}
+          onChange={(e) => {
+            setReligion(e.target.value);
+            resetPage();
+          }}
+        >
+          <option value="">Any religion</option>
+          {RELIGIONS.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <select
           aria-label="Minimum height"
           className={selectCls}
           value={minHeight}
@@ -724,7 +747,7 @@ function Members() {
                         <MapPin className="size-3.5" />
                         {p.city} · {p.relocation}
                       </span>
-                      {(p.height_cm || p.diet || p.marital_status) && (
+                      {(p.height_cm || p.diet || p.marital_status || p.religion || p.caste) && (
                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           {[
                             formatHeight(p.height_cm),
@@ -732,6 +755,8 @@ function Members() {
                             p.marital_status && p.marital_status !== "Never married"
                               ? p.marital_status
                               : null,
+                            p.religion,
+                            p.caste,
                           ]
                             .filter(Boolean)
                             .join(" · ")}

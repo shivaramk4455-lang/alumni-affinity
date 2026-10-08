@@ -487,6 +487,9 @@ function MemberProfile() {
                 {data.marital_status && <Row k="Marital status" v={data.marital_status} />}
                 {data.diet && <Row k="Diet" v={data.diet} />}
                 {data.mother_tongue && <Row k="Mother tongue" v={data.mother_tongue} />}
+                {data.religion && <Row k="Religion" v={data.religion} />}
+                {data.caste && <Row k="Caste / Community" v={data.caste} />}
+                {data.gotra && <Row k="Gotra" v={data.gotra} />}
                 {data.residency_status && <Row k="Residency" v={data.residency_status} />}
               </dl>
 

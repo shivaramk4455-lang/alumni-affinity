@@ -35,7 +35,7 @@ export type MyProfileRow = Omit<
 // the literal type of the argument, so a `.join(", ")` (widened to `string`)
 // would degrade every result to `GenericStringError`.
 export const DIRECTORY_COLUMNS =
-  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status";
+  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status, religion, caste, gotra";
 
 /** The lighter projection used for search result cards. */
 export const SEARCH_COLUMNS =
@@ -47,4 +47,4 @@ export const SEARCH_COLUMNS =
   // outright when the member has not opened their photo to us, instead of
   // firing a request that storage RLS will refuse. Both columns are inside the
   // existing column-level GRANT on profiles.
-  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility";
+  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility, religion, caste, gotra";
