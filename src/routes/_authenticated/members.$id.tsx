@@ -180,7 +180,7 @@ function MemberProfile() {
     },
   });
   const [slideIndex, setSlideIndex] = useState(0);
-  const memberGallery = useMemberGallery(id);
+  const memberGallery = useMemberGallery(id, data?.photo_path);
 
   const send = useMutation({
     mutationFn: async () => {

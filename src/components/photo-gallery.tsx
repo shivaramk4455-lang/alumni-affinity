@@ -1,5 +1,6 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import {
+  AlertCircle,
   Camera,
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MemberPhoto } from "@/components/member-photo";
 import {
+  formatErrorMessage,
   GALLERY_ACCEPT,
   MAX_GALLERY_PHOTOS,
   useDeleteGalleryPhoto,
@@ -90,6 +92,34 @@ export function PhotoGalleryManager({
             : `${photos.length} of ${MAX_GALLERY_PHOTOS} uploaded. Click any photo to preview enlarged, or choose "Make Primary" to set your profile picture.`}
         </p>
       </div>
+
+      {upload.isError && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div>
+              <p className="font-semibold text-foreground">Photograph could not be uploaded</p>
+              <p className="mt-1 text-xs text-destructive">
+                {upload.error instanceof Error
+                  ? upload.error.message
+                  : formatErrorMessage(upload.error)}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => upload.reset()}
+            className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {gallery.isError ? (
         <div

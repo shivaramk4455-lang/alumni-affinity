@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
-import { compressPhotograph } from "@/lib/gallery";
+import { compressPhotograph, formatErrorMessage } from "@/lib/gallery";
 import { recordConsent } from "@/lib/consent";
 import {
   PHOTO_VISIBILITY,
@@ -127,7 +127,7 @@ function Verification() {
         bucket === "profile-photos" ? "Photograph uploaded." : "Document uploaded for review.",
       );
     },
-    onError: () => toast.error("Upload failed. Use a JPG, PNG or PDF under the size limit."),
+    onError: (e) => toast.error(formatErrorMessage(e)),
   });
 
   const p = me.data;
