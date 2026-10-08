@@ -19,11 +19,13 @@ export function MemberPhoto({
   watermark,
   className = "aspect-[4/5] w-full",
   name,
+  imgClassName = "object-cover",
 }: {
   path: string | null | undefined;
   watermark: string;
   className?: string;
   name?: string | null;
+  imgClassName?: string;
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -105,7 +107,7 @@ export function MemberPhoto({
         <img
           src={data}
           alt={name ? `Photograph of ${name}` : "Member photograph"}
-          className={`size-full object-cover transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+          className={`size-full ${imgClassName} transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
           loading="lazy"
           decoding="async"
           draggable={false}
