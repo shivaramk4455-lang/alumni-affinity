@@ -43,13 +43,16 @@ const credSchema = z.object({
 });
 
 const KNOWN_ROUTES = [
+  "/dashboard",
   "/members",
   "/connections",
+  "/messages",
+  "/calls",
+  "/shortlist",
+  "/notifications",
   "/copilots",
   "/verification",
-  "/dashboard",
   "/settings",
-  "/notifications",
   "/admin",
   "/onboarding",
 ] as const;
@@ -60,7 +63,17 @@ const KNOWN_ROUTES = [
  * `?redirect=` can never turn into an open redirect.
  */
 function parseRedirect(raw: string | undefined): { pathname: string; search: string } | null {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return null;
+  if (!raw) return null;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const url = new URL(raw);
+      if (typeof window !== "undefined" && url.origin !== window.location.origin) return null;
+      return { pathname: url.pathname, search: url.search };
+    } catch {
+      return null;
+    }
+  }
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return null;
   try {
     const url = new URL(raw, "http://internal.local");
     if (url.hostname !== "internal.local") return null;
@@ -119,10 +132,13 @@ function AuthPage() {
       return;
     }
     const known =
-      target && (KNOWN_ROUTES as readonly string[]).includes(target.pathname)
+      target &&
+      (KNOWN_ROUTES as readonly string[]).find(
+        (r) => target.pathname === r || target.pathname.startsWith(`${r}/`),
+      )
         ? (target.pathname as (typeof KNOWN_ROUTES)[number])
         : null;
-    navigate({ to: known ?? "/members", replace: true });
+    navigate({ to: known ?? "/dashboard", replace: true });
   }, [user, redirect, navigate]);
 
   async function submit(e: React.FormEvent) {

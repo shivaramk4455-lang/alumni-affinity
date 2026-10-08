@@ -6,8 +6,14 @@ import { startDemoSession } from "@/lib/demo-access.functions";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location, context }) => {
-    const { data } = await supabase.auth.getUser();
-    if (data.user) return { user: data.user };
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.user) return { user: sessionData.session.user };
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) return { user: data.user };
+    } catch {
+      /* fall through to demo session or redirect */
+    }
     // Pre-launch demo bypass: signed-out visitors are dropped into the shared
     // guest account so member pages can be eyeballed without a login.
     //
@@ -26,7 +32,8 @@ export const Route = createFileRoute("/_authenticated")({
     } catch {
       /* fall through to sign-in */
     }
-    throw redirect({ to: "/auth", search: { redirect: location.href } });
+    const redirectUrl = location.pathname + (location.searchStr || "");
+    throw redirect({ to: "/auth", search: { redirect: redirectUrl } });
   },
   component: () => <Outlet />,
 });
