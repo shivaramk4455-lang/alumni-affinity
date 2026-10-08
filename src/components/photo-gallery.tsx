@@ -66,7 +66,7 @@ export function PhotoGalleryManager({
             <ImagePlus className="size-4" />
           )}
           {upload.isPending
-            ? "Uploading…"
+            ? "Optimizing & uploading…"
             : full
               ? `Gallery full (${MAX_GALLERY_PHOTOS})`
               : "Add photograph"}
@@ -84,7 +84,7 @@ export function PhotoGalleryManager({
         </label>
         <p className="text-xs text-muted-foreground">
           {photos.length === 0
-            ? `Add up to ${MAX_GALLERY_PHOTOS} JPG/PNG portraits (20 MB each). The first becomes your primary automatically.`
+            ? `Add up to ${MAX_GALLERY_PHOTOS} JPG/PNG portraits (up to 20 MB each, auto-optimized to ~1–2 MB). The first becomes your primary automatically.`
             : `${photos.length} of ${MAX_GALLERY_PHOTOS} used. Star one to make it primary.`}
         </p>
       </div>

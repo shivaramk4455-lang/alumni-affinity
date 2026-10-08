@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
+import { compressPhotograph } from "@/lib/gallery";
 import { recordConsent } from "@/lib/consent";
 import {
   PHOTO_VISIBILITY,
@@ -88,11 +89,12 @@ function Verification() {
       bucket: "profile-photos" | "verification-docs";
     }) => {
       const { data: u } = await supabase.auth.getUser();
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "dat";
+      const fileToUpload = bucket === "profile-photos" ? await compressPhotograph(file) : file;
+      const ext = fileToUpload.name.split(".").pop()?.toLowerCase() ?? "dat";
       const path = `${u.user!.id}/${bucket === "profile-photos" ? "portrait" : "credential"}.${ext}`;
       const { error } = await supabase.storage
         .from(bucket)
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, fileToUpload, { upsert: true, contentType: fileToUpload.type });
       if (error) throw error;
       const patch =
         bucket === "profile-photos" ? { photo_path: path } : { verification_doc_path: path };

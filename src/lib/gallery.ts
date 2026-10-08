@@ -181,6 +181,124 @@ function assertGalleryFile(file: File) {
   }
 }
 
+async function loadImage(
+  file: File,
+): Promise<{ source: CanvasImageSource; width: number; height: number; cleanup: () => void }> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        cleanup: () => bitmap.close?.(),
+      };
+    } catch {
+      // Fallback to HTMLImageElement
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      resolve({
+        source: img,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+        cleanup: () => URL.revokeObjectURL(url),
+      });
+    };
+    img.onerror = (err) => {
+      URL.revokeObjectURL(url);
+      reject(err);
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * Automatic client-side image optimization (industry standard on Shaadi.com).
+ *
+ * Smartphone cameras produce massive 10–20 MB portraits. This function scales
+ * the image to max 2048px on the longest edge and re-encodes at 88% JPEG quality,
+ * shrinking photos down to ~1–2 MB without perceptible loss of clarity.
+ */
+export async function compressPhotograph(file: File): Promise<File> {
+  if (!["image/jpeg", "image/png"].includes(file.type)) {
+    return file;
+  }
+  if (typeof window === "undefined") {
+    return file;
+  }
+
+  try {
+    const { source, width, height, cleanup } = await loadImage(file);
+    const MAX_DIMENSION = 2048;
+    const TARGET_QUALITY = 0.88;
+
+    // Already compact JPEG within HD bounds — leave as-is
+    if (
+      file.size <= 1.5 * 1024 * 1024 &&
+      width <= MAX_DIMENSION &&
+      height <= MAX_DIMENSION &&
+      file.type === "image/jpeg"
+    ) {
+      cleanup();
+      return file;
+    }
+
+    let targetWidth = width;
+    let targetHeight = height;
+    if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+      if (width > height) {
+        targetWidth = MAX_DIMENSION;
+        targetHeight = Math.round((height * MAX_DIMENSION) / width);
+      } else {
+        targetHeight = MAX_DIMENSION;
+        targetWidth = Math.round((width * MAX_DIMENSION) / height);
+      }
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      cleanup();
+      return file;
+    }
+
+    // Fill white background in case of transparent PNGs
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+    cleanup();
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/jpeg", TARGET_QUALITY);
+    });
+
+    if (!blob) return file;
+
+    // Only substitute if we reduced size or scaled down excessive dimensions
+    if (blob.size < file.size || width > MAX_DIMENSION || height > MAX_DIMENSION) {
+      const baseName = file.name.replace(/\.[^/.]+$/, "");
+      return new File([blob], `${baseName}.jpg`, {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+    }
+
+    return file;
+  } catch (err) {
+    console.warn("Client-side photo compression fallback to original:", err);
+    return file;
+  }
+}
+
 /** Upload one photograph: object first, tracked row second. */
 export function useUploadGalleryPhoto() {
   const qc = useQueryClient();
@@ -193,10 +311,11 @@ export function useUploadGalleryPhoto() {
       if (mine >= MAX_GALLERY_PHOTOS) {
         throw new Error(`Keep at most ${MAX_GALLERY_PHOTOS} photographs — delete one first.`);
       }
-      const path = galleryPath(u.user.id, file);
+      const processed = await compressPhotograph(file);
+      const path = galleryPath(u.user.id, processed);
       const { error: upError } = await supabase.storage
         .from("profile-photos")
-        .upload(path, file, { upsert: false, contentType: file.type });
+        .upload(path, processed, { upsert: false, contentType: processed.type });
       if (upError) throw upError;
       const { error: rowError } = await supabase.from("profile_photos").insert({
         user_id: u.user.id,
