@@ -81,6 +81,124 @@ export const DEGREES = [
   "Other",
 ] as const;
 
+export type ProfessionGroup = {
+  category: string;
+  options: string[];
+};
+
+export const PROFESSION_GROUPS: ProfessionGroup[] = [
+  {
+    category: "Software & Technology",
+    options: [
+      "Software Engineer",
+      "Senior Software Engineer",
+      "Tech Lead / Engineering Manager",
+      "Staff / Principal Engineer",
+      "Director / VP of Engineering",
+      "Data Scientist / AI / ML Engineer",
+      "Data Analyst / BI Specialist",
+      "Cloud / DevOps / Platform Engineer",
+      "Product Designer / UI/UX Designer",
+    ],
+  },
+  {
+    category: "Core Engineering & Technical",
+    options: [
+      "Civil Engineer",
+      "Mechanical Engineer",
+      "Electrical / Electronics Engineer",
+      "Chemical Engineer",
+      "Hardware / VLSI / Semiconductor Engineer",
+      "Aerospace / Automotive Engineer",
+    ],
+  },
+  {
+    category: "Corporate Management & Leadership",
+    options: [
+      "Manager",
+      "Senior Manager",
+      "General Manager / AVP / VP",
+      "Director / Executive Director",
+      "Chief Executive Officer (CEO)",
+      "Chief Technology Officer (CTO)",
+      "Chief Financial Officer (CFO)",
+      "Chief Operating Officer (COO)",
+      "CXO / Executive Leadership",
+    ],
+  },
+  {
+    category: "Product & Program Management",
+    options: [
+      "Product Manager",
+      "Senior Product Manager",
+      "Director / VP of Product",
+      "Program Manager / Project Manager",
+      "Scrum Master / Agile Coach",
+    ],
+  },
+  {
+    category: "Consulting & Strategy",
+    options: [
+      "Management Consultant (MBB / Tier-1)",
+      "Strategy & Operations Consultant",
+      "Business Analyst",
+      "Associate / Engagement Manager",
+      "Principal / Partner (Consulting)",
+    ],
+  },
+  {
+    category: "Banking, Finance & Investment",
+    options: [
+      "Investment Banker",
+      "Private Equity / Venture Capital",
+      "Quantitative Analyst / Quant Trader",
+      "Financial Analyst / Equity Research",
+      "Portfolio Manager / Fund Manager",
+      "Corporate Finance / Treasury",
+      "Chartered Accountant (CA) / Controller",
+      "Risk & Compliance Analyst",
+    ],
+  },
+  {
+    category: "Business, Startup & Entrepreneurship",
+    options: [
+      "Founder / Co-Founder",
+      "Business Owner / Industrialist",
+      "Entrepreneur / Startup Operator",
+      "Self-Employed / Independent Consultant",
+      "Family Business Director",
+    ],
+  },
+  {
+    category: "Civil Services & Public Sector",
+    options: [
+      "Civil Services (IAS / IPS / IFS / IRS)",
+      "PSU / Public Sector Executive",
+      "Government Officer / Defense",
+    ],
+  },
+  {
+    category: "Marketing, Growth & Sales",
+    options: [
+      "Brand / Marketing Manager",
+      "Growth / Performance Marketing Lead",
+      "Sales / Enterprise Account Director",
+      "Corporate Communications / PR",
+    ],
+  },
+  {
+    category: "Research, Academia & Law",
+    options: [
+      "Professor / Assistant Professor",
+      "Research Scientist / Scholar",
+      "Corporate Lawyer / Legal Counsel",
+      "Patent / Intellectual Property Attorney",
+    ],
+  },
+];
+
+export const PROFESSIONS = [...PROFESSION_GROUPS.flatMap((g) => g.options), "Other"] as const;
+
 export const RELOCATION = [
   "Open to relocate",
   "Within India only",

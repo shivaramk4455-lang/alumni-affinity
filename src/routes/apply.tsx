@@ -26,7 +26,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { INSTITUTIONS, RELOCATION, isRecognisedAlumniEmail } from "@/lib/profile-options";
+import {
+  INSTITUTIONS,
+  PROFESSION_GROUPS,
+  PROFESSIONS,
+  RELOCATION,
+  isRecognisedAlumniEmail,
+} from "@/lib/profile-options";
 
 export const Route = createFileRoute("/apply")({
   head: () => ({
@@ -160,6 +166,12 @@ function ApplyPage() {
   const [completed, setCompleted] = useState(false);
   const [d, setD] = useState<Draft>(emptyDraft);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [customProfessionSelected, setCustomProfessionSelected] = useState(false);
+  const isCustomProfession = Boolean(
+    d.profession &&
+    !PROFESSIONS.includes(d.profession as (typeof PROFESSIONS)[number]) &&
+    d.profession !== "Other",
+  );
 
   useEffect(() => {
     setD(loadDraft());
@@ -478,16 +490,50 @@ function ApplyPage() {
             >
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Current profession">
-                  <Input
+                  <select
                     name="profession"
                     required
-                    maxLength={100}
-                    placeholder="Product leader, physician…"
-                    value={d.profession}
-                    onChange={(e) => set("profession", e.target.value)}
-                  />
+                    value={isCustomProfession || customProfessionSelected ? "Other" : d.profession}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "Other") {
+                        setCustomProfessionSelected(true);
+                        if (!isCustomProfession) set("profession", "");
+                      } else {
+                        setCustomProfessionSelected(false);
+                        set("profession", val);
+                      }
+                    }}
+                    className="h-10 w-full border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="" disabled>
+                      Select profession
+                    </option>
+                    {PROFESSION_GROUPS.map((group) => (
+                      <optgroup key={group.category} label={group.category}>
+                        {group.options.map((prof) => (
+                          <option key={prof} value={prof}>
+                            {prof}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    <option value="Other">Other (specify)</option>
+                  </select>
                   {errors["profession"] && <Error text={errors["profession"]} />}
                 </Field>
+                {(isCustomProfession || customProfessionSelected) && (
+                  <Field label="Specify profession">
+                    <Input
+                      name="custom-profession"
+                      required
+                      maxLength={100}
+                      placeholder="e.g. Quantitative Researcher, Aerospace Engineer, Surgeon…"
+                      value={d.profession}
+                      onChange={(e) => set("profession", e.target.value)}
+                    />
+                  </Field>
+                )}
                 <Field label="Current city">
                   <Input
                     name="city"

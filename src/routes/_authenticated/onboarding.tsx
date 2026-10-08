@@ -23,6 +23,8 @@ import {
   MAJOR_CITIES_BY_STATE,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
+  PROFESSION_GROUPS,
+  PROFESSIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
   detectCountryAndStateFromCity,
@@ -120,7 +122,7 @@ const schemas = [
       .max(year + 2, "Check graduation year"),
   }),
   z.object({
-    profession: z.string().trim().min(2, "Enter profession").max(80),
+    profession: z.string().trim().min(2, "Select or enter your profession").max(80),
     employer: z.string().trim().max(80),
     relocation: z.string().min(1, "Select relocation preference"),
   }),
@@ -153,6 +155,12 @@ function Onboarding() {
   const isCustomDegree = Boolean(
     f.degree && !DEGREES.includes(f.degree as (typeof DEGREES)[number]),
   );
+  const [customProfessionSelected, setCustomProfessionSelected] = useState(false);
+  const isCustomProfession = Boolean(
+    f.profession &&
+    !PROFESSIONS.includes(f.profession as (typeof PROFESSIONS)[number]) &&
+    f.profession !== "Other",
+  );
   /** Per-field validation messages, keyed by the schema path, for this step. */
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = (k: keyof Form, v: string | boolean) => {
@@ -175,13 +183,28 @@ function Onboarding() {
       try {
         localStorage.setItem(
           ONBOARDING_DRAFT_KEY,
-          JSON.stringify({ step, f, dob, selectedState, customDegreeSelected }),
+          JSON.stringify({
+            step,
+            f,
+            dob,
+            selectedState,
+            customDegreeSelected,
+            customProfessionSelected,
+          }),
         );
       } catch {
         /* storage quota */
       }
     }
-  }, [step, f, dob, selectedState, customDegreeSelected, me.data?.onboarded]);
+  }, [
+    step,
+    f,
+    dob,
+    selectedState,
+    customDegreeSelected,
+    customProfessionSelected,
+    me.data?.onboarded,
+  ]);
 
   // Seed the form from the member's own row once (via the security-definer
   // view), then layer the application draft over it when prefill=1.
@@ -201,6 +224,7 @@ function Onboarding() {
             dob?: string;
             selectedState?: string;
             customDegreeSelected?: boolean;
+            customProfessionSelected?: boolean;
           };
           if (draft && draft.f && typeof draft.f === "object") {
             setF((prev) => ({ ...prev, ...draft.f }));
@@ -211,6 +235,9 @@ function Onboarding() {
             if (draft.selectedState) setSelectedState(draft.selectedState);
             if (typeof draft.customDegreeSelected === "boolean") {
               setCustomDegreeSelected(draft.customDegreeSelected);
+            }
+            if (typeof draft.customProfessionSelected === "boolean") {
+              setCustomProfessionSelected(draft.customProfessionSelected);
             }
             prefilled = true;
           }
@@ -804,16 +831,58 @@ function Onboarding() {
           <>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Profession" error={errors["profession"]}>
+                <select
+                  id="onboard-profession"
+                  className={selectCls}
+                  value={isCustomProfession || customProfessionSelected ? "Other" : f.profession}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Other") {
+                      setCustomProfessionSelected(true);
+                      if (!isCustomProfession) set("profession", "");
+                    } else {
+                      setCustomProfessionSelected(false);
+                      set("profession", val);
+                    }
+                  }}
+                >
+                  <option value="">Select profession</option>
+                  {PROFESSION_GROUPS.map((group) => (
+                    <optgroup key={group.category} label={group.category}>
+                      {group.options.map((prof) => (
+                        <option key={prof} value={prof}>
+                          {prof}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <option value="Other">Other (specify)</option>
+                </select>
+              </Field>
+              <Field label="Organisation (optional)">
                 <Input
-                  autoComplete="organization-title"
+                  id="onboard-employer"
+                  placeholder="e.g. Google, McKinsey, Tata, Startup…"
+                  value={f.employer}
+                  onChange={(e) => set("employer", e.target.value)}
+                />
+              </Field>
+            </div>
+            {(isCustomProfession || customProfessionSelected) && (
+              <Field
+                label="Specify profession"
+                error={errors["profession"]}
+                note="Enter your specific profession, role or title"
+              >
+                <Input
+                  id="onboard-custom-profession"
+                  autoFocus
+                  placeholder="e.g. Quantitative Researcher, Aerospace Engineer, Surgeon…"
                   value={f.profession}
                   onChange={(e) => set("profession", e.target.value)}
                 />
               </Field>
-              <Field label="Organisation (optional)">
-                <Input value={f.employer} onChange={(e) => set("employer", e.target.value)} />
-              </Field>
-            </div>
+            )}
             <Field label="Relocation" error={errors["relocation"]}>
               <select
                 className={selectCls}
