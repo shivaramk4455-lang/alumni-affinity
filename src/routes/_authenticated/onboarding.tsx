@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { cloneElement, isValidElement, useId, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -9,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { useMyProfile } from "@/hooks/use-my-profile";
+import { useMyProfile, MY_PROFILE_KEY } from "@/hooks/use-my-profile";
+import type { MyProfileRow } from "@/lib/profile-columns";
 import { recordConsent } from "@/lib/consent";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -137,10 +139,12 @@ const ONBOARDING_DRAFT_KEY = "alumni_onboarding_draft_v2";
 
 function Onboarding() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { prefill } = Route.useSearch();
   const [step, setStep] = useState(0);
   const [f, setF] = useState<Form>(empty);
   const [saving, setSaving] = useState(false);
+  const submittedRef = useRef(false);
   const [dob, setDob] = useState("");
   const [selectedState, setSelectedState] = useState("");
   const birthYears = Array.from({ length: 50 }, (_, i) => year - 21 - i);
@@ -166,7 +170,7 @@ function Onboarding() {
 
   // Automatically persist in-progress onboarding state to localStorage so refresh never wipes data
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!loaded.current || submittedRef.current) return;
     if (!me.data?.onboarded) {
       try {
         localStorage.setItem(
@@ -345,35 +349,35 @@ function Onboarding() {
     // `getUser` and the update are both fallible and were previously outside
     // any try/finally, so a single expired session left the wizard stuck on
     // "Saving…" forever with an unhandled rejection and no feedback.
+    const heightNum = f.height_cm.trim() ? Number(f.height_cm.trim()) : null;
+    const profileUpdates = {
+      full_name: f.full_name.trim(),
+      gender: f.gender,
+      birth_year: Number(f.birth_year),
+      city: f.city.trim(),
+      height_cm: heightNum,
+      marital_status: f.marital_status || null,
+      diet: f.diet || null,
+      mother_tongue: f.mother_tongue || null,
+      residency_status: f.residency_status || null,
+      institution: f.institution,
+      degree: f.degree.trim(),
+      grad_year: Number(f.grad_year),
+      profession: f.profession.trim(),
+      employer: f.employer.trim() || null,
+      relocation: f.relocation,
+      values_statement: f.values_statement.trim(),
+      bio: f.bio.trim() || null,
+      is_visible: f.is_visible,
+      onboarded: true,
+    };
+
     try {
       const { data: u, error: authError } = await supabase.auth.getUser();
       if (authError || !u.user) throw new Error("Your session has expired. Please sign in again.");
-      const heightNum = f.height_cm.trim() ? Number(f.height_cm.trim()) : null;
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: f.full_name.trim(),
-          gender: f.gender,
-          birth_year: Number(f.birth_year),
-          city: f.city.trim(),
-          height_cm: heightNum,
-          marital_status: f.marital_status || null,
-          diet: f.diet || null,
-          mother_tongue: f.mother_tongue || null,
-          residency_status: f.residency_status || null,
-          institution: f.institution,
-          degree: f.degree.trim(),
-          grad_year: Number(f.grad_year),
-          profession: f.profession.trim(),
-          employer: f.employer.trim() || null,
-          relocation: f.relocation,
-          values_statement: f.values_statement.trim(),
-          bio: f.bio.trim() || null,
-          is_visible: f.is_visible,
-          onboarded: true,
-        })
-        .eq("id", u.user.id);
+      const { error } = await supabase.from("profiles").update(profileUpdates).eq("id", u.user.id);
       if (error) throw error;
+      submittedRef.current = true;
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Could not save your profile. Please try again.",
@@ -388,6 +392,19 @@ function Onboarding() {
     } catch {
       /* ignore */
     }
+
+    // Immediately reflect onboarded status and new fields in the query cache
+    // so child and guarded routes never see stale `onboarded: false` data.
+    queryClient.setQueryData(MY_PROFILE_KEY, (old: MyProfileRow | null | undefined) => {
+      if (!old) return old;
+      return {
+        ...old,
+        ...profileUpdates,
+        onboarded: true,
+      };
+    });
+    void queryClient.invalidateQueries({ queryKey: MY_PROFILE_KEY });
+
     // Onboarding is where the member accepts the membership terms, the privacy
     // notice and the use of their stated criteria for matching. The ledger row
     // is written once, on the transition to onboarded = true.
@@ -415,7 +432,7 @@ function Onboarding() {
     toast.success(
       isEdit ? "Profile updated successfully." : "Profile saved. Welcome to the Circle.",
     );
-    navigate({ to: isEdit ? "/dashboard" : "/members" });
+    navigate({ to: "/dashboard" });
   }
 
   if (me.isError) {
@@ -443,6 +460,16 @@ function Onboarding() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-12 md:px-8 md:py-20">
+      {me.data?.onboarded && (
+        <div className="mb-4">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Back to membership desk
+          </Link>
+        </div>
+      )}
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brass-strong">
         {me.data?.onboarded ? "Edit member profile" : "Member onboarding"}
       </p>
