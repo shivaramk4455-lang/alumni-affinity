@@ -184,14 +184,6 @@ function DashboardPage() {
                     ))}
                   </ul>
                   <div className="mt-6 flex flex-wrap gap-3">
-                    {!p?.photo_path && (
-                      <Button asChild size="sm">
-                        <Link to="/verification" hash="photos">
-                          <Camera className="mr-1.5 size-4" />
-                          Upload photograph
-                        </Link>
-                      </Button>
-                    )}
                     <Button asChild variant="outline" size="sm">
                       <Link to="/onboarding">Edit profile details</Link>
                     </Button>
@@ -199,34 +191,6 @@ function DashboardPage() {
                 </>
               )}
             </section>
-
-            {!p?.photo_path && (
-              <section className="border-2 border-dashed border-brass/50 bg-brass/5 p-5 shadow-paper md:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3.5">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brass/15 text-brass">
-                      <Camera className="size-5" />
-                    </span>
-                    <div>
-                      <h3 className="font-serif text-lg font-semibold text-foreground">
-                        Add your profile photograph
-                      </h3>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground max-w-lg">
-                        Photographs are watermarked with the viewer&apos;s identity and stay
-                        protected by your privacy settings. Members with portraits are introduced
-                        far more often.
-                      </p>
-                    </div>
-                  </div>
-                  <Button asChild className="shrink-0">
-                    <Link to="/verification" hash="photos">
-                      <Camera className="mr-1.5 size-4" />
-                      Upload photograph
-                    </Link>
-                  </Button>
-                </div>
-              </section>
-            )}
 
             <section className="border border-border bg-card p-5 shadow-paper md:p-7">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">

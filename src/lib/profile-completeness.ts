@@ -45,7 +45,7 @@ export function profileCompleteness(p: MyProfileRow | null | undefined): {
   const items: CompletenessItem[] = [
     {
       label: "Add a photograph",
-      hint: "Members with a photograph are introduced far more often.",
+      hint: "Watermarked with the viewer’s identity and protected by your privacy settings. Members with portraits are introduced far more often.",
       weight: 30,
       // photo_path is mirrored from the gallery primary, so this follows the
       // real portrait rather than a separate "did you visit the uploader" flag.
