@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { GraduationCap, MapPin, Search, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,7 @@ function Members() {
   const debouncedQ = useDebouncedValue(q);
 
   const me = useMyProfile();
+  const queryClient = useQueryClient();
 
   // Family co-pilot access check: if the viewer is an active co-pilot for a member,
   // they can browse the directory even if their own profile is unverified.
@@ -142,10 +143,13 @@ function Members() {
   // and pauses; the reporter's own blocks are excluded client-side below, so
   // rows + count stay in agreement. (Blocks are NOT an RLS clause: filtering
   // them in the policy would corrupt the page count — see migration 20261010.)
-  const hidden = [...new Set([...(blocked.data ?? []), ...(dismissed.data ?? [])])];
-  const blockedKey = [...hidden].sort().join(",");
-  const savedIds = saved.data ?? [];
-  const savedKey = [...savedIds].sort().join(",");
+  const hidden = useMemo(
+    () => [...new Set([...(blocked.data ?? []), ...(dismissed.data ?? [])])],
+    [blocked.data, dismissed.data],
+  );
+  const blockedKey = useMemo(() => [...hidden].sort().join(","), [hidden]);
+  const savedIds = useMemo(() => saved.data ?? [], [saved.data]);
+  const savedKey = useMemo(() => [...savedIds].sort().join(","), [savedIds]);
   const results = useQuery({
     queryKey: [
       "members",
@@ -225,6 +229,101 @@ function Members() {
       };
     },
   });
+
+  // Professional prefetching: warm up the next page in cache so clicking "Next" is instantaneous
+  useEffect(() => {
+    if (!results.data?.hasMore || onProfilePage) return;
+    const nextPage = page + 1;
+    const nextKey = [
+      "members",
+      debouncedQ,
+      inst,
+      reloc,
+      gender,
+      ageBand,
+      diet,
+      maritalStatus,
+      residency,
+      tongue,
+      minHeight,
+      sort,
+      nextPage,
+      me.data?.id,
+      blockedKey,
+      savedOnly,
+      savedKey,
+    ];
+    void queryClient.prefetchQuery({
+      queryKey: nextKey,
+      staleTime: 4 * 60 * 1000,
+      queryFn: async () => {
+        if (savedOnly && !savedIds.length) return { rows: [], total: 0, hasMore: false };
+        let query = supabase
+          .from("profiles")
+          .select(SEARCH_COLUMNS, { count: "exact" })
+          .eq("onboarded", true)
+          .eq("is_visible", true)
+          .eq("verification_status", "verified")
+          .neq("id", me.data!.id);
+        if (hidden.length) query = query.filter("id", "not.in", `(${hidden.join(",")})`);
+        if (savedOnly) query = query.filter("id", "in", `(${savedIds.join(",")})`);
+        if (inst) query = query.eq("institution", inst);
+        if (reloc) query = query.eq("relocation", reloc);
+        if (gender) query = query.eq("gender", gender);
+        if (diet) query = query.eq("diet", diet);
+        if (maritalStatus) query = query.eq("marital_status", maritalStatus);
+        if (residency) query = query.eq("residency_status", residency);
+        if (tongue) query = query.eq("mother_tongue", tongue);
+        if (minHeight) query = query.gte("height_cm", Number(minHeight));
+        if (ageBand === "20s")
+          query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
+        if (ageBand === "30s")
+          query = query.gte("birth_year", year - 39).lte("birth_year", year - 30);
+        if (ageBand === "40plus") query = query.lte("birth_year", year - 40);
+        if (sort === "youngest") query = query.order("birth_year", { ascending: false });
+        else if (sort === "grad") query = query.order("grad_year", { ascending: false });
+        else query = query.order("updated_at", { ascending: false });
+        const term = debouncedQ
+          .trim()
+          .replace(/[%,()]/g, "")
+          .slice(0, 60);
+        if (term)
+          query = query.or(
+            `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`,
+          );
+        query = query.range(nextPage * PAGE_SIZE, nextPage * PAGE_SIZE + PAGE_SIZE - 1);
+        const { data, error, count } = await query;
+        if (error) throw error;
+        return {
+          rows: data ?? [],
+          total: count ?? 0,
+          hasMore: (count ?? 0) > (nextPage + 1) * PAGE_SIZE,
+        };
+      },
+    });
+  }, [
+    results.data?.hasMore,
+    page,
+    debouncedQ,
+    inst,
+    reloc,
+    gender,
+    ageBand,
+    diet,
+    maritalStatus,
+    residency,
+    tongue,
+    minHeight,
+    sort,
+    me.data,
+    blockedKey,
+    hidden,
+    savedOnly,
+    savedKey,
+    savedIds,
+    onProfilePage,
+    queryClient,
+  ]);
 
   function resetPage() {
     setPage(0);
@@ -754,6 +853,8 @@ function AvatarPhoto({
       // Decorative: the member's name is already the card's heading, so an
       // alt here would just repeat it on every card.
       alt=""
+      loading="lazy"
+      decoding="async"
       draggable={false}
       className="size-14 shrink-0 rounded-full border border-border object-cover"
     />

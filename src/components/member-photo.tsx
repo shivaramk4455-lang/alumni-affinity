@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { AlertTriangle, EyeOff, UserRound } from "lucide-react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -23,6 +25,7 @@ export function MemberPhoto({
   className?: string;
   name?: string | null;
 }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["photo", path],
     enabled: !!path,
@@ -95,27 +98,35 @@ export function MemberPhoto({
 
   return (
     <div className={`relative overflow-hidden border border-border bg-secondary/40 ${className}`}>
+      {(!data || isLoading || !imgLoaded) && (
+        <Skeleton className="absolute inset-0 size-full animate-pulse bg-muted/60" />
+      )}
       {data && (
         <img
           src={data}
           alt={name ? `Photograph of ${name}` : "Member photograph"}
-          className="size-full object-cover"
+          className={`size-full object-cover transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+          loading="lazy"
+          decoding="async"
           draggable={false}
+          onLoad={() => setImgLoaded(true)}
         />
       )}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 grid select-none content-center justify-items-center gap-6 opacity-30"
-      >
-        {[0, 1, 2, 3].map((i) => (
-          <span
-            key={i}
-            className="-rotate-[24deg] whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.2em] text-background mix-blend-difference"
-          >
-            {stamp}
-          </span>
-        ))}
-      </div>
+      {imgLoaded && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 grid select-none content-center justify-items-center gap-6 opacity-30"
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className="-rotate-[24deg] whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.2em] text-background mix-blend-difference"
+            >
+              {stamp}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
