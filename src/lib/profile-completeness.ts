@@ -50,9 +50,6 @@ export function profileCompleteness(p: MyProfileRow | null | undefined): {
       // photo_path is mirrored from the gallery primary, so this follows the
       // real portrait rather than a separate "did you visit the uploader" flag.
       filled: !!p?.photo_path,
-      to: "/verification",
-      hash: "photos",
-      actionLabel: "Upload photo",
     },
     {
       label: "Write what you are looking for",

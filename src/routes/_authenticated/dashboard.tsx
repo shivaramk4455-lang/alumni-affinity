@@ -183,7 +183,19 @@ function DashboardPage() {
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-6 flex flex-wrap gap-3">
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    {!p?.photo_path && (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="bg-foreground text-background hover:bg-foreground/90 font-medium shadow-sm"
+                      >
+                        <Link to="/verification" hash="photos">
+                          <Camera className="mr-1.5 size-4" />
+                          Upload photo
+                        </Link>
+                      </Button>
+                    )}
                     <Button asChild variant="outline" size="sm">
                       <Link to="/onboarding">Edit profile details</Link>
                     </Button>
