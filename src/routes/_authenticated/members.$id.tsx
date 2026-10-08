@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -16,6 +15,7 @@ import {
   MessageSquare,
   Phone,
   ShieldCheck,
+  SlidersHorizontal,
   UsersRound,
 } from "lucide-react";
 
@@ -71,19 +71,44 @@ function MemberProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_preferences")
-        .select("min_age, max_age, genders, institutions, cities, relocations, shield_employer")
+        .select(
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
+        )
         .maybeSingle();
       if (error) throw error;
       if (!data) return { ...EMPTY_PREFERENCES };
       return {
         min_age: data.min_age,
         max_age: data.max_age,
+        min_height_cm: data.min_height_cm,
+        max_height_cm: data.max_height_cm,
         genders: data.genders ?? [],
+        marital_statuses: data.marital_statuses ?? [],
+        diets: data.diets ?? [],
+        religions: data.religions ?? [],
+        caste_preference: data.caste_preference ?? null,
         institutions: data.institutions ?? [],
         cities: data.cities ?? [],
         relocations: data.relocations ?? [],
         shield_employer: data.shield_employer ?? false,
       };
+    },
+  });
+
+  // The member's own partner preferences ("Looking for in a partner / Desired Partner Profile")
+  const candidatePrefs = useQuery({
+    queryKey: ["candidate-partner-preferences", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_preferences")
+        .select(
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations",
+        )
+        .eq("user_id", id)
+        .maybeSingle();
+      if (error) return null;
+      return data;
     },
   });
 
@@ -320,6 +345,66 @@ function MemberProfile() {
   const myPhotoRequest = useMyPhotoRequest(photoRequestable ? id : null);
   const requestPhoto = useRequestPhoto();
 
+  const cp = candidatePrefs.data;
+  const hasCandidatePrefs = Boolean(
+    cp &&
+    (cp.min_age !== null ||
+      cp.max_age !== null ||
+      cp.min_height_cm !== null ||
+      cp.max_height_cm !== null ||
+      (cp.genders && cp.genders.length > 0) ||
+      (cp.marital_statuses && cp.marital_statuses.length > 0) ||
+      (cp.diets && cp.diets.length > 0) ||
+      (cp.institutions && cp.institutions.length > 0) ||
+      (cp.cities && cp.cities.length > 0) ||
+      (cp.relocations && cp.relocations.length > 0) ||
+      Boolean(cp.caste_preference)),
+  );
+
+  const viewerMatchesCandidate = useMemo(() => {
+    if (!hasCandidatePrefs || !cp || !me.data) return false;
+    const currentYear = new Date().getFullYear();
+    const myAge = me.data.birth_year ? currentYear - me.data.birth_year : null;
+    let matchCount = 0;
+
+    if (myAge !== null && (cp.min_age !== null || cp.max_age !== null)) {
+      const minA = cp.min_age ?? 0;
+      const maxA = cp.max_age ?? 120;
+      if (myAge < minA || myAge > maxA) return false;
+      matchCount++;
+    }
+
+    if (me.data.height_cm && (cp.min_height_cm !== null || cp.max_height_cm !== null)) {
+      const minH = cp.min_height_cm ?? 0;
+      const maxH = cp.max_height_cm ?? 300;
+      if (me.data.height_cm < minH || me.data.height_cm > maxH) return false;
+      matchCount++;
+    }
+
+    if (me.data.gender && cp.genders && cp.genders.length > 0) {
+      if (!cp.genders.includes(me.data.gender)) return false;
+      matchCount++;
+    }
+
+    if (me.data.diet && cp.diets && cp.diets.length > 0) {
+      if (cp.diets.includes(me.data.diet)) matchCount++;
+    }
+
+    if (me.data.marital_status && cp.marital_statuses && cp.marital_statuses.length > 0) {
+      if (cp.marital_statuses.includes(me.data.marital_status)) matchCount++;
+    }
+
+    if (me.data.institution && cp.institutions && cp.institutions.length > 0) {
+      if (cp.institutions.includes(me.data.institution)) matchCount++;
+    }
+
+    if (me.data.city && cp.cities && cp.cities.length > 0) {
+      if (cp.cities.includes(me.data.city)) matchCount++;
+    }
+
+    return matchCount > 0;
+  }, [hasCandidatePrefs, cp, me.data]);
+
   return (
     <main className="mx-auto max-w-4xl px-5 py-12 md:px-8 md:py-16">
       <Link
@@ -518,12 +603,75 @@ function MemberProfile() {
             </div>
           </div>
 
-          {data.values_statement && (
+          {(hasCandidatePrefs || data.values_statement) && (
             <section className="mt-8 border-t border-border pt-6">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
-                In a partnership
-              </h2>
-              <p className="mt-3 leading-7">{data.values_statement}</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
+                  <SlidersHorizontal className="size-5 text-brass" /> Looking for in a partner
+                </h2>
+                {viewerMatchesCandidate && !isSelf && (
+                  <span className="inline-flex items-center gap-1.5 border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+                    <Check className="size-3.5" /> You match their preferences
+                  </span>
+                )}
+              </div>
+
+              {hasCandidatePrefs && cp && (
+                <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+                  {(cp.min_age !== null || cp.max_age !== null) && (
+                    <Row
+                      k="Age range"
+                      v={
+                        cp.min_age && cp.max_age
+                          ? `${cp.min_age} – ${cp.max_age} years`
+                          : cp.min_age
+                            ? `${cp.min_age}+ years`
+                            : `Up to ${cp.max_age} years`
+                      }
+                    />
+                  )}
+                  {(cp.min_height_cm !== null || cp.max_height_cm !== null) && (
+                    <Row
+                      k="Height range"
+                      v={
+                        cp.min_height_cm && cp.max_height_cm
+                          ? `${formatHeight(cp.min_height_cm)} – ${formatHeight(cp.max_height_cm)}`
+                          : cp.min_height_cm
+                            ? `Min ${formatHeight(cp.min_height_cm)}`
+                            : `Up to ${formatHeight(cp.max_height_cm)}`
+                      }
+                    />
+                  )}
+                  {cp.marital_statuses && cp.marital_statuses.length > 0 && (
+                    <Row k="Marital status" v={cp.marital_statuses.join(", ")} />
+                  )}
+                  {cp.diets && cp.diets.length > 0 && (
+                    <Row k="Dietary habit" v={cp.diets.join(", ")} />
+                  )}
+                  {cp.genders && cp.genders.length > 0 && (
+                    <Row k="Preferred gender" v={cp.genders.join(", ")} />
+                  )}
+                  {cp.institutions && cp.institutions.length > 0 && (
+                    <Row k="Education / Institutions" v={cp.institutions.join(", ")} />
+                  )}
+                  {cp.cities && cp.cities.length > 0 && (
+                    <Row k="Preferred cities" v={cp.cities.join(", ")} />
+                  )}
+                  {cp.relocations && cp.relocations.length > 0 && (
+                    <Row k="Relocation preference" v={cp.relocations.join(", ")} />
+                  )}
+                  {cp.caste_preference && <Row k="Community / Caste" v={cp.caste_preference} />}
+                </dl>
+              )}
+
+              {data.values_statement && (
+                <div className="mt-5 border-l-2 border-brass/60 bg-secondary/30 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
+                    In their own words
+                  </p>
+                  <p className="mt-2 text-sm leading-7">{data.values_statement}</p>
+                </div>
+              )}
             </section>
           )}
           {data.bio && (

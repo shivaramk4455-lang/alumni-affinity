@@ -26,8 +26,16 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
 import { EMPTY_PREFERENCES, hasAnyPreferences } from "@/lib/alignment";
+import {
+  DIETS,
+  GENDERS,
+  HEIGHT_OPTIONS,
+  INSTITUTIONS,
+  MARITAL_STATUSES,
+  PHOTO_VISIBILITY,
+  RELOCATION,
+} from "@/lib/profile-options";
 import { CONSENT_LABELS, useConsentLog, recordConsent, type ConsentPurpose } from "@/lib/consent";
-import { GENDERS, INSTITUTIONS, PHOTO_VISIBILITY, RELOCATION } from "@/lib/profile-options";
 import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/access-log";
 import { PhotoGalleryManager } from "@/components/photo-gallery";
 import { useDecidePhotoRequest, useIncomingPhotoRequests } from "@/lib/photo-requests";
@@ -139,7 +147,11 @@ function Settings() {
   const [prefSeeded, setPrefSeeded] = useState(false);
   const [minAge, setMinAge] = useState("");
   const [maxAge, setMaxAge] = useState("");
+  const [minHeight, setMinHeight] = useState("");
+  const [maxHeight, setMaxHeight] = useState("");
   const [prefGenders, setPrefGenders] = useState<string[]>([]);
+  const [prefMaritalStatuses, setPrefMaritalStatuses] = useState<string[]>([]);
+  const [prefDiets, setPrefDiets] = useState<string[]>([]);
   const [prefInstitutions, setPrefInstitutions] = useState<string[]>([]);
   const [prefCities, setPrefCities] = useState("");
   const [prefRelocations, setPrefRelocations] = useState<string[]>([]);
@@ -156,14 +168,22 @@ function Settings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_preferences")
-        .select("min_age, max_age, genders, institutions, cities, relocations, shield_employer")
+        .select(
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
+        )
         .maybeSingle();
       if (error) throw error;
       if (!data) return { ...EMPTY_PREFERENCES };
       return {
         min_age: data.min_age,
         max_age: data.max_age,
+        min_height_cm: data.min_height_cm,
+        max_height_cm: data.max_height_cm,
         genders: data.genders ?? [],
+        marital_statuses: data.marital_statuses ?? [],
+        diets: data.diets ?? [],
+        religions: data.religions ?? [],
+        caste_preference: data.caste_preference ?? null,
         institutions: data.institutions ?? [],
         cities: data.cities ?? [],
         relocations: data.relocations ?? [],
@@ -177,7 +197,11 @@ function Settings() {
       setPrefSeeded(true);
       setMinAge(prefs.data.min_age?.toString() ?? "");
       setMaxAge(prefs.data.max_age?.toString() ?? "");
+      setMinHeight(prefs.data.min_height_cm?.toString() ?? "");
+      setMaxHeight(prefs.data.max_height_cm?.toString() ?? "");
       setPrefGenders(prefs.data.genders);
+      setPrefMaritalStatuses(prefs.data.marital_statuses ?? []);
+      setPrefDiets(prefs.data.diets ?? []);
       setPrefInstitutions(prefs.data.institutions);
       setPrefCities(prefs.data.cities.join(", "));
       setPrefRelocations(prefs.data.relocations);
@@ -206,7 +230,7 @@ function Settings() {
 
   /**
    * Unsaved-changes guard. Contact coordinates, the sabbatical fields and all
-   * seven partner preferences live in local state until an explicit Save, and
+   * partner preferences live in local state until an explicit Save, and
    * this page carries links that navigate away mid-form — so a stray click
    * used to discard real edits with no warning.
    */
@@ -217,7 +241,11 @@ function Settings() {
     pauseReason !== (p?.paused_reason ?? "") ||
     minAge !== (prefs.data?.min_age?.toString() ?? "") ||
     maxAge !== (prefs.data?.max_age?.toString() ?? "") ||
+    minHeight !== (prefs.data?.min_height_cm?.toString() ?? "") ||
+    maxHeight !== (prefs.data?.max_height_cm?.toString() ?? "") ||
     prefGenders.join() !== (prefs.data?.genders ?? []).join() ||
+    prefMaritalStatuses.join() !== (prefs.data?.marital_statuses ?? []).join() ||
+    prefDiets.join() !== (prefs.data?.diets ?? []).join() ||
     prefInstitutions.join() !== (prefs.data?.institutions ?? []).join() ||
     prefCities !== (prefs.data?.cities ?? []).join(", ") ||
     prefRelocations.join() !== (prefs.data?.relocations ?? []).join() ||
@@ -383,7 +411,11 @@ function Settings() {
     mutationFn: async (patch: {
       min_age: number | null;
       max_age: number | null;
+      min_height_cm: number | null;
+      max_height_cm: number | null;
       genders: string[];
+      marital_statuses: string[];
+      diets: string[];
       institutions: string[];
       cities: string[];
       relocations: string[];
@@ -418,6 +450,12 @@ function Settings() {
       toast.error("Minimum age cannot be greater than maximum age.");
       return;
     }
+    const minH = minHeight.trim() === "" ? null : Number(minHeight);
+    const maxH = maxHeight.trim() === "" ? null : Number(maxHeight);
+    if (minH !== null && maxH !== null && minH > maxH) {
+      toast.error("Minimum height cannot be greater than maximum height.");
+      return;
+    }
     const cities = [
       ...new Set(
         prefCities
@@ -429,7 +467,11 @@ function Settings() {
     savePrefs.mutate({
       min_age: lo,
       max_age: hi,
+      min_height_cm: minH,
+      max_height_cm: maxH,
       genders: prefGenders.slice(0, 5),
+      marital_statuses: prefMaritalStatuses.slice(0, 5),
+      diets: prefDiets.slice(0, 5),
       institutions: prefInstitutions.slice(0, 20),
       cities,
       relocations: prefRelocations.slice(0, 5),
@@ -440,14 +482,22 @@ function Settings() {
   function clearPreferences() {
     setMinAge("");
     setMaxAge("");
+    setMinHeight("");
+    setMaxHeight("");
     setPrefGenders([]);
+    setPrefMaritalStatuses([]);
+    setPrefDiets([]);
     setPrefInstitutions([]);
     setPrefCities("");
     setPrefRelocations([]);
     savePrefs.mutate({
       min_age: null,
       max_age: null,
+      min_height_cm: null,
+      max_height_cm: null,
       genders: [],
+      marital_statuses: [],
+      diets: [],
       institutions: [],
       cities: [],
       relocations: [],
@@ -938,6 +988,83 @@ function Settings() {
                 />
               </div>
             </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="pref-min-height">Minimum height</Label>
+                <select
+                  id="pref-min-height"
+                  className={selectCls}
+                  value={minHeight}
+                  onChange={(e) => setMinHeight(e.target.value)}
+                >
+                  <option value="">Any height</option>
+                  {HEIGHT_OPTIONS.map((h) => (
+                    <option key={h.cm} value={String(h.cm)}>
+                      {h.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pref-max-height">Maximum height</Label>
+                <select
+                  id="pref-max-height"
+                  className={selectCls}
+                  value={maxHeight}
+                  onChange={(e) => setMaxHeight(e.target.value)}
+                >
+                  <option value="">Any height</option>
+                  {HEIGHT_OPTIONS.map((h) => (
+                    <option key={h.cm} value={String(h.cm)}>
+                      {h.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <fieldset className="mt-6">
+              <legend className="text-sm font-semibold">Preferred marital status</legend>
+              <div className="mt-3 flex flex-wrap gap-4">
+                {MARITAL_STATUSES.map((m) => (
+                  <label key={m} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-6 accent-[var(--brass)]"
+                      checked={prefMaritalStatuses.includes(m)}
+                      onChange={(e) =>
+                        setPrefMaritalStatuses((prev) =>
+                          e.target.checked ? [...prev, m] : prev.filter((x) => x !== m),
+                        )
+                      }
+                    />
+                    {m}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mt-6">
+              <legend className="text-sm font-semibold">Preferred dietary habit</legend>
+              <div className="mt-3 flex flex-wrap gap-4">
+                {DIETS.map((d) => (
+                  <label key={d} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-6 accent-[var(--brass)]"
+                      checked={prefDiets.includes(d)}
+                      onChange={(e) =>
+                        setPrefDiets((prev) =>
+                          e.target.checked ? [...prev, d] : prev.filter((x) => x !== d),
+                        )
+                      }
+                    />
+                    {d}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <fieldset className="mt-6">
               <legend className="text-sm font-semibold">Preferred gender</legend>

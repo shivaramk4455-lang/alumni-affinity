@@ -705,36 +705,54 @@ export type Database = {
       }
       partner_preferences: {
         Row: {
+          caste_preference: string | null
           cities: string[]
           created_at: string
+          diets: string[]
           genders: string[]
           institutions: string[]
+          marital_statuses: string[]
           max_age: number | null
+          max_height_cm: number | null
           min_age: number | null
+          min_height_cm: number | null
+          religions: string[]
           relocations: string[]
           shield_employer: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
+          caste_preference?: string | null
           cities?: string[]
           created_at?: string
+          diets?: string[]
           genders?: string[]
           institutions?: string[]
+          marital_statuses?: string[]
           max_age?: number | null
+          max_height_cm?: number | null
           min_age?: number | null
+          min_height_cm?: number | null
+          religions?: string[]
           relocations?: string[]
           shield_employer?: boolean
           updated_at?: string
           user_id: string
         }
         Update: {
+          caste_preference?: string | null
           cities?: string[]
           created_at?: string
+          diets?: string[]
           genders?: string[]
           institutions?: string[]
+          marital_statuses?: string[]
           max_age?: number | null
+          max_height_cm?: number | null
           min_age?: number | null
+          min_height_cm?: number | null
+          religions?: string[]
           relocations?: string[]
           shield_employer?: boolean
           updated_at?: string

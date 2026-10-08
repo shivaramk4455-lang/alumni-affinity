@@ -100,14 +100,22 @@ function Members() {
     queryFn: async (): Promise<Omit<PartnerPreferences, "user_id">> => {
       const { data, error } = await supabase
         .from("partner_preferences")
-        .select("min_age, max_age, genders, institutions, cities, relocations, shield_employer")
+        .select(
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
+        )
         .maybeSingle();
       if (error) throw error;
       if (!data) return { ...EMPTY_PREFERENCES };
       return {
         min_age: data.min_age,
         max_age: data.max_age,
+        min_height_cm: data.min_height_cm,
+        max_height_cm: data.max_height_cm,
         genders: data.genders ?? [],
+        marital_statuses: data.marital_statuses ?? [],
+        diets: data.diets ?? [],
+        religions: data.religions ?? [],
+        caste_preference: data.caste_preference ?? null,
         institutions: data.institutions ?? [],
         cities: data.cities ?? [],
         relocations: data.relocations ?? [],

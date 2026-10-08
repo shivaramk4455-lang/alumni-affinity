@@ -73,6 +73,13 @@ type Form = {
   values_statement: string;
   bio: string;
   is_visible: boolean;
+  pref_min_age: string;
+  pref_max_age: string;
+  pref_min_height: string;
+  pref_max_height: string;
+  pref_marital_status: string;
+  pref_diet: string;
+  pref_relocation: string;
 };
 const empty: Form = {
   full_name: "",
@@ -96,6 +103,13 @@ const empty: Form = {
   values_statement: "",
   bio: "",
   is_visible: true,
+  pref_min_age: "",
+  pref_max_age: "",
+  pref_min_height: "",
+  pref_max_height: "",
+  pref_marital_status: "",
+  pref_diet: "",
+  pref_relocation: "",
 };
 
 const steps = ["About you", "Education", "Career & life", "Values & privacy"];
@@ -145,6 +159,13 @@ const schemas = [
       .min(20, "Share at least a sentence (20+ characters)")
       .max(600),
     bio: z.string().trim().max(1000),
+    pref_min_age: z.string().optional(),
+    pref_max_age: z.string().optional(),
+    pref_min_height: z.string().optional(),
+    pref_max_height: z.string().optional(),
+    pref_marital_status: z.string().optional(),
+    pref_diet: z.string().optional(),
+    pref_relocation: z.string().optional(),
   }),
 ];
 
@@ -347,7 +368,8 @@ function Onboarding() {
       }
     }
     if (!prefilled && data && (data.onboarded || data.full_name)) {
-      setF({
+      setF((prev) => ({
+        ...prev,
         full_name: data.full_name ?? "",
         gender: data.gender ?? "",
         birth_year: data.birth_year?.toString() ?? "",
@@ -369,7 +391,7 @@ function Onboarding() {
         values_statement: data.values_statement ?? "",
         bio: data.bio ?? "",
         is_visible: data.is_visible,
-      });
+      }));
       if (data.birth_year) setDob(`${data.birth_year}-01-01`);
       if (data.city) {
         const detected = detectCountryAndStateFromCity(data.city);
@@ -378,6 +400,33 @@ function Onboarding() {
         if (!data.residency_status && detected.country) {
           setF((p) => ({ ...p, residency_status: detected.country }));
         }
+      }
+      if (data.id) {
+        void (async () => {
+          try {
+            const { data: prefRow } = await supabase
+              .from("partner_preferences")
+              .select(
+                "min_age, max_age, min_height_cm, max_height_cm, marital_statuses, diets, relocations",
+              )
+              .eq("user_id", data.id)
+              .maybeSingle();
+            if (prefRow) {
+              setF((prev) => ({
+                ...prev,
+                pref_min_age: prefRow.min_age?.toString() ?? "",
+                pref_max_age: prefRow.max_age?.toString() ?? "",
+                pref_min_height: prefRow.min_height_cm?.toString() ?? "",
+                pref_max_height: prefRow.max_height_cm?.toString() ?? "",
+                pref_marital_status: prefRow.marital_statuses?.[0] ?? "",
+                pref_diet: prefRow.diets?.[0] ?? "",
+                pref_relocation: prefRow.relocations?.[0] ?? "",
+              }));
+            }
+          } catch {
+            /* ignore */
+          }
+        })();
       }
     }
     loaded.current = true;
@@ -442,6 +491,41 @@ function Onboarding() {
       if (authError || !u.user) throw new Error("Your session has expired. Please sign in again.");
       const { error } = await supabase.from("profiles").update(profileUpdates).eq("id", u.user.id);
       if (error) throw error;
+
+      // Save partner preferences if any were set
+      const minAgeNum = f.pref_min_age ? Number(f.pref_min_age) : null;
+      const maxAgeNum = f.pref_max_age ? Number(f.pref_max_age) : null;
+      const minHNum = f.pref_min_height ? Number(f.pref_min_height) : null;
+      const maxHNum = f.pref_max_height ? Number(f.pref_max_height) : null;
+      const maritalArr = f.pref_marital_status ? [f.pref_marital_status] : [];
+      const dietArr = f.pref_diet ? [f.pref_diet] : [];
+      const relocArr = f.pref_relocation ? [f.pref_relocation] : [];
+
+      if (
+        minAgeNum ||
+        maxAgeNum ||
+        minHNum ||
+        maxHNum ||
+        maritalArr.length ||
+        dietArr.length ||
+        relocArr.length
+      ) {
+        await supabase.from("partner_preferences").upsert(
+          {
+            user_id: u.user.id,
+            min_age: minAgeNum,
+            max_age: maxAgeNum,
+            min_height_cm: minHNum,
+            max_height_cm: maxHNum,
+            marital_statuses: maritalArr,
+            diets: dietArr,
+            relocations: relocArr,
+          },
+          { onConflict: "user_id" },
+        );
+        void queryClient.invalidateQueries({ queryKey: ["partner-preferences"] });
+      }
+
       submittedRef.current = true;
 
       try {
@@ -1023,6 +1107,115 @@ function Onboarding() {
         )}
         {step === 3 && (
           <>
+            <div className="border border-border bg-card p-5">
+              <h3 className="font-serif text-lg font-semibold">
+                What you are looking for (Partner preferences)
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set preferred criteria for your partner. These power your compatibility badges and
+                search matching.
+              </p>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Partner age: Minimum age" error={errors["pref_min_age"]}>
+                  <Input
+                    type="number"
+                    min={21}
+                    max={75}
+                    placeholder="e.g. 24"
+                    value={f.pref_min_age}
+                    onChange={(e) => set("pref_min_age", e.target.value)}
+                  />
+                </Field>
+                <Field label="Partner age: Maximum age" error={errors["pref_max_age"]}>
+                  <Input
+                    type="number"
+                    min={21}
+                    max={75}
+                    placeholder="e.g. 32"
+                    value={f.pref_max_age}
+                    onChange={(e) => set("pref_max_age", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Partner height: Minimum (optional)">
+                  <select
+                    className={selectCls}
+                    value={f.pref_min_height}
+                    onChange={(e) => set("pref_min_height", e.target.value)}
+                  >
+                    <option value="">Any height</option>
+                    {HEIGHT_OPTIONS.map((h) => (
+                      <option key={h.cm} value={String(h.cm)}>
+                        {h.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Partner height: Maximum (optional)">
+                  <select
+                    className={selectCls}
+                    value={f.pref_max_height}
+                    onChange={(e) => set("pref_max_height", e.target.value)}
+                  >
+                    <option value="">Any height</option>
+                    {HEIGHT_OPTIONS.map((h) => (
+                      <option key={h.cm} value={String(h.cm)}>
+                        {h.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <Field label="Preferred marital status (optional)">
+                  <select
+                    className={selectCls}
+                    value={f.pref_marital_status}
+                    onChange={(e) => set("pref_marital_status", e.target.value)}
+                  >
+                    <option value="">Open to all</option>
+                    {MARITAL_STATUSES.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Preferred diet (optional)">
+                  <select
+                    className={selectCls}
+                    value={f.pref_diet}
+                    onChange={(e) => set("pref_diet", e.target.value)}
+                  >
+                    <option value="">Open to all diets</option>
+                    {DIETS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Preferred relocation (optional)">
+                  <select
+                    className={selectCls}
+                    value={f.pref_relocation}
+                    onChange={(e) => set("pref_relocation", e.target.value)}
+                  >
+                    <option value="">Open to all</option>
+                    {RELOCATION.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </div>
+
             <Field label="What matters to you in a partnership" error={errors["values_statement"]}>
               <Textarea
                 rows={4}
