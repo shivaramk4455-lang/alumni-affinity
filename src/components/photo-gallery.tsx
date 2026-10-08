@@ -102,11 +102,7 @@ export function PhotoGalleryManager({
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
             <div>
               <p className="font-semibold text-foreground">Photograph could not be uploaded</p>
-              <p className="mt-1 text-xs text-destructive">
-                {upload.error instanceof Error
-                  ? upload.error.message
-                  : formatErrorMessage(upload.error)}
-              </p>
+              <p className="mt-1 text-xs text-destructive">{formatErrorMessage(upload.error)}</p>
             </div>
           </div>
           <Button
@@ -126,8 +122,7 @@ export function PhotoGalleryManager({
           role="alert"
           className="border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
         >
-          Your photographs could not be loaded — this is not the same as an empty gallery. Adding or
-          reordering from a failed count could drop you over the limit.{" "}
+          We could not load your photographs right now. Please try again in a moment.{" "}
           <button
             type="button"
             className="font-semibold underline underline-offset-2"

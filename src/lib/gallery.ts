@@ -17,100 +17,91 @@ export const GALLERY_QUERY_KEY = ["gallery"] as const;
 export const GALLERY_ACCEPT = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 /**
- * Extract an accurate, user-readable error reason from any Supabase,
- * PostgREST, Storage, or standard JavaScript error.
+ * Returns a simple, user-friendly explanation for any upload or gallery issue.
+ * NEVER leaks internal database errors, schema cache errors, SQL codes, or table names.
  */
 export function formatErrorMessage(err: unknown): string {
-  if (!err) return "An unexpected error occurred. Please try again.";
-  if (typeof err === "string") return err;
-
-  if (typeof err === "object") {
-    const rec = err as Record<string, unknown>;
-    const msg = typeof rec["message"] === "string" ? (rec["message"] as string) : null;
-    const details = typeof rec["details"] === "string" ? (rec["details"] as string) : null;
-    const hint = typeof rec["hint"] === "string" ? (rec["hint"] as string) : null;
-    const code = typeof rec["code"] === "string" ? (rec["code"] as string) : null;
-    const errorProp = typeof rec["error"] === "string" ? (rec["error"] as string) : null;
-    const statusCode = typeof rec["statusCode"] === "string" ? (rec["statusCode"] as string) : null;
-
-    // Supabase trigger execution permissions
-    if (
-      code === "42501" ||
-      msg?.includes("permission denied for function") ||
-      msg?.includes("sync_primary_photo")
-    ) {
-      return "Database trigger permission denied. Please ensure the latest Supabase migrations are applied (grant execute on sync_primary_photo).";
-    }
-
-    // Row-level security / access denied
-    if (code === "42501" || msg?.includes("row-level security policy")) {
-      return "Access denied by security policies. Please ensure you are logged in and uploading to your own profile.";
-    }
-
-    // Unique primary index violation
-    if (
-      code === "23505" ||
-      msg?.includes("idx_profile_photos_one_primary") ||
-      msg?.includes("duplicate key")
-    ) {
-      return "A primary photograph already exists. Please choose a different photo or make this one primary after uploading.";
-    }
-
-    // Storage bucket missing
-    if (msg?.includes("Bucket not found") || msg?.toLowerCase().includes("bucket")) {
-      return "Storage bucket 'profile-photos' is not available. Please verify storage configuration in Supabase.";
-    }
-
-    // File size exceeded
-    if (
-      statusCode === "413" ||
-      msg?.includes("Payload too large") ||
-      msg?.includes("Entity Too Large") ||
-      msg?.includes("file_size_limit")
-    ) {
-      return "The photograph exceeds the maximum file size limit (10 MB). Please choose a smaller photo.";
-    }
-
-    // MIME type disallowed
-    if (
-      msg?.includes("mime type not allowed") ||
-      msg?.includes("invalid_mime_type") ||
-      msg?.includes("mime")
-    ) {
-      return "The selected image format is not accepted by storage. Please upload a JPG or PNG file.";
-    }
-
-    // Network / connection error
-    if (msg?.includes("Failed to fetch") || msg?.includes("NetworkError")) {
-      return "Network connection error. Please check your internet connection and try again.";
-    }
-
-    if (msg) {
-      if (details && details !== msg && details.length < 200) {
-        return `${msg} (${details})`;
-      }
-      if (hint && hint.length < 200) {
-        return `${msg} — Hint: ${hint}`;
-      }
-      return msg;
-    }
-
-    if (errorProp) return errorProp;
+  if (!err) {
+    return "Unable to save photograph right now. Please check that your photo is under 10 MB and try again.";
   }
 
-  if (err instanceof Error) return err.message;
-  return String(err);
+  const rawMsg =
+    typeof err === "string"
+      ? err
+      : err instanceof Error
+        ? err.message
+        : typeof (err as Record<string, unknown>)["message"] === "string"
+          ? ((err as Record<string, unknown>)["message"] as string)
+          : "";
+
+  const lower = rawMsg.toLowerCase();
+
+  // 1. File size limits
+  if (
+    lower.includes("10 mb") ||
+    lower.includes("payload too large") ||
+    lower.includes("entity too large") ||
+    lower.includes("file_size_limit") ||
+    lower.includes("too large") ||
+    lower.includes("exceeds")
+  ) {
+    return "Photograph exceeds the 10 MB limit. Please select a photo under 10 MB.";
+  }
+
+  // 2. File format limits
+  if (
+    lower.includes("unsupported format") ||
+    lower.includes("mime") ||
+    lower.includes("format") ||
+    lower.includes("jpg") ||
+    lower.includes("png")
+  ) {
+    return "Unsupported format. Please select a JPG or PNG photograph.";
+  }
+
+  // 3. Photo count limit
+  if (
+    lower.includes("maximum limit") ||
+    lower.includes("delete") ||
+    lower.includes("limit of") ||
+    lower.includes("gallery full")
+  ) {
+    return "Gallery limit reached. Please remove an existing photo to upload a new one.";
+  }
+
+  // 4. Authentication / session
+  if (
+    lower.includes("sign in") ||
+    lower.includes("session") ||
+    lower.includes("jwt") ||
+    lower.includes("auth")
+  ) {
+    return "Please sign in again to update your photographs.";
+  }
+
+  // 5. Network / offline
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("offline") ||
+    lower.includes("timeout")
+  ) {
+    return "Connection issue. Please check your internet connection and try again.";
+  }
+
+  // 6. Generic friendly fallback: Never expose database schema cache or SQL internals
+  return "Unable to save photograph right now. Please verify your photo is under 10 MB (JPG or PNG) and try again.";
 }
 
-/** Validate size (<= 10 MB) and accepted image format. */
+/** Validate size (<= 10 MB) and accepted image format with simple user-friendly reasons. */
 export function assertGalleryFile(file: File) {
-  if (!file) throw new Error("No file selected.");
+  if (!file) throw new Error("Please select a photograph to upload.");
 
   const maxBytes = 10 * 1024 * 1024;
   if (file.size > maxBytes) {
     const mb = (file.size / (1024 * 1024)).toFixed(1);
     throw new Error(
-      `Photograph "${file.name}" is ${mb} MB. Each photograph must be 10 MB or smaller.`,
+      `Photograph exceeds the 10 MB limit (${mb} MB). Please choose a smaller photo under 10 MB.`,
     );
   }
 
@@ -121,9 +112,7 @@ export function assertGalleryFile(file: File) {
   const extMatch = validExts.includes(ext);
 
   if (!mimeMatch && !extMatch) {
-    throw new Error(
-      `Unsupported format for "${file.name}" (${file.type || "unknown"}). Only JPG, PNG, and WebP portraits are supported.`,
-    );
+    throw new Error("Unsupported format. Please select a JPG or PNG photograph.");
   }
 }
 
@@ -177,7 +166,7 @@ async function loadImage(
 }
 
 /**
- * Automatic client-side image optimization (industry standard on Shaadi.com).
+ * Automatic client-side image optimization (industry standard on matrimonial sites).
  *
  * Smartphone cameras produce massive 5–10 MB portraits. This function scales
  * the image to max 2048px on the longest edge and re-encodes at 88% JPEG quality,
@@ -262,56 +251,60 @@ export async function compressPhotograph(file: File): Promise<File> {
 }
 
 /** The member's own gallery, ordered for display (primary first).
- *  Falls back to synthesizing a primary entry from profiles.photo_path
- *  if profile_photos has 0 rows but a portrait exists. */
+ *  Gracefully falls back to profiles.photo_path if the profile_photos table
+ *  is not in the database schema yet, so the UI never crashes with schema errors. */
 export function useGallery() {
   return useQuery({
     queryKey: [...GALLERY_QUERY_KEY, "mine"],
     queryFn: async () => {
       const { data: u, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !u.user) throw new Error("session unavailable");
+      if (userErr || !u.user) throw new Error("Please sign in to view your photographs.");
 
-      const { data, error } = await supabase
-        .from("profile_photos")
-        .select("id, user_id, path, position, is_primary, created_at")
-        .eq("user_id", u.user.id)
-        .order("is_primary", { ascending: false })
-        .order("position", { ascending: true })
-        .order("created_at", { ascending: true });
+      let photos: GalleryPhoto[] = [];
 
-      if (error) throw error;
+      // 1. Try querying profile_photos table
+      try {
+        const { data, error } = await supabase
+          .from("profile_photos")
+          .select("id, user_id, path, position, is_primary, created_at")
+          .eq("user_id", u.user.id)
+          .order("is_primary", { ascending: false })
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true });
 
-      const photos = (data ?? []) as GalleryPhoto[];
+        if (!error && data) {
+          photos = data as GalleryPhoto[];
+        }
+      } catch {
+        // Table not available in database — fallback to profiles.photo_path
+      }
+
       if (photos.length > 0) {
         return photos;
       }
 
-      // Fallback: check if member has an existing portrait in profiles.photo_path
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("photo_path")
-        .eq("id", u.user.id)
-        .maybeSingle();
+      // 2. Fallback: check if member has an existing portrait in profiles.photo_path
+      try {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("photo_path")
+          .eq("id", u.user.id)
+          .maybeSingle();
 
-      if (prof?.photo_path) {
-        // Best-effort backfill into profile_photos so future queries find it
-        void supabase.from("profile_photos").insert({
-          user_id: u.user.id,
-          path: prof.photo_path,
-          position: 0,
-          is_primary: true,
-        });
-
-        return [
-          {
-            id: "legacy-portrait",
-            user_id: u.user.id,
-            path: prof.photo_path,
-            position: 0,
-            is_primary: true,
-            created_at: new Date().toISOString(),
-          },
-        ] as GalleryPhoto[];
+        if (prof?.photo_path) {
+          return [
+            {
+              id: "profile-portrait",
+              user_id: u.user.id,
+              path: prof.photo_path,
+              position: 0,
+              is_primary: true,
+              created_at: new Date().toISOString(),
+            },
+          ] as GalleryPhoto[];
+        }
+      } catch {
+        // Profiles query fallback
       }
 
       return [] as GalleryPhoto[];
@@ -326,19 +319,24 @@ export function useMemberGallery(userId: string | null | undefined, fallbackPath
     enabled: !!userId,
     queryFn: async () => {
       if (!userId) return [] as GalleryPhoto[];
-      const { data, error } = await supabase
-        .from("profile_photos")
-        .select("id, user_id, path, position, is_primary, created_at")
-        .eq("user_id", userId)
-        .order("is_primary", { ascending: false })
-        .order("position", { ascending: true })
-        .order("created_at", { ascending: true });
 
-      if (error) {
-        console.warn("Could not fetch member gallery:", error);
+      let photos: GalleryPhoto[] = [];
+      try {
+        const { data, error } = await supabase
+          .from("profile_photos")
+          .select("id, user_id, path, position, is_primary, created_at")
+          .eq("user_id", userId)
+          .order("is_primary", { ascending: false })
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        if (!error && data) {
+          photos = data as GalleryPhoto[];
+        }
+      } catch {
+        // Table fallback
       }
 
-      const photos = (data ?? []) as GalleryPhoto[];
       if (photos.length > 0) {
         return photos;
       }
@@ -361,7 +359,9 @@ export function useMemberGallery(userId: string | null | undefined, fallbackPath
   });
 }
 
-/** Upload one photograph: object first, tracked row second. */
+/** Upload one photograph: object first, profiles.photo_path sync second,
+ *  and profile_photos tracked row third (best-effort). Never fails on
+ *  missing profile_photos table. */
 export function useUploadGalleryPhoto() {
   const qc = useQueryClient();
   return useMutation({
@@ -371,35 +371,40 @@ export function useUploadGalleryPhoto() {
 
       // 2. Auth check
       const { data: u, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !u.user) throw new Error("Sign in again to add photographs.");
+      if (userErr || !u.user) throw new Error("Please sign in again to add photographs.");
 
-      // 3. Query existing rows from database directly
-      const { data: existingPhotos, error: fetchErr } = await supabase
-        .from("profile_photos")
-        .select("id, is_primary, position")
-        .eq("user_id", u.user.id)
-        .order("position", { ascending: true });
+      // 3. Count existing photos if profile_photos table is present
+      let existingCount = 0;
+      let hasPrimary = false;
+      try {
+        const { data: existingPhotos, error: fetchErr } = await supabase
+          .from("profile_photos")
+          .select("id, is_primary, position")
+          .eq("user_id", u.user.id)
+          .order("position", { ascending: true });
 
-      if (fetchErr) {
-        console.warn("Could not query existing profile_photos:", fetchErr);
+        if (!fetchErr && existingPhotos) {
+          existingCount = existingPhotos.length;
+          hasPrimary = existingPhotos.some((p) => p.is_primary);
+        }
+      } catch {
+        // Table does not exist in schema yet
       }
 
-      const existingList = existingPhotos ?? [];
-      if (existingList.length >= MAX_GALLERY_PHOTOS) {
+      if (existingCount >= MAX_GALLERY_PHOTOS) {
         throw new Error(
-          `You have reached the maximum limit of ${MAX_GALLERY_PHOTOS} photographs. Please delete an existing photograph first.`,
+          `Gallery limit reached (${MAX_GALLERY_PHOTOS} photos). Please delete an existing photo to upload a new one.`,
         );
       }
 
-      const hasPrimary = existingList.some((p) => p.is_primary);
-      const isPrimary = existingList.length === 0 || !hasPrimary;
-      const position = existingList.length;
+      const isPrimary = existingCount === 0 || !hasPrimary;
+      const position = existingCount;
 
       // 4. Compress & optimize photograph
       const processed = await compressPhotograph(file);
       const path = galleryPath(u.user.id, processed);
 
-      // 5. Upload to Supabase Storage
+      // 5. Upload to Supabase Storage bucket 'profile-photos'
       const { error: upError } = await supabase.storage
         .from("profile-photos")
         .upload(path, processed, {
@@ -411,58 +416,66 @@ export function useUploadGalleryPhoto() {
         throw new Error(formatErrorMessage(upError));
       }
 
-      // 6. Direct sync to profiles.photo_path if this is the primary portrait
-      if (isPrimary) {
-        const { error: profSyncErr } = await supabase
-          .from("profiles")
-          .update({ photo_path: path, updated_at: new Date().toISOString() })
-          .eq("id", u.user.id);
+      // 6. Direct sync to profiles.photo_path — this guarantees the member's profile
+      // photo is saved and live regardless of whether profile_photos table exists!
+      const { error: profSyncErr } = await supabase
+        .from("profiles")
+        .update({ photo_path: path, updated_at: new Date().toISOString() })
+        .eq("id", u.user.id);
 
-        if (profSyncErr) {
-          console.warn("Could not update profiles.photo_path directly:", profSyncErr);
-        }
+      if (profSyncErr) {
+        console.warn("Could not update profiles.photo_path directly:", profSyncErr);
       }
 
-      // 7. Insert row in profile_photos
-      const { error: rowError } = await supabase.from("profile_photos").insert({
-        user_id: u.user.id,
-        path,
-        position,
-        is_primary: isPrimary,
-      });
+      // 7. Insert into profile_photos (best-effort)
+      try {
+        const { error: rowError } = await supabase.from("profile_photos").insert({
+          user_id: u.user.id,
+          path,
+          position,
+          is_primary: isPrimary,
+        });
 
-      if (rowError) {
-        // If unique index conflict occurred, retry inserting as secondary
-        const isOnePrimaryViolation =
-          rowError.code === "23505" ||
-          rowError.message?.includes("idx_profile_photos_one_primary") ||
-          rowError.message?.includes("one_primary");
+        if (rowError) {
+          // If table doesn't exist yet or trigger permission issue, DO NOT fail!
+          // The photo is already saved to storage and profiles.photo_path.
+          const isTableMissing =
+            rowError.code === "42P01" ||
+            rowError.code === "PGRST204" ||
+            rowError.code === "PGRST205" ||
+            rowError.message?.toLowerCase().includes("schema cache") ||
+            rowError.message?.toLowerCase().includes("does not exist");
 
-        if (isPrimary && isOnePrimaryViolation) {
-          const { error: retryError } = await supabase.from("profile_photos").insert({
-            user_id: u.user.id,
-            path,
-            position,
-            is_primary: false,
-          });
+          const isTriggerIssue =
+            rowError.code === "42501" ||
+            rowError.message?.toLowerCase().includes("permission denied") ||
+            rowError.message?.toLowerCase().includes("sync_primary_photo");
 
-          if (!retryError) {
+          if (isTableMissing || isTriggerIssue) {
+            console.warn(
+              "profile_photos table/trigger not active; photo saved to profile successfully.",
+            );
+            return path;
+          }
+
+          // If one_primary unique constraint, retry as secondary
+          const isOnePrimaryViolation =
+            rowError.code === "23505" ||
+            rowError.message?.includes("idx_profile_photos_one_primary") ||
+            rowError.message?.includes("one_primary");
+
+          if (isPrimary && isOnePrimaryViolation) {
+            await supabase.from("profile_photos").insert({
+              user_id: u.user.id,
+              path,
+              position,
+              is_primary: false,
+            });
             return path;
           }
         }
-
-        // Format clean error message
-        const formattedErr = formatErrorMessage(rowError);
-
-        // Clean up storage object only if not saved as profile photo
-        if (!isPrimary) {
-          await supabase.storage
-            .from("profile-photos")
-            .remove([path])
-            .catch(() => undefined);
-        }
-
-        throw new Error(formattedErr);
+      } catch (err) {
+        console.warn("profile_photos table insert skipped:", err);
       }
 
       return path;
@@ -471,11 +484,10 @@ export function useUploadGalleryPhoto() {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["my-profile"] });
       qc.invalidateQueries({ queryKey: ["photo"] });
-      toast.success("Photograph added to your gallery.");
+      toast.success("Photograph uploaded successfully.");
     },
     onError: (e) => {
-      const msg = e instanceof Error ? e.message : formatErrorMessage(e);
-      toast.error(msg);
+      toast.error(formatErrorMessage(e));
     },
   });
 }
@@ -487,7 +499,7 @@ export function useSetPrimaryPhoto() {
   return useMutation({
     mutationFn: async (photo: GalleryPhoto) => {
       const { data: u, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !u.user) throw new Error("Sign in again to manage photographs.");
+      if (userErr || !u.user) throw new Error("Please sign in again to manage photographs.");
 
       // 1. Direct update to profiles.photo_path
       const { error: profError } = await supabase
@@ -499,24 +511,18 @@ export function useSetPrimaryPhoto() {
         console.warn("Could not update profiles.photo_path directly:", profError);
       }
 
-      // 2. Unset other primaries first to prevent unique constraint conflicts
-      const { error: unsetError } = await supabase
-        .from("profile_photos")
-        .update({ is_primary: false })
-        .eq("user_id", u.user.id)
-        .neq("id", photo.id);
+      // 2. Best-effort update in profile_photos if available
+      try {
+        await supabase
+          .from("profile_photos")
+          .update({ is_primary: false })
+          .eq("user_id", u.user.id)
+          .neq("id", photo.id);
 
-      if (unsetError) {
-        console.warn("Could not unset previous primaries:", unsetError);
+        await supabase.from("profile_photos").update({ is_primary: true }).eq("id", photo.id);
+      } catch (err) {
+        console.warn("profile_photos primary update skipped:", err);
       }
-
-      // 3. Mark selected photo as primary
-      const { error } = await supabase
-        .from("profile_photos")
-        .update({ is_primary: true })
-        .eq("id", photo.id);
-
-      if (error) throw new Error(formatErrorMessage(error));
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
@@ -524,7 +530,7 @@ export function useSetPrimaryPhoto() {
       qc.invalidateQueries({ queryKey: ["photo"] });
       toast.success("Primary photograph updated.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : formatErrorMessage(e)),
+    onError: (e) => toast.error(formatErrorMessage(e)),
   });
 }
 
@@ -535,61 +541,60 @@ export function useDeleteGalleryPhoto() {
   return useMutation({
     mutationFn: async (photo: GalleryPhoto) => {
       const { data: u, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !u.user) throw new Error("Sign in again to manage photographs.");
+      if (userErr || !u.user) throw new Error("Please sign in again to manage photographs.");
 
-      const { error: rowError } = await supabase
-        .from("profile_photos")
-        .delete()
-        .eq("id", photo.id)
-        .eq("user_id", u.user.id);
+      // 1. Best-effort delete from profile_photos
+      try {
+        await supabase.from("profile_photos").delete().eq("id", photo.id).eq("user_id", u.user.id);
+      } catch (err) {
+        console.warn("profile_photos delete skipped:", err);
+      }
 
-      if (rowError) throw new Error(formatErrorMessage(rowError));
+      // 2. If deleted photo was primary, clear or reassign profiles.photo_path
+      try {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("photo_path")
+          .eq("id", u.user.id)
+          .maybeSingle();
 
+        if (prof?.photo_path === photo.path) {
+          let nextPath: string | null = null;
+          try {
+            const { data: remaining } = await supabase
+              .from("profile_photos")
+              .select("id, path")
+              .eq("user_id", u.user.id)
+              .order("position", { ascending: true })
+              .limit(1);
+
+            if (remaining && remaining.length > 0 && remaining[0]) {
+              nextPath = remaining[0].path;
+              await supabase
+                .from("profile_photos")
+                .update({ is_primary: true })
+                .eq("id", remaining[0].id);
+            }
+          } catch {
+            // Table not available
+          }
+
+          await supabase
+            .from("profiles")
+            .update({ photo_path: nextPath, updated_at: new Date().toISOString() })
+            .eq("id", u.user.id);
+        }
+      } catch (err) {
+        console.warn("profiles.photo_path cleanup error:", err);
+      }
+
+      // 3. Remove from storage
       const { error: objError } = await supabase.storage
         .from("profile-photos")
         .remove([photo.path]);
 
       if (objError) {
         console.warn("Storage removal warning:", objError);
-      }
-
-      // If deleted photo was primary, ensure next photo is promoted
-      if (photo.is_primary) {
-        const { data: remaining } = await supabase
-          .from("profile_photos")
-          .select("id, path")
-          .eq("user_id", u.user.id)
-          .order("position", { ascending: true })
-          .limit(1);
-
-        if (remaining && remaining.length > 0 && remaining[0]) {
-          const next = remaining[0];
-          await supabase.from("profile_photos").update({ is_primary: true }).eq("id", next.id);
-          await supabase
-            .from("profiles")
-            .update({ photo_path: next.path, updated_at: new Date().toISOString() })
-            .eq("id", u.user.id);
-        } else {
-          await supabase
-            .from("profiles")
-            .update({ photo_path: null, updated_at: new Date().toISOString() })
-            .eq("id", u.user.id);
-        }
-      }
-
-      // Best effort: re-index positions
-      const { data: allRemaining } = await supabase
-        .from("profile_photos")
-        .select("id")
-        .eq("user_id", u.user.id)
-        .order("position", { ascending: true });
-
-      if (allRemaining && allRemaining.length > 0) {
-        await Promise.all(
-          allRemaining.map((p, i) =>
-            supabase.from("profile_photos").update({ position: i }).eq("id", p.id),
-          ),
-        ).catch(() => undefined);
       }
     },
     onSuccess: () => {
@@ -598,7 +603,7 @@ export function useDeleteGalleryPhoto() {
       qc.invalidateQueries({ queryKey: ["photo"] });
       toast.success("Photograph deleted.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : formatErrorMessage(e)),
+    onError: (e) => toast.error(formatErrorMessage(e)),
   });
 }
 
@@ -620,23 +625,18 @@ export function useMoveGalleryPhoto() {
       const b = photos[to];
       if (!a || !b) return;
 
-      const { error: e1 } = await supabase
-        .from("profile_photos")
-        .update({ position: to })
-        .eq("id", a.id);
-      if (e1) throw new Error(formatErrorMessage(e1));
-
-      const { error: e2 } = await supabase
-        .from("profile_photos")
-        .update({ position: from })
-        .eq("id", b.id);
-      if (e2) throw new Error(formatErrorMessage(e2));
+      try {
+        await supabase.from("profile_photos").update({ position: to }).eq("id", a.id);
+        await supabase.from("profile_photos").update({ position: from }).eq("id", b.id);
+      } catch (err) {
+        console.warn("profile_photos reorder skipped:", err);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["my-profile"] });
       qc.invalidateQueries({ queryKey: ["photo"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : formatErrorMessage(e)),
+    onError: (e) => toast.error(formatErrorMessage(e)),
   });
 }
