@@ -84,7 +84,7 @@ export function PhotoGalleryManager({
         </label>
         <p className="text-xs text-muted-foreground">
           {photos.length === 0
-            ? `Add up to ${MAX_GALLERY_PHOTOS} JPG/PNG portraits (up to 20 MB each, auto-optimized to ~1–2 MB). The first becomes your primary automatically.`
+            ? `Add up to ${MAX_GALLERY_PHOTOS} JPG/PNG portraits (up to 10 MB each, auto-optimized to ~1–2 MB). The first becomes your primary automatically.`
             : `${photos.length} of ${MAX_GALLERY_PHOTOS} used. Star one to make it primary.`}
         </p>
       </div>

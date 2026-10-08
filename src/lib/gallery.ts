@@ -8,7 +8,7 @@ import type { Database } from "@/integrations/supabase/types";
 export type GalleryPhoto = Database["public"]["Tables"]["profile_photos"]["Row"];
 
 /** Matrimonial-directory cap: enough for a real gallery, small enough that
- *  storage abuse (20 MB × files) stays bounded per member. */
+ *  storage abuse (10 MB × files) stays bounded per member. */
 export const MAX_GALLERY_PHOTOS = 6;
 
 /** Promote a gallery row to primary — sync trigger mirrors it onto
@@ -176,8 +176,8 @@ function assertGalleryFile(file: File) {
   if (!["image/jpeg", "image/png"].includes(file.type)) {
     throw new Error("Only JPG or PNG photographs are accepted.");
   }
-  if (file.size > 20 * 1024 * 1024) {
-    throw new Error("Each photograph must be 20 MB or smaller.");
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("Each photograph must be 10 MB or smaller.");
   }
 }
 
@@ -220,7 +220,7 @@ async function loadImage(
 /**
  * Automatic client-side image optimization (industry standard on Shaadi.com).
  *
- * Smartphone cameras produce massive 10–20 MB portraits. This function scales
+ * Smartphone cameras produce massive 5–10 MB portraits. This function scales
  * the image to max 2048px on the longest edge and re-encodes at 88% JPEG quality,
  * shrinking photos down to ~1–2 MB without perceptible loss of clarity.
  */
