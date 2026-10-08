@@ -58,6 +58,15 @@ function Verification() {
     }
   }, [me.data, seeded]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#photos") {
+      setTimeout(() => {
+        const el = document.getElementById("photos");
+        el?.scrollIntoView({ behavior: "smooth" });
+      }, 150);
+    }
+  }, []);
+
   const save = useMutation({
     mutationFn: async (patch: Database["public"]["Tables"]["profiles"]["Update"]) => {
       const { data: u } = await supabase.auth.getUser();
@@ -313,7 +322,7 @@ function Verification() {
         )}
       </section>
 
-      <section className="mt-6 border border-border bg-card p-6 md:p-8">
+      <section id="photos" className="mt-6 border border-border bg-card p-6 md:p-8 scroll-mt-24">
         <h2 className="font-serif text-2xl font-semibold">Photograph &amp; gallery</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Upload up to 6 photographs. Verified members see them according to your visibility

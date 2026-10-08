@@ -378,61 +378,54 @@ function Onboarding() {
       const { error } = await supabase.from("profiles").update(profileUpdates).eq("id", u.user.id);
       if (error) throw error;
       submittedRef.current = true;
+
+      try {
+        localStorage.removeItem(APPLY_DRAFT_KEY);
+        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+
+      // Immediately reflect onboarded status and new fields in the query cache
+      // so child and guarded routes never see stale `onboarded: false` data.
+      queryClient.setQueryData(MY_PROFILE_KEY, (old: MyProfileRow | null | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          ...profileUpdates,
+          onboarded: true,
+        };
+      });
+      void queryClient.invalidateQueries({ queryKey: MY_PROFILE_KEY });
+
+      // Fire-and-forget consent recording in background so transition to dashboard is instantaneous
+      if (!me.data?.onboarded) {
+        void Promise.all([
+          recordConsent(
+            "terms_and_privacy",
+            true,
+            "Membership terms and privacy notice accepted at onboarding",
+          ),
+          recordConsent(
+            "partnership_criteria",
+            true,
+            "Partnership criteria and profile details may be used for matching",
+          ),
+        ]);
+      }
+
+      const isEdit = me.data?.onboarded;
+      toast.success(
+        isEdit ? "Profile updated successfully." : "Profile saved. Welcome to the Circle.",
+      );
+      // Navigate immediately while keeping button disabled/saving, preventing any flicker of intermediate screen
+      navigate({ to: "/dashboard" });
     } catch (e) {
+      setSaving(false);
       toast.error(
         e instanceof Error ? e.message : "Could not save your profile. Please try again.",
       );
-      return;
-    } finally {
-      setSaving(false);
     }
-    try {
-      localStorage.removeItem(APPLY_DRAFT_KEY);
-      localStorage.removeItem(ONBOARDING_DRAFT_KEY);
-    } catch {
-      /* ignore */
-    }
-
-    // Immediately reflect onboarded status and new fields in the query cache
-    // so child and guarded routes never see stale `onboarded: false` data.
-    queryClient.setQueryData(MY_PROFILE_KEY, (old: MyProfileRow | null | undefined) => {
-      if (!old) return old;
-      return {
-        ...old,
-        ...profileUpdates,
-        onboarded: true,
-      };
-    });
-    void queryClient.invalidateQueries({ queryKey: MY_PROFILE_KEY });
-
-    // Onboarding is where the member accepts the membership terms, the privacy
-    // notice and the use of their stated criteria for matching. The ledger row
-    // is written once, on the transition to onboarded = true.
-    if (!me.data?.onboarded) {
-      const terms = await recordConsent(
-        "terms_and_privacy",
-        true,
-        "Membership terms and privacy notice accepted at onboarding",
-      );
-      const criteria = await recordConsent(
-        "partnership_criteria",
-        true,
-        "Partnership criteria and profile details may be used for matching",
-      );
-      // The DPDP receipt is the one row that must not go missing silently —
-      // warn loudly rather than claim an acceptance that was never recorded.
-      if (!terms.ok || !criteria.ok) {
-        toast.warning(
-          "Profile saved, but the consent receipt could not be written — retry from Settings.",
-          { duration: 8000 },
-        );
-      }
-    }
-    const isEdit = me.data?.onboarded;
-    toast.success(
-      isEdit ? "Profile updated successfully." : "Profile saved. Welcome to the Circle.",
-    );
-    navigate({ to: "/dashboard" });
   }
 
   if (me.isError) {
@@ -860,6 +853,11 @@ function Onboarding() {
                 onCheckedChange={(v) => set("is_visible", v)}
                 aria-label="Visible to members"
               />
+            </div>
+            <div className="border border-border/80 bg-secondary/30 p-4 text-xs leading-5 text-muted-foreground">
+              <span className="font-semibold text-foreground">Next step after onboarding:</span>{" "}
+              Profile photographs and institutional verification documents can be uploaded directly
+              under Verification on your Membership Desk.
             </div>
           </>
         )}

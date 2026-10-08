@@ -20,6 +20,9 @@ export type CompletenessItem = {
   hint: string;
   weight: number;
   filled: boolean;
+  to?: "/verification" | "/onboarding" | "/settings";
+  hash?: string;
+  actionLabel?: string;
 };
 
 function has(v: unknown): boolean {
@@ -47,48 +50,65 @@ export function profileCompleteness(p: MyProfileRow | null | undefined): {
       // photo_path is mirrored from the gallery primary, so this follows the
       // real portrait rather than a separate "did you visit the uploader" flag.
       filled: !!p?.photo_path,
+      to: "/verification",
+      hash: "photos",
+      actionLabel: "Upload photo",
     },
     {
       label: "Write what you are looking for",
       hint: "The desk reads this to shortlist introductions for you.",
       weight: 20,
       filled: hasStatement(p?.values_statement),
+      to: "/onboarding",
+      actionLabel: "Edit values",
     },
     {
       label: "Add a short introduction",
       hint: "Two or three sentences about your everyday life.",
       weight: 15,
       filled: has(p?.bio),
+      to: "/onboarding",
+      actionLabel: "Add intro",
     },
     {
       label: "Confirm your institution and degree",
       hint: "Verification is checked against these.",
       weight: 15,
       filled: has(p?.institution) && has(p?.degree) && has(p?.grad_year),
+      to: "/onboarding",
+      actionLabel: "Edit education",
     },
     {
       label: "Add your profession",
       hint: "Shown on your card in search.",
       weight: 10,
       filled: has(p?.profession),
+      to: "/onboarding",
+      actionLabel: "Edit profession",
     },
     {
       label: "Add your city",
       hint: "Used for relocation and city matching.",
       weight: 5,
       filled: has(p?.city),
+      to: "/onboarding",
+      actionLabel: "Edit city",
     },
     {
       label: "Add height and dietary preference",
       hint: "These drive the filters members actually use.",
       weight: 3,
       filled: has(p?.height_cm) && has(p?.diet),
+      to: "/onboarding",
+      actionLabel: "Edit preferences",
     },
     {
       label: "Add marital status, mother tongue and residency",
       hint: "Detail that helps the desk place you accurately.",
       weight: 2,
       filled: has(p?.marital_status) && has(p?.mother_tongue) && has(p?.residency_status),
+      to: "/onboarding",
+      actionLabel: "Edit details",
     },
   ];
 

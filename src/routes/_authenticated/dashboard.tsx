@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Camera,
   Check,
   ChevronRight,
   Clock3,
@@ -154,23 +155,78 @@ function DashboardPage() {
                   </p>
                   <ul className="mt-4 grid gap-3">
                     {completeness.missing.map((m) => (
-                      <li key={m.label} className="flex items-start gap-3 text-sm">
-                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brass" />
-                        <span className="min-w-0">
-                          <span className="font-medium text-foreground">{m.label}</span>
-                          <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                            {m.hint}
+                      <li
+                        key={m.label}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2.5 text-sm last:border-0 last:pb-0"
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brass" />
+                          <span className="min-w-0">
+                            <span className="font-medium text-foreground">{m.label}</span>
+                            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                              {m.hint}
+                            </span>
                           </span>
-                        </span>
+                        </div>
+                        {m.to && (
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-7 self-start sm:self-center shrink-0 text-xs font-semibold"
+                          >
+                            <Link to={m.to} {...(m.hash ? { hash: m.hash } : {})}>
+                              {m.actionLabel || "Add"}
+                            </Link>
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>
-                  <Button asChild variant="outline" className="mt-5">
-                    <Link to="/onboarding">Edit your profile</Link>
-                  </Button>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    {!p?.photo_path && (
+                      <Button asChild size="sm">
+                        <Link to="/verification" hash="photos">
+                          <Camera className="mr-1.5 size-4" />
+                          Upload photograph
+                        </Link>
+                      </Button>
+                    )}
+                    <Button asChild variant="outline" size="sm">
+                      <Link to="/onboarding">Edit profile details</Link>
+                    </Button>
+                  </div>
                 </>
               )}
             </section>
+
+            {!p?.photo_path && (
+              <section className="border-2 border-dashed border-brass/50 bg-brass/5 p-5 shadow-paper md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brass/15 text-brass">
+                      <Camera className="size-5" />
+                    </span>
+                    <div>
+                      <h3 className="font-serif text-lg font-semibold text-foreground">
+                        Add your profile photograph
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground max-w-lg">
+                        Photographs are watermarked with the viewer&apos;s identity and stay
+                        protected by your privacy settings. Members with portraits are introduced
+                        far more often.
+                      </p>
+                    </div>
+                  </div>
+                  <Button asChild className="shrink-0">
+                    <Link to="/verification" hash="photos">
+                      <Camera className="mr-1.5 size-4" />
+                      Upload photograph
+                    </Link>
+                  </Button>
+                </div>
+              </section>
+            )}
 
             <section className="border border-border bg-card p-5 shadow-paper md:p-7">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
@@ -252,6 +308,25 @@ function DashboardPage() {
                     </p>
                   </div>
                   <Link to="/onboarding" aria-label="Edit your profile details">
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
+                  <span className="text-brass [&_svg]:size-5">
+                    <Camera />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Photograph gallery</p>
+                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                      {p?.photo_path
+                        ? "Manage portraits (up to 6) and primary picture."
+                        : "Upload photographs to strengthen your profile."}
+                    </p>
+                  </div>
+                  <Link to="/verification" hash="photos" aria-label="Manage your photographs">
                     <ChevronRight
                       className="size-4 shrink-0 text-muted-foreground"
                       aria-hidden="true"
