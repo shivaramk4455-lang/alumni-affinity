@@ -433,6 +433,39 @@ export type Database = {
           },
         ]
       }
+      deletion_receipts: {
+        Row: {
+          auth_deleted: boolean
+          deleted_at: string
+          id: string
+          note: string | null
+          policy_version: string
+          purposes: string[]
+          storage_objects_removed: number
+          user_id: string
+        }
+        Insert: {
+          auth_deleted?: boolean
+          deleted_at?: string
+          id?: string
+          note?: string | null
+          policy_version: string
+          purposes?: string[]
+          storage_objects_removed?: number
+          user_id: string
+        }
+        Update: {
+          auth_deleted?: boolean
+          deleted_at?: string
+          id?: string
+          note?: string | null
+          policy_version?: string
+          purposes?: string[]
+          storage_objects_removed?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       interests: {
         Row: {
           created_at: string
