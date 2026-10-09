@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { GRIEVANCE_OFFICER } from "@/lib/legal-identity";
+import { GRIEVANCE_OFFICER, SITE_TAGLINE } from "@/lib/legal-identity";
 import type { MyProfileRow } from "@/lib/profile-columns";
 
 import { toast } from "sonner";
@@ -686,7 +686,7 @@ export function SiteHeader() {
               The Merit Circle
             </span>
             <span className="mt-1 block truncate text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Private introductions
+              IIT, IIM & Premier Alumni
             </span>
           </span>
         </Link>
@@ -825,8 +825,7 @@ export function SiteFooter() {
               <Landmark className="size-5 text-brass" /> The Merit Circle
             </div>
             <p className="mt-5 text-sm leading-7 text-primary-foreground/65">
-              A private membership network for accomplished alumni seeking serious, self-directed
-              partnerships—with family involved by invitation.
+              {SITE_TAGLINE}—candidate-led, family co-piloted, with zero public profiles.
             </p>
             <div className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-brass">
               <ShieldCheck className="size-4" /> Identity and institution verified

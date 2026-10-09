@@ -74,6 +74,14 @@ export const SITE_URL = "https://themeritcircle.in";
 export const SITE_NAME = "The Merit Circle";
 
 /**
+ * The premier-institution positioning line, used by SEO metadata and the site
+ * chrome. One place, so og:title, the JSON-LD description and the header/
+ * footer subtitles cannot drift apart.
+ */
+export const SITE_TAGLINE =
+  "The Private Matrimonial Circle for IIT, IIM & Premier Institute Alumni";
+
+/**
  * Every field the release gate inspects, paired with a human-readable label.
  * `vite.config.ts` iterates this to produce a single actionable error listing
  * every outstanding field, rather than failing on one at a time.
