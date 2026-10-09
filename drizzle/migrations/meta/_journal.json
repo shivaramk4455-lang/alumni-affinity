@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791520422131,
+      "tag": "0000_expand_partner_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791520439961,
+      "tag": "0001_add_matrimonial_community_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791520461075,
+      "tag": "0002_fix_profile_photos_trigger_permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791520464246,
+      "tag": "0003_rate_limit_purposes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791520476758,
+      "tag": "0004_repair_photo_view_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791520498319,
+      "tag": "0005_deletion_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791520522389,
+      "tag": "0006_reconcile_intro_usage",
+      "breakpoints": true
+    }
+  ]
+}
