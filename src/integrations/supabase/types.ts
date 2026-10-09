@@ -705,54 +705,36 @@ export type Database = {
       }
       partner_preferences: {
         Row: {
-          caste_preference: string | null
           cities: string[]
           created_at: string
-          diets: string[]
           genders: string[]
           institutions: string[]
-          marital_statuses: string[]
           max_age: number | null
-          max_height_cm: number | null
           min_age: number | null
-          min_height_cm: number | null
-          religions: string[]
           relocations: string[]
           shield_employer: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
-          caste_preference?: string | null
           cities?: string[]
           created_at?: string
-          diets?: string[]
           genders?: string[]
           institutions?: string[]
-          marital_statuses?: string[]
           max_age?: number | null
-          max_height_cm?: number | null
           min_age?: number | null
-          min_height_cm?: number | null
-          religions?: string[]
           relocations?: string[]
           shield_employer?: boolean
           updated_at?: string
           user_id: string
         }
         Update: {
-          caste_preference?: string | null
           cities?: string[]
           created_at?: string
-          diets?: string[]
           genders?: string[]
           institutions?: string[]
-          marital_statuses?: string[]
           max_age?: number | null
-          max_height_cm?: number | null
           min_age?: number | null
-          min_height_cm?: number | null
-          religions?: string[]
           relocations?: string[]
           shield_employer?: boolean
           updated_at?: string
@@ -1002,9 +984,6 @@ export type Database = {
           photo_path: string | null
           photo_visibility: string
           profession: string | null
-          religion: string | null
-          caste: string | null
-          gotra: string | null
           relocation: string | null
           residency_status: string | null
           show_profile_views: boolean
@@ -1021,7 +1000,6 @@ export type Database = {
           alumni_email_verified?: boolean
           bio?: string | null
           birth_year?: number | null
-          caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -1030,7 +1008,6 @@ export type Database = {
           employer?: string | null
           full_name?: string
           gender?: string | null
-          gotra?: string | null
           grad_year?: number | null
           height_cm?: number | null
           id: string
@@ -1046,7 +1023,6 @@ export type Database = {
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
-          religion?: string | null
           relocation?: string | null
           residency_status?: string | null
           show_profile_views?: boolean
@@ -1063,7 +1039,6 @@ export type Database = {
           alumni_email_verified?: boolean
           bio?: string | null
           birth_year?: number | null
-          caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -1072,7 +1047,6 @@ export type Database = {
           employer?: string | null
           full_name?: string
           gender?: string | null
-          gotra?: string | null
           grad_year?: number | null
           height_cm?: number | null
           id?: string
@@ -1088,7 +1062,6 @@ export type Database = {
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
-          religion?: string | null
           relocation?: string | null
           residency_status?: string | null
           show_profile_views?: boolean
@@ -1357,9 +1330,6 @@ export type Database = {
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
-          religion: string | null
-          caste: string | null
-          gotra: string | null
           relocation: string | null
           residency_status: string | null
           show_profile_views: boolean | null
@@ -1376,7 +1346,6 @@ export type Database = {
           alumni_email_verified?: boolean | null
           bio?: string | null
           birth_year?: number | null
-          caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string | null
@@ -1385,7 +1354,6 @@ export type Database = {
           employer?: string | null
           full_name?: string | null
           gender?: string | null
-          gotra?: string | null
           grad_year?: number | null
           height_cm?: number | null
           id?: string | null
@@ -1401,7 +1369,6 @@ export type Database = {
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
-          religion?: string | null
           relocation?: string | null
           residency_status?: string | null
           show_profile_views?: boolean | null
@@ -1418,7 +1385,6 @@ export type Database = {
           alumni_email_verified?: boolean | null
           bio?: string | null
           birth_year?: number | null
-          caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string | null
@@ -1427,7 +1393,6 @@ export type Database = {
           employer?: string | null
           full_name?: string | null
           gender?: string | null
-          gotra?: string | null
           grad_year?: number | null
           height_cm?: number | null
           id?: string | null
@@ -1443,7 +1408,6 @@ export type Database = {
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
-          religion?: string | null
           relocation?: string | null
           residency_status?: string | null
           show_profile_views?: boolean | null
