@@ -115,6 +115,10 @@ function AuthPage() {
   const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
+    setMode(modeParam ?? "signin");
+  }, [modeParam]);
+
+  useEffect(() => {
     if (!user) return;
     const target = parseRedirect(redirect);
 
