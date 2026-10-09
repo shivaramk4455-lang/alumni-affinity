@@ -8,6 +8,13 @@
       "when": 1791520422131,
       "tag": "0000_expand_partner_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791520439961,
+      "tag": "0001_add_matrimonial_community_fields",
+      "breakpoints": true
     }
   ]
 }
