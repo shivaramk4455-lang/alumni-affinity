@@ -210,49 +210,31 @@ function Index() {
               Inside the Circle
             </p>
             <h2 className="mt-3 font-serif text-4xl font-semibold md:text-5xl">
-              The calibre speaks for itself.
+              A private process, built around your choice.
             </h2>
             <p className="mt-5 text-sm leading-7 text-muted-foreground">
-              Representative member archetypes from across the Circle — anonymised by design,
-              consistent with our zero-public-profiles guarantee.
+              Real member profiles are never displayed publicly. Here’s how a considered,
+              consent-led introduction works.
             </p>
           </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
-            <CircleMemberCard
-              category="Tech & Finance"
-              code="Member #D-248"
-              age={29}
-              initials="D"
-              pedigree="B.Tech Computer Science, IIT Delhi '18"
-              career="Staff Software Engineer, Tier-1 Global Tech Firm"
-              location="Bengaluru — Open to Mumbai & Singapore"
+          <div className="mt-10 grid border-y border-border md:grid-cols-3 md:divide-x md:divide-y-0 divide-y divide-border">
+            <Principle
+              n="01"
+              icon={<ShieldCheck />}
+              title="Verified membership"
+              text="Every application is reviewed before access to the private member directory is granted."
             />
-            <CircleMemberCard
-              category="Management & Strategy"
-              code="Member #A-312"
-              age={31}
-              initials="A"
-              pedigree="B.Tech BITS Pilani '16 · MBA, IIM Ahmedabad '20"
-              career="VP Strategy & Operations, Series C Fintech"
-              location="Mumbai — Prefers Western India / Delhi NCR"
+            <Principle
+              n="02"
+              icon={<EyeOff />}
+              title="Private discovery"
+              text="Profiles are visible only to verified members, with visibility controls in your hands."
             />
-            <CircleMemberCard
-              category="Deep Tech & Research"
-              code="Member #R-176"
-              age={30}
-              initials="R"
-              pedigree="B.Tech Electrical Engineering, IIT Kanpur '16 · PhD, University of Cambridge '21"
-              career="Research Scientist, Frontier AI Laboratory"
-              location="Bengaluru — Open to London & Remote"
-            />
-            <CircleMemberCard
-              category="Global Postgrad & Founder"
-              code="Member #G-445"
-              age={32}
-              initials="G"
-              pedigree="B.Tech IIT Bombay '16 · MS, Stanford University '19"
-              career="Co-Founder, Climate-Tech Enterprise"
-              location="San Francisco / Bengaluru"
+            <Principle
+              n="03"
+              icon={<LockKeyhole />}
+              title="Mutual introduction"
+              text="Personal details are shared only when both people choose to connect."
             />
           </div>
           <div className="mt-10 flex flex-col gap-6 border border-brass/40 bg-secondary/45 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-9">
@@ -261,9 +243,9 @@ function Index() {
                 <ShieldCheck className="size-4" aria-hidden="true" /> The privacy guarantee
               </p>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                These archetypes illustrate the company inside the Circle. No member profile,
-                photograph, or institution record is ever publicly listed or indexed — details are
-                released only after a mutual, consented introduction.
+                No member profile, photograph, or institution record is publicly listed or indexed.
+                Real profiles are reserved for verified members, and details are shared only through
+                mutual, consent-led introductions.
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center">
@@ -375,68 +357,6 @@ function Privacy({ icon, title, text }: { icon: ReactNode; title: string; text: 
       <span className="text-brass-strong [&_svg]:size-5">{icon}</span>
       <h3 className="mt-5 font-serif text-xl font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-forest-foreground/60">{text}</p>
-    </article>
-  );
-}
-
-function CircleMemberCard({
-  category,
-  code,
-  age,
-  initials,
-  pedigree,
-  career,
-  location,
-}: {
-  category: string;
-  code: string;
-  age: number;
-  initials: string;
-  pedigree: string;
-  career: string;
-  location: string;
-}) {
-  return (
-    <article className="flex flex-col border border-border bg-card p-6 md:p-7">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">{category}</p>
-        <LockKeyhole className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      </div>
-      <div className="mt-5 flex items-center gap-4">
-        <span
-          className="grid size-12 shrink-0 place-items-center border border-brass/40 bg-secondary/60 font-serif text-lg font-semibold text-foreground"
-          aria-hidden="true"
-        >
-          {initials}
-        </span>
-        <p className="font-serif text-lg font-semibold leading-snug">
-          {code} <span className="font-normal text-muted-foreground">(Candidate, {age})</span>
-        </p>
-      </div>
-      <dl className="mt-5 space-y-3 text-sm">
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Pedigree
-          </dt>
-          <dd className="mt-1 leading-6 text-foreground">{pedigree}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Career
-          </dt>
-          <dd className="mt-1 leading-6 text-foreground">{career}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Location
-          </dt>
-          <dd className="mt-1 leading-6 text-foreground">{location}</dd>
-        </div>
-      </dl>
-      <p className="mt-5 flex items-start gap-2 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
-        <LockKeyhole className="mt-0.5 size-3.5 shrink-0 text-brass" aria-hidden="true" />
-        Photo & full identity released only upon mutual accepted introduction.
-      </p>
     </article>
   );
 }
