@@ -1517,6 +1517,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      count_intro_usage: { Args: { _user: string }; Returns: number }
       desk_network_health: { Args: never; Returns: Json }
       desk_reports: {
         Args: { _limit?: number }
