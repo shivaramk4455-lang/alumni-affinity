@@ -63,7 +63,7 @@ export const ORGANIZATION_JSON_LD = {
         url: absoluteUrl("/icon.svg"),
       },
       description:
-        "The private matrimonial circle for alumni of IITs, IIMs, BITS and leading global universities.",
+        "Thoughtful matchmaking for IIT, IIM and leading-institution alumni through a private, verified matrimonial circle.",
       keywords:
         "IIT alumni matrimony, IIM alumni matrimony, BITS alumni matrimony, premier institute matrimonial, verified matrimonial membership",
       areaServed: "IN",

@@ -24,13 +24,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A discreet, verified matrimonial circle for alumni of IITs, IIMs, BITS, and leading global universities. Candidate-led, family co-piloted, zero public profiles.",
+          "Thoughtful matchmaking for IIT, IIM and leading-institution alumni. A discreet, verified matrimonial circle where candidates lead and families participate by invitation.",
       },
       { property: "og:title", content: `The Merit Circle — ${SITE_TAGLINE}` },
       {
         property: "og:description",
         content:
-          "Verified alumni of IITs, IIMs, BITS & leading global universities. Candidate-led, family co-piloted, zero public profiles.",
+          "Thoughtful matchmaking for IIT, IIM and leading-institution alumni. Candidate-led introductions, family co-piloted, private by design.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -58,9 +58,8 @@ function Index() {
               For people who built their own lives—and wish to choose their own partner.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground">
-              The private matrimonial circle for alumni of India’s premier institutions and top
-              global universities. Candidates lead every introduction. Families participate by
-              invitation.
+              Thoughtful matchmaking for IIT, IIM and leading-institution alumni. Candidates lead
+              every introduction; families participate by invitation.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">

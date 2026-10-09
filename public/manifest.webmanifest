@@ -1,7 +1,7 @@
 {
-  "name": "The Merit Circle",
+  "name": "The Merit Circle — Alumni Matrimony",
   "short_name": "Merit Circle",
-  "description": "A private, candidate-led matrimonial membership for premier-institute alumni.",
+  "description": "Thoughtful matchmaking for IIT, IIM and leading-institution alumni.",
   "id": "/",
   "start_url": "/dashboard",
   "scope": "/",

@@ -74,12 +74,10 @@ export const SITE_URL = "https://themeritcircle.in";
 export const SITE_NAME = "The Merit Circle";
 
 /**
- * The premier-institution positioning line, used by SEO metadata and the site
- * chrome. One place, so og:title, the JSON-LD description and the header/
- * footer subtitles cannot drift apart.
+ * The service descriptor used in page titles, SEO metadata and the site
+ * footer. Keep the short brand descriptor separate from the audience tagline.
  */
-export const SITE_TAGLINE =
-  "The Private Matrimonial Circle for IIT, IIM & Premier Institute Alumni";
+export const SITE_TAGLINE = "Alumni Matrimony";
 
 /**
  * Every field the release gate inspects, paired with a human-readable label.
