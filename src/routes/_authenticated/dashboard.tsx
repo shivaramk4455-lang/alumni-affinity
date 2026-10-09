@@ -44,7 +44,8 @@ function DashboardPage() {
       const { data, error } = await supabase
         .from("interests")
         .select("id, sender_id, recipient_id, status")
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .limit(200);
       if (error) throw error;
       return data;
     },
@@ -56,7 +57,8 @@ function DashboardPage() {
       const { data, error } = await supabase
         .from("copilots")
         .select("id, candidate_id, copilot_name, copilot_email, status")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (error) throw error;
       return data;
     },

@@ -233,15 +233,41 @@ function MemberProfile() {
     queryKey: ["interest", id],
     enabled: !!me.data && me.data.id !== id,
     queryFn: async () => {
+      // A reverse pair can exist: both sides sent before either answered, and
+      // the (sender, recipient) unique index is direction-ordered, so it does
+      // not prevent (A->B) + (B->A). Two rows broke the old maybeSingle (406),
+      // which hid an ACCEPTED row behind an error — contact details and the
+      // message link vanished while an accepted introduction existed.
+      // Prefer the row that unlocks the most: accepted, then actionable (I am
+      // the recipient), then newest. Whether a mutual send should auto-accept
+      // is a product decision — this only degrades gracefully until it is made.
       const { data, error } = await supabase
         .from("interests")
         .select("id, sender_id, recipient_id, status, message")
         .or(
           `and(sender_id.eq.${me.data!.id},recipient_id.eq.${id}),and(sender_id.eq.${id},recipient_id.eq.${me.data!.id})`,
         )
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(2);
       if (error) throw error;
-      return data;
+      const rows = data ?? [];
+      const rank = (status: string, iAmRecipient: boolean) =>
+        status === "accepted"
+          ? 0
+          : status === "pending" && iAmRecipient
+            ? 1
+            : status === "pending"
+              ? 2
+              : 3;
+      return (
+        rows
+          .slice()
+          .sort(
+            (a, b) =>
+              rank(a.status, a.recipient_id === me.data!.id) -
+              rank(b.status, b.recipient_id === me.data!.id),
+          )[0] ?? null
+      );
     },
   });
 

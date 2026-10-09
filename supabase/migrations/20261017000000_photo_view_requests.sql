@@ -76,6 +76,11 @@ CREATE POLICY "Owner decides incoming photo requests" ON public.photo_view_reque
   WITH CHECK (
     owner_id = auth.uid()
     AND status IN ('accepted', 'declined', 'revoked')
+  );
+
+-- Freeze the pair: an UPDATE must never re-point a request at another
+-- member. WITH CHECK cannot reference the old row, so the trigger below
+-- (added in the 20261026 repair) enforces what this comment always claimed.
 -- ---------------------------------------------------------------------------
 -- Access helper. SECURITY DEFINER because the storage policy is evaluated as the
 -- viewer, who cannot read the owner's request rows directly.
@@ -145,5 +150,4 @@ CREATE POLICY "Permitted members read gallery" ON public.profile_photos FOR SELE
           )
       )
     )
-  );
   );

@@ -46,7 +46,8 @@ function Copilots() {
         .select(
           "id, candidate_id, copilot_user_id, copilot_name, copilot_email, relation, status, invite_code, created_at",
         )
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (error) throw error;
       return data;
     },
@@ -58,7 +59,8 @@ function Copilots() {
       const { data, error } = await supabase
         .from("copilot_recommendations")
         .select("id, candidate_id, copilot_id, recommended_profile_id, family_note, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(200);
       if (error) throw error;
       return data;
     },

@@ -2,10 +2,13 @@
 -- 20261002: Partner preferences + compatibility scoring inputs.
 --
 -- Candidates state what they are looking for; the app never stores what they
--- are looking *at*. One row per member (PK = user_id), owner-only reads and
--- writes — a member's criteria are as private as their contact coordinates.
--- Compatibility is computed client-side from directory-visible fields, so no
--- server-side score (and no score table to leak) is needed.
+-- are looking *at*. One row per member (PK = user_id), owner-only writes.
+-- Reads were owner-only at first; 20261023 widened them to visible+verified
+-- members so profiles can show "Looking for in a partner" (Desired Partner
+-- Profile, as on Shaadi/BharatMatrimony). Only shield_employer stays out of
+-- other members' views. Compatibility is computed client-side from
+-- directory-visible fields, so no server-side score (and no score table to
+-- leak) is needed.
 -- ===========================================================================
 
 CREATE TABLE IF NOT EXISTS public.partner_preferences (

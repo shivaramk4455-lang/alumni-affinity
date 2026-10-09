@@ -13,6 +13,7 @@
 //   use-auth-secret, static-auth-secret=<TURN_STATIC_SECRET>, realm=<TURN_REALM>
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
+import { rateLimitError } from "../_shared/rate-limit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -57,6 +58,15 @@ serve(async (req) => {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return json({ error: "Unauthorized" }, 401);
+
+  // Credentials live 6h, so minting is rare by construction: 60s per-user
+  // cooldown stops credential harvesting without touching call setup.
+  const limited = await rateLimitError(SUPABASE_URL, SERVICE_KEY, user.id, {
+    purpose: "rate_limit_turn_credentials",
+    cooldownMs: 60_000,
+    message: "Fresh call credentials were just issued. Please wait a moment.",
+  });
+  if (limited) return limited;
 
   const expiry = Math.floor(Date.now() / 1000) + TTL_SECONDS;
   const username = `${expiry}:${user.id}`;

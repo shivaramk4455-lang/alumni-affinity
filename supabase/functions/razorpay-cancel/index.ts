@@ -5,6 +5,7 @@
 // if requested), preserving member access until the period_end.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
+import { rateLimitError } from "../_shared/rate-limit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -56,6 +57,15 @@ serve(async (req) => {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return json({ error: "Unauthorized" }, 401);
+
+  // Cancellation hits the Razorpay API and writes money state: 30s per-user
+  // cooldown against double-click / replay storms.
+  const limited = await rateLimitError(SUPABASE_URL, SERVICE_KEY, user.id, {
+    purpose: "rate_limit_subscription_cancel",
+    cooldownMs: 30_000,
+    message: "A cancellation request is already processing. Please wait a moment.",
+  });
+  if (limited) return limited;
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 

@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
+import { rateLimitError } from "../_shared/rate-limit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -50,6 +51,15 @@ serve(async (req) => {
     .eq("id", user.id)
     .maybeSingle();
   if (!callerProfile?.is_admin) return json({ error: "Forbidden" }, 403);
+
+  // Desk decisions are human-paced: 5s per-user cooldown stops a runaway
+  // script from bulk-deciding the queue. Fail-open (see rate-limit.ts).
+  const limited = await rateLimitError(SUPABASE_URL, SERVICE_KEY, user.id, {
+    purpose: "rate_limit_admin_review",
+    cooldownMs: 5_000,
+    message: "Please wait a moment between desk decisions.",
+  });
+  if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as {
     profile_id?: string;

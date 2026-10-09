@@ -116,10 +116,34 @@ serve(async (req) => {
     objects += await purgeBucket(admin, bucket, user.id);
   }
 
+  // Snapshot the member's consent purposes BEFORE the profile delete: the
+  // consent_events rows cascade away with the profile, so this is the last
+  // moment they are readable. Purposes only — no PII leaves with the receipt.
+  const { data: consentRows } = await admin
+    .from("consent_events")
+    .select("purpose")
+    .eq("user_id", user.id);
+  const purposes = [...new Set((consentRows ?? []).map((r) => r.purpose as string))];
+
   const { error: profileError } = await admin.from("profiles").delete().eq("id", user.id);
   if (profileError) return json({ error: profileError.message, objects }, 400);
 
   const { error: authError } = await admin.auth.admin.deleteUser(user.id);
+
+  // DPDP Section 12 evidence: the receipt has no FK to profiles, so it
+  // survives the cascade that eats consent_events. Best-effort — a receipt
+  // failure must never resurrect deleted data, so it never blocks the 200.
+  const { error: receiptError } = await admin.from("deletion_receipts").insert({
+    user_id: user.id,
+    policy_version: "2026-09",
+    purposes,
+    storage_objects_removed: objects,
+    auth_deleted: !authError,
+    note: "Member-initiated deletion via settings",
+  });
+  if (receiptError) {
+    console.error("delete-account: receipt insert failed:", receiptError.message);
+  }
 
   return json({ ok: true, objects, authDeleted: !authError });
 });

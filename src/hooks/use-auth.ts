@@ -19,13 +19,20 @@ export function useAuth() {
 
   useEffect(() => {
     let cancelled = false;
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
       setUser(session?.user ?? null);
       setLoading(false);
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         void queryClient.invalidateQueries({ queryKey: MY_PROFILE_KEY });
       } else if (event === "SIGNED_OUT") {
+        // A sign-out can arrive from another tab (expiry, revocation, deletion
+        // elsewhere) without ever passing through the header's signOut(), which
+        // is the only place that called clear(). setQueryData(null) alone left
+        // revealed contacts, messages, member rows and gallery caches alive for
+        // whoever touches the device next — drop everything, not just my own row.
+        await queryClient.cancelQueries();
+        queryClient.clear();
         queryClient.setQueryData(MY_PROFILE_KEY, null);
       }
     });

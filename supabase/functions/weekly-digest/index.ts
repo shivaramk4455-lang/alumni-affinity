@@ -16,7 +16,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const WEEK_DAYS = 7;
-// Bounded: a runaway member count must not blow the function timeout.
+// Page size for the opt-in scan. Bounded per page: a runaway member count
+// pages through instead of blowing the function timeout.
 const MAX_MEMBERS = 5000;
 
 const CORS: Record<string, string> = {
@@ -43,46 +44,11 @@ serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const since = new Date(Date.now() - WEEK_DAYS * 86_400_000).toISOString();
 
-  // Opted-in, onboarded, still discoverable. A paused member is deliberately
-  // excluded: they have opted out of being pursued, and a digest is pursuit.
-  // F-09: Track if recipients hit the limit to alert operators when paging is needed.
-  const { data: recipients, error: recipientError } = await admin
-    .from("notification_preferences")
-    .select("user_id, digest_skip_when_empty")
-    .eq("email_digest", true)
-    .limit(MAX_MEMBERS);
-  if (recipientError) return json({ error: recipientError.message }, 500);
-
-  const hasMore = (recipients?.length ?? 0) >= MAX_MEMBERS;
-  if (hasMore) {
-    console.warn(
-      `weekly-digest: MAX_MEMBERS (${MAX_MEMBERS}) reached. Keyset pagination recommended.`,
-    );
-  }
-
-  // F-09: Chunk ID queries in batches of 100 to prevent HTTP 414 (Request-URI Too Large)
-  // in PostgREST when querying large sets of UUIDs.
-  const recipientIds = (recipients ?? []).map((r) => r.user_id);
-  const eligibleIds = new Set<string>();
-  const CHUNK_SIZE = 100;
-
-  for (let i = 0; i < recipientIds.length; i += CHUNK_SIZE) {
-    const chunk = recipientIds.slice(i, i + CHUNK_SIZE);
-    const { data: eligibleChunk } = await admin
-      .from("profiles")
-      .select("id")
-      .in("id", chunk)
-      .eq("onboarded", true)
-      .eq("verification_status", "verified")
-      .is("paused_until", null);
-    for (const p of eligibleChunk ?? []) eligibleIds.add(p.id);
-  }
-
-  const skipWhenEmpty = new Map(
-    (recipients ?? []).map((r) => [r.user_id, r.digest_skip_when_empty !== false]),
-  );
-
-  // One pass per table, bucketed in memory. Four small queries beat N.
+  // Keyset pagination past MAX_MEMBERS: the old code stopped at 5000 with
+  // only a log line, so member 5001+ silently never got a digest. Pages are
+  // idempotent (per-day idempotency keys), so a timed-out run simply resumes.
+  // Week aggregates are shared across pages (computed once): per-page
+  // recomputation would repeat the same four scans and drift mid-run.
   const [interests, accepts, newMembers, views] = await Promise.all([
     admin
       .from("interests")
@@ -105,60 +71,91 @@ serve(async (req) => {
   const acceptReceived = tally(accepts.data, "recipient_id");
   const profileViews = tally(views.data, "viewed_id");
 
-  // "New members in your city" needs each member's own city, so it is the one
-  // figure that cannot come from a single shared aggregate.
-  // Chunked in batches of 100 to protect against URL length limits.
-  const eligibleIdList = [...eligibleIds];
-  const audience: { id: string; city: string | null }[] = [];
-  for (let i = 0; i < eligibleIdList.length; i += CHUNK_SIZE) {
-    const chunk = eligibleIdList.slice(i, i + CHUNK_SIZE);
-    const { data: audienceChunk } = await admin.from("profiles").select("id, city").in("id", chunk);
-    if (audienceChunk) audience.push(...audienceChunk);
-  }
   const cityCount = new Map<string, number>();
   for (const p of newMembers.data ?? []) {
     if (p.city) cityCount.set(p.city, (cityCount.get(p.city) ?? 0) + 1);
   }
 
-  const summary = { considered: eligibleIds.size, queued: 0, skipped_empty: 0, failed: 0 };
+  const summary = { considered: 0, queued: 0, skipped_empty: 0, failed: 0, pages: 0 };
 
-  for (const member of audience ?? []) {
-    if (!eligibleIds.has(member.id)) continue;
+  // Recipients page by keyset (user_id order); each page advances the cursor,
+  // so a 5001st opt-in is page two, not a silent drop.
+  let cursor: string | null = null;
+  for (;;) {
+    let pageQuery = admin
+      .from("notification_preferences")
+      .select("user_id, digest_skip_when_empty")
+      .eq("email_digest", true)
+      .order("user_id")
+      .limit(MAX_MEMBERS);
+    if (cursor) pageQuery = pageQuery.gt("user_id", cursor);
+    const { data: recipients, error: recipientError } = await pageQuery;
+    if (recipientError) return json({ error: recipientError.message }, 500);
+    if (!recipients?.length) break;
+    summary.pages += 1;
 
-    const payload = {
-      new_interests: newInterests.get(member.id) ?? 0,
-      accepted: (acceptSent.get(member.id) ?? 0) + (acceptReceived.get(member.id) ?? 0),
-      new_members: member.city ? (cityCount.get(member.city) ?? 0) : 0,
-      profile_views: profileViews.get(member.id) ?? 0,
-    };
+    // Eligibility + audience per page, chunked (100) to protect PostgREST
+    // from over-long `in()` lists (HTTP 414).
+    const CHUNK_SIZE = 100;
+    const recipientIds = recipients.map((r) => r.user_id);
+    const eligible = new Map<string, { city: string | null; skipEmpty: boolean }>();
+    for (let i = 0; i < recipientIds.length; i += CHUNK_SIZE) {
+      const chunk = recipientIds.slice(i, i + CHUNK_SIZE);
+      const { data: chunkRows } = await admin
+        .from("profiles")
+        .select("id, city")
+        .in("id", chunk)
+        .eq("onboarded", true)
+        .eq("verification_status", "verified")
+        .is("paused_until", null);
+      for (const p of chunkRows ?? []) {
+        const pref = recipients.find((r) => r.user_id === p.id);
+        eligible.set(p.id, {
+          city: (p as { city?: string | null }).city ?? null,
+          skipEmpty: pref?.digest_skip_when_empty !== false,
+        });
+      }
+    }
+    summary.considered += eligible.size;
 
-    const empty =
-      payload.new_interests === 0 &&
-      payload.accepted === 0 &&
-      payload.new_members === 0 &&
-      payload.profile_views === 0;
-    if (empty && skipWhenEmpty.get(member.id) !== false) {
-      summary.skipped_empty += 1;
-      continue;
+    for (const [memberId, info] of eligible) {
+      const payload = {
+        new_interests: newInterests.get(memberId) ?? 0,
+        accepted: (acceptSent.get(memberId) ?? 0) + (acceptReceived.get(memberId) ?? 0),
+        new_members: info.city ? (cityCount.get(info.city) ?? 0) : 0,
+        profile_views: profileViews.get(memberId) ?? 0,
+      };
+
+      const empty =
+        payload.new_interests === 0 &&
+        payload.accepted === 0 &&
+        payload.new_members === 0 &&
+        payload.profile_views === 0;
+      if (empty && info.skipEmpty) {
+        summary.skipped_empty += 1;
+        continue;
+      }
+
+      // The date is part of the key, so a re-run on the same day collapses onto
+      // the same rows instead of mailing everyone twice.
+      const { error } = await admin.rpc("enqueue_notification", {
+        _user: memberId,
+        _template: "weekly_digest",
+        _payload: payload,
+        _idempotency_key: `weekly_digest:${memberId}:${new Date().toISOString().slice(0, 10)}`,
+      });
+      if (error) {
+        summary.failed += 1;
+        console.error(`digest ${memberId}: ${error.message}`);
+      } else {
+        summary.queued += 1;
+      }
     }
 
-    // The date is part of the key, so a re-run on the same day collapses onto
-    // the same rows instead of mailing everyone twice.
-    const { error } = await admin.rpc("enqueue_notification", {
-      _user: member.id,
-      _template: "weekly_digest",
-      _payload: payload,
-      _idempotency_key: `weekly_digest:${member.id}:${new Date().toISOString().slice(0, 10)}`,
-    });
-    if (error) {
-      summary.failed += 1;
-      console.error(`digest ${member.id}: ${error.message}`);
-    } else {
-      summary.queued += 1;
-    }
+    cursor = recipients[recipients.length - 1]!.user_id;
   }
 
-  return json({ ok: true, has_more: hasMore, ...summary });
+  return json({ ok: true, ...summary });
 });
 
 /** Count rows into a map keyed by the given column. */

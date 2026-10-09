@@ -143,7 +143,11 @@ function Settings() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
-  // Partner preferences (private, owner-only row).
+  // Partner preferences. The row is owner-writable, but the criteria are
+  // directory-visible to verified members (migration 20261023) — they power
+  // the "Looking for in a partner" section, the same as Desired Partner
+  // Profile on Shaadi/BharatMatrimony. Only shield_employer stays private
+  // (never selected for another member's view).
   const [prefSeeded, setPrefSeeded] = useState(false);
   const [minAge, setMinAge] = useState("");
   const [maxAge, setMaxAge] = useState("");

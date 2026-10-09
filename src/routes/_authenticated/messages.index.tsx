@@ -48,7 +48,8 @@ function MessagesInbox() {
         .select("id, sender_id, recipient_id, status, updated_at")
         .eq("status", "accepted")
         .or(`sender_id.eq.${myId},recipient_id.eq.${myId}`)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .limit(200);
       if (error) throw error;
 
       const rows = interests ?? [];
@@ -75,7 +76,9 @@ function MessagesInbox() {
         const { data, error: cErr } = await supabase
           .from("conversations")
           .select("id, interest_id")
-          .or(`participant_a.eq.${myId},participant_b.eq.${myId}`);
+          .or(`participant_a.eq.${myId},participant_b.eq.${myId}`)
+          .order("created_at", { ascending: false })
+          .limit(200);
         if (cErr) throw cErr;
         for (const c of data ?? []) convoByInterest.set(c.interest_id, c.id);
       } catch {

@@ -59,7 +59,10 @@ function Connections() {
       const { data, error } = await supabase
         .from("interests")
         .select("id, sender_id, recipient_id, status, message, expires_at, created_at, updated_at")
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        // Bounded: RLS already scopes to my rows, but history accumulates over
+        // a member's lifetime — the tabs only ever render the 200 freshest.
+        .limit(200);
       if (error) throw error;
       return data;
     },
@@ -81,6 +84,20 @@ function Connections() {
 
   const myId = me.data?.id;
   const all = list.data ?? [];
+  // Mutual send: both sides asked before either answered. The pair table is
+  // direction-ordered, so (A->B) + (B->A) coexist as two pending rows. Consent
+  // stays manual (no auto-accept — the accept is what unlocks contacts and
+  // messaging), but each side sees "they're interested too" on their own row
+  // instead of two parallel rows that look like a bug.
+  const mutualPendingByPair = new Map<string, true>();
+  for (const i of all) {
+    if (i.status !== "pending") continue;
+    const counterpart = all.find(
+      (j) =>
+        j.status === "pending" && j.sender_id === i.recipient_id && j.recipient_id === i.sender_id,
+    );
+    if (counterpart) mutualPendingByPair.set(i.id, true);
+  }
   const received = all.filter((i) => i.recipient_id === myId && i.status === "pending");
   const sent = all.filter(
     (i) => i.sender_id === myId && i.status !== "accepted" && i.status !== "blocked",
@@ -296,6 +313,11 @@ function Connections() {
                     <span className="border border-border px-2 py-0.5 text-xs font-semibold capitalize text-muted-foreground">
                       {i.status}
                     </span>
+                    {mutualPendingByPair.get(i.id) && i.status === "pending" && (
+                      <span className="border border-brass/50 bg-brass/5 px-2 py-0.5 text-xs font-semibold text-brass-strong">
+                        They&rsquo;re interested too
+                      </span>
+                    )}
                     {i.status === "pending" && i.expires_at && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="size-3 text-brass" />

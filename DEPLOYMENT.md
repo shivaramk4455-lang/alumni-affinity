@@ -50,7 +50,9 @@ supabase functions deploy notify-dispatch
 supabase functions deploy weekly-digest
 supabase functions deploy razorpay-checkout
 supabase functions deploy razorpay-webhook
+supabase functions deploy razorpay-cancel
 supabase functions deploy turn-credentials
+supabase functions deploy health
 ```
 
 Set the production secrets for the Edge Functions:
@@ -138,31 +140,24 @@ Desk staff can then access `/admin` to review submissions, inspect credentials, 
 Run in this order; each step is verifiable on its own.
 
 1. **Env vars (hosting)**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
-   `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. Nothing secret is ever
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, plus the server
+   error sink: `RESEND_API_KEY` (same value as the edge-function
+   secret) and `SERVER_ALERT_TO_EMAIL` (ops inbox that receives 500
+   digests). Nothing secret is ever
    `VITE_*`; there is no `VITE_TURN_*` requirement any more (see §8).
 2. **Edge secrets**: the block in §4 — including `CRON_SECRET`, `TURN_STATIC_SECRET`,
    `TURN_REALM`, `TURN_URLS`.
 3. **Vault**: `project_url`, `service_role_key`, `cron_secret` (§5) — with
    `cron_secret` equal to `CRON_SECRET`, otherwise the two unattended functions
    answer 500 to pg_cron and no alert ever sends.
-4. **Migrations**: `supabase db push` — applies through
-   `20261010000001_phase2_regression_assertions`, which _fails loudly_ if any
-   Phase-2 fix regressed. On a production database this also removes residual
-   demo-directory rows (guarded, see README) and repairs the `my_profile` view.
-
-   Two migrations added since this checklist was written are **not applied on any
-   environment yet** and are required by features that are already merged:
-
-   | Migration                            | Enables                                                 |
-   | ------------------------------------ | ------------------------------------------------------- |
-   | `20261017000000_photo_view_requests` | "Request photograph" (consent flow for `accepted_only`) |
-   | `20261018000000_profile_dismissals`  | "Not for me" (private, reversible hide from search)     |
-
-   Until they land, `/settings` reports "Requests could not be loaded" and
-   "Hidden from search" reports a load error. Both are the honest error states
-   working — not silent empties.
-
-   Link once, then push (the database password is prompted, never passed here):
+4. **Migrations**: `supabase db push` — applies the full chain through
+   `20261029000000_deletion_receipts`. Two migrations fail loudly on
+   purpose: `20261010000001_phase2_regression_assertions` (Phase-2
+   fixes) and `20261026000000_repair_photo_view_requests` (photo
+   request guards). On a production database this also removes
+   residual demo-directory rows (guarded, see README) and repairs the
+   `my_profile` view. Link once, then push (the database password is
+   prompted, never passed here):
 
    ```sh
    supabase link --project-ref <your-project-ref>
@@ -183,6 +178,9 @@ Run in this order; each step is verifiable on its own.
    reset password) or delete the account before launch. The client can no longer
    sign into it at all; only the server function can, and only with
    `DEMO_GUEST_PASSWORD` set and `NODE_ENV` not production.
+   Rotating is zero-downtime: change `DEMO_GUEST_PASSWORD` in the
+   hosting env and the demo function resets the guest user's
+   password to the new value on its next session start.
 9. **Smoke tests**: signup → onboarding → verification submit → admin approve →
    search → interest → accept → contact reveal → message → call → block → logout.
 10. **Cron**: `select * from cron.job;` shows `notify-dispatch` (`*/5`) and

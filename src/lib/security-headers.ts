@@ -4,9 +4,12 @@
  * The CSP is enforced in layers:
  *  - frame-ancestors: clickjacking / embedding defence.
  *  - object-src / base-uri: plugin and <base> hijacking.
- *  - script-src: only 'self' and the Razorpay checkout script (loaded on
- *    demand; see subscription.ts loadRazorpayScript). 'unsafe-inline' is
- *    NOT granted; TanStack Start inlines no scripts of its own.
+ *  - script-src: only 'self', TanStack Start's inline hydration scripts
+ *    (<Scripts />), and the Razorpay checkout script (loaded on demand; see
+ *    subscription.ts loadRazorpayScript). 'unsafe-inline' is granted because
+ *    Start inlines its hydration payload without a nonce; tightening further
+ *    (nonces / strict-dynamic) requires nonce plumbing through Start's
+ *    script injector.
  *  - connect-src: Supabase REST + realtime WS, Resend webhooks are
  *    server-side only. Razorpay API calls are from the browser during
  *    checkout so checkout.razorpay.com is whitelisted.
