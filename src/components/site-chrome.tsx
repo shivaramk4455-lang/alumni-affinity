@@ -800,13 +800,24 @@ export function SiteHeader() {
                   <LogOut className="size-4" /> Sign out
                 </button>
               ) : (
-                <Link
-                  to="/auth"
-                  className="py-3 text-sm font-semibold"
-                  onClick={() => setOpen(false)}
-                >
-                  Sign in / Become a member
-                </Link>
+                <>
+                  <Link
+                    to="/auth"
+                    search={{ mode: "signin" }}
+                    className="border-b border-border py-3 text-sm font-medium"
+                    onClick={() => setOpen(false)}
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    to="/auth"
+                    search={{ mode: "signup" }}
+                    className="py-3 text-sm font-semibold"
+                    onClick={() => setOpen(false)}
+                  >
+                    Become a member
+                  </Link>
+                </>
               ))}
           </div>
         </nav>
