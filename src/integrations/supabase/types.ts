@@ -1709,6 +1709,7 @@ export type Database = {
         Returns: string
       }
       record_intro_usage: { Args: { _user?: string }; Returns: undefined }
+      record_member_activity: { Args: never; Returns: undefined }
       record_profile_view: { Args: { _viewed: string }; Returns: undefined }
       response_rate: { Args: { _user: string }; Returns: number }
       reveal_contact: {
@@ -1726,6 +1727,10 @@ export type Database = {
           linkedin_url: string
           profile_id: string
         }[]
+      }
+      set_member_activity_tracking: {
+        Args: { _enabled: boolean; _policy_version: string }
+        Returns: undefined
       }
       sweep_stale_calls: { Args: never; Returns: number }
     }

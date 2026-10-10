@@ -22,7 +22,7 @@ import {
   RESIDENCY_STATUSES,
   formatHeight,
 } from "@/lib/profile-options";
-import { alignCandidate, type Alignment } from "@/lib/alignment";
+import type { Alignment } from "@/lib/alignment";
 
 export const Route = createFileRoute("/_authenticated/members")({
   head: () => ({
@@ -162,6 +162,7 @@ function Members() {
   const [residency, setResidency] = useState("");
   const [tongue, setTongue] = useState("");
   const [religion, setReligion] = useState("");
+  const [minHeight, setMinHeight] = useState("");
   const [city, setCity] = useState("");
   const [profession, setProfession] = useState("");
   const [withPhoto, setWithPhoto] = useState(false);
@@ -636,12 +637,6 @@ function Members() {
           <option value="active" disabled={!activityTracking.data}>Recently active (opt-in)</option>
         </select>
       </div>
-
-      {prefs.isError && (
-        <p role="alert" className="mt-3 text-xs text-destructive">
-          Your partner preferences are used privately to calculate match signals.{" "}
-        </p>
-      )}
 
       <p className="mt-3 text-xs text-muted-foreground">
         Mutual matches meet both members’ stated preferences. Activity labels are broad and opt-in;

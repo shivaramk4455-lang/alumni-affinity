@@ -28,7 +28,7 @@ import { MemberPhoto } from "@/components/member-photo";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { recordProfileView } from "@/lib/access-log";
 import { supabase } from "@/integrations/supabase/client";
-import { EMPTY_PREFERENCES, alignCandidate, type Alignment } from "@/lib/alignment";
+import type { Alignment } from "@/lib/alignment";
 import {
   BASE_DIRECTORY_COLUMNS,
   DIRECTORY_COLUMNS,
@@ -403,15 +403,21 @@ function MemberProfile() {
   const canSeePhoto =
     data?.photo_visibility === "all_members" || (accepted && data?.photo_visibility !== "hidden");
 
-  // "Shared ground" is computed from the viewer's own criteria against the
-  // directory-visible projection of this member. Nothing is stored server-side.
-  const alignment: Alignment = data
-    ? alignCandidate(
-        myPrefs.data ?? EMPTY_PREFERENCES,
-        { city: me.data?.city ?? null, institution: me.data?.institution ?? null },
-        data,
-      )
-    : { score: 0, badges: [], reasons: [] };
+  // "Shared ground" is server-derived (directory_match_signals): a mutual badge
+  // means both members' stated preferences pass; the one-way badge means only
+  // this member's criteria include the viewer. Nothing is recomputed client-side.
+  const alignment: Alignment = {
+    score: 0,
+    reasons: [],
+    badges: [
+      ...(matchSignals.data?.mutual_match
+        ? [{ label: "Mutual preference match", detail: "You both meet each other's stated preferences" }]
+        : []),
+      ...(matchSignals.data?.matches_their_preferences && !matchSignals.data?.mutual_match
+        ? [{ label: "You fit what they're looking for", detail: "You meet this member's stated preferences" }]
+        : []),
+    ],
+  };
   const watermark = me.data?.full_name
     ? `${me.data.full_name} · ${me.data.id?.slice(0, 8)}`
     : "Verified member view";
@@ -690,7 +696,7 @@ function MemberProfile() {
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Derived from your own criteria and only visible to you.
+                    Mutual matches reflect both members’ stated preferences. Only visible to you.
                   </p>
                 </div>
               )}
