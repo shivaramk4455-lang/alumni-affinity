@@ -38,7 +38,15 @@ jobs:
             exit 1
           fi
 
+      # Link first: the direct db.<ref>.supabase.co host is IPv6-only and GitHub's
+      # runners (and many corporate networks) have no IPv6 route. Linking records
+      # the IPv4 session-pooler endpoint, which db push then uses.
+      - name: Link to production project (IPv4 pooler)
+        run: supabase link --project-ref "$PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
       - name: Push migrations
-        run: supabase db push --project-ref "$PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
