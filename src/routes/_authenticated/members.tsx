@@ -22,12 +22,7 @@ import {
   RESIDENCY_STATUSES,
   formatHeight,
 } from "@/lib/profile-options";
-import {
-  EMPTY_PREFERENCES,
-  alignCandidate,
-  hasAnyPreferences,
-  type PartnerPreferences,
-} from "@/lib/alignment";
+import { alignCandidate, type Alignment } from "@/lib/alignment";
 
 export const Route = createFileRoute("/_authenticated/members")({
   head: () => ({
@@ -50,12 +45,13 @@ const year = new Date().getFullYear();
 
 interface RunMemberDirectoryQueryParams {
   pageNumber: number;
-  currentUserId: string;
-  hidden: string[];
-  savedOnly: boolean;
-  savedIds: string[];
-  inst: string;
-  reloc: string;
+  city: string;
+  profession: string;
+  withPhoto: boolean;
+  feed: string;
+  sort: string;
+  institution: string;
+  relocation: string;
   gender: string;
   diet: string;
   maritalStatus: string;
@@ -64,135 +60,87 @@ interface RunMemberDirectoryQueryParams {
   religion: string;
   minHeight: string;
   ageBand: string;
-  year: number;
-  sort: string;
   debouncedQ: string;
   signal?: AbortSignal;
 }
 
-async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
-  const {
-    pageNumber,
-    currentUserId,
-    hidden,
-    savedOnly,
-    savedIds,
-    inst,
-    reloc,
-    gender,
-    diet,
-    maritalStatus,
-    residency,
-    tongue,
-    religion,
-    minHeight,
-    ageBand,
-    year,
-    sort,
-    debouncedQ,
-    signal,
-  } = params;
-
-  if (savedOnly && !savedIds.length) return { rows: [], total: 0, hasMore: false };
-
+async function runCopilotDirectoryQuery(params: RunMemberDirectoryQueryParams) {
+  const ageBounds = params.ageBand === "20s"
+    ? { min: year - 29, max: year - 21 }
+    : params.ageBand === "30s"
+      ? { min: year - 39, max: year - 30 }
+      : params.ageBand === "40plus"
+        ? { min: undefined, max: year - 40 }
+        : { min: undefined, max: undefined };
   let query = supabase
     .from("profiles")
     .select(SEARCH_COLUMNS, { count: "exact" })
     .eq("onboarded", true)
     .eq("is_visible", true)
-    .eq("verification_status", "verified")
-    .neq("id", currentUserId);
+    .eq("verification_status", "verified");
+  if (params.city) query = query.eq("city", params.city);
+  if (params.institution) query = query.eq("institution", params.institution);
+  if (params.relocation) query = query.eq("relocation", params.relocation);
+  if (params.gender) query = query.eq("gender", params.gender);
+  if (params.diet) query = query.eq("diet", params.diet);
+  if (params.maritalStatus) query = query.eq("marital_status", params.maritalStatus);
+  if (params.residency) query = query.eq("residency_status", params.residency);
+  if (params.tongue) query = query.eq("mother_tongue", params.tongue);
+  if (params.religion) query = query.eq("religion", params.religion);
+  if (params.profession) query = query.ilike("profession", `%${params.profession}%`);
+  if (params.withPhoto) query = query.not("photo_path", "is", null);
+  if (params.minHeight) query = query.gte("height_cm", Number(params.minHeight));
+  if (ageBounds.min) query = query.gte("birth_year", ageBounds.min);
+  if (ageBounds.max) query = query.lte("birth_year", ageBounds.max);
+  const term = params.debouncedQ.trim().replace(/[%,()]/g, "").slice(0, 60);
+  if (term) query = query.or(`full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`);
+  if (params.sort === "youngest") query = query.order("birth_year", { ascending: false });
+  else query = query.order("created_at", { ascending: false });
+  query = query.range(params.pageNumber * PAGE_SIZE, params.pageNumber * PAGE_SIZE + PAGE_SIZE - 1);
+  const response = params.signal ? await query.abortSignal(params.signal) : await query;
+  if (response.error) throw response.error;
+  return { rows: (response.data ?? []) as SearchResultRow[], total: response.count ?? 0, hasMore: (response.count ?? 0) > (params.pageNumber + 1) * PAGE_SIZE };
+}
 
-  if (hidden.length) query = query.filter("id", "not.in", `(${hidden.join(",")})`);
-  if (savedOnly) query = query.filter("id", "in", `(${savedIds.join(",")})`);
-  if (inst) query = query.eq("institution", inst);
-  if (reloc) query = query.eq("relocation", reloc);
-  if (gender) query = query.eq("gender", gender);
-  if (diet) query = query.eq("diet", diet);
-  if (maritalStatus) query = query.eq("marital_status", maritalStatus);
-  if (residency) query = query.eq("residency_status", residency);
-  if (tongue) query = query.eq("mother_tongue", tongue);
-  if (religion) query = query.eq("religion", religion);
-  if (minHeight) query = query.gte("height_cm", Number(minHeight));
-  if (ageBand === "20s") query = query.gte("birth_year", year - 29).lte("birth_year", year - 21);
-  if (ageBand === "30s") query = query.gte("birth_year", year - 39).lte("birth_year", year - 30);
-  if (ageBand === "40plus") query = query.lte("birth_year", year - 40);
-  if (sort === "youngest") query = query.order("birth_year", { ascending: false });
-  else if (sort === "grad") query = query.order("grad_year", { ascending: false });
-  else query = query.order("updated_at", { ascending: false });
-
-  const term = debouncedQ
-    .trim()
-    .replace(/[%,()]/g, "")
-    .slice(0, 60);
-  if (term)
-    query = query.or(
-      `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%,caste.ilike.%${term}%,gotra.ilike.%${term}%`,
-    );
-
-  query = query.range(pageNumber * PAGE_SIZE, pageNumber * PAGE_SIZE + PAGE_SIZE - 1);
-  const initialRes = signal ? await query.abortSignal(signal) : await query;
-  let data = initialRes.data;
-  let count = initialRes.count;
-
-  if (initialRes.error) {
-    console.warn("Retrying directory search with BASE_SEARCH_COLUMNS:", initialRes.error.message);
-    let fallbackQuery = supabase
-      .from("profiles")
-      .select(BASE_SEARCH_COLUMNS, { count: "exact" })
-      .eq("onboarded", true)
-      .eq("is_visible", true)
-      .eq("verification_status", "verified")
-      .neq("id", currentUserId);
-
-    if (hidden.length)
-      fallbackQuery = fallbackQuery.filter("id", "not.in", `(${hidden.join(",")})`);
-    if (savedOnly) fallbackQuery = fallbackQuery.filter("id", "in", `(${savedIds.join(",")})`);
-    if (inst) fallbackQuery = fallbackQuery.eq("institution", inst);
-    if (reloc) fallbackQuery = fallbackQuery.eq("relocation", reloc);
-    if (gender) fallbackQuery = fallbackQuery.eq("gender", gender);
-    if (diet) fallbackQuery = fallbackQuery.eq("diet", diet);
-    if (maritalStatus) fallbackQuery = fallbackQuery.eq("marital_status", maritalStatus);
-    if (residency) fallbackQuery = fallbackQuery.eq("residency_status", residency);
-    if (tongue) fallbackQuery = fallbackQuery.eq("mother_tongue", tongue);
-    if (minHeight) fallbackQuery = fallbackQuery.gte("height_cm", Number(minHeight));
-    if (ageBand === "20s")
-      fallbackQuery = fallbackQuery.gte("birth_year", year - 29).lte("birth_year", year - 21);
-    if (ageBand === "30s")
-      fallbackQuery = fallbackQuery.gte("birth_year", year - 39).lte("birth_year", year - 30);
-    if (ageBand === "40plus") fallbackQuery = fallbackQuery.lte("birth_year", year - 40);
-    if (sort === "youngest")
-      fallbackQuery = fallbackQuery.order("birth_year", { ascending: false });
-    else if (sort === "grad")
-      fallbackQuery = fallbackQuery.order("grad_year", { ascending: false });
-    else fallbackQuery = fallbackQuery.order("updated_at", { ascending: false });
-
-    if (term)
-      fallbackQuery = fallbackQuery.or(
-        `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`,
-      );
-
-    fallbackQuery = fallbackQuery.range(
-      pageNumber * PAGE_SIZE,
-      pageNumber * PAGE_SIZE + PAGE_SIZE - 1,
-    );
-    const fbRes = signal ? await fallbackQuery.abortSignal(signal) : await fallbackQuery;
-    if (fbRes.error) throw fbRes.error;
-
-    data = (fbRes.data ?? []).map((r: Record<string, unknown>) => ({
-      ...r,
-      religion: null,
-      caste: null,
-      gotra: null,
-    })) as unknown as typeof data;
-    count = fbRes.count;
-  }
-
-  return {
-    rows: (data ?? []) as SearchResultRow[],
-    total: count ?? 0,
-    hasMore: (count ?? 0) > (pageNumber + 1) * PAGE_SIZE,
-  };
+async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
+  const {
+    pageNumber, city, profession, withPhoto, feed, sort, institution, relocation,
+    gender, diet, maritalStatus, residency, tongue, religion, minHeight, ageBand,
+    debouncedQ, signal,
+  } = params;
+  const ageBounds = ageBand === "20s"
+    ? { min: year - 29, max: year - 21 }
+    : ageBand === "30s"
+      ? { min: year - 39, max: year - 30 }
+      : ageBand === "40plus"
+        ? { min: undefined, max: year - 40 }
+        : { min: undefined, max: undefined };
+  const result = supabase.rpc("discover_members", {
+    _feed: feed,
+    _page: pageNumber,
+    _page_size: PAGE_SIZE,
+    _city: city || null,
+    _profession: profession || null,
+    _with_photo: withPhoto,
+    _sort: sort,
+    _institution: institution || null,
+    _relocation: relocation || null,
+    _gender: gender || null,
+    _diet: diet || null,
+    _marital_status: maritalStatus || null,
+    _residency: residency || null,
+    _mother_tongue: tongue || null,
+    _religion: religion || null,
+    _min_height: minHeight ? Number(minHeight) : null,
+    _min_birth_year: ageBounds.min ?? null,
+    _max_birth_year: ageBounds.max ?? null,
+    _search: debouncedQ.trim() || null,
+  });
+  const { data, error } = signal ? await result.abortSignal(signal) : await result;
+  if (error) throw error;
+  const rows = (data ?? []).map(({ total_count: _total, ...row }) => row) as SearchResultRow[];
+  const total = data?.[0]?.total_count ?? 0;
+  return { rows, total, hasMore: total > (pageNumber + 1) * PAGE_SIZE };
 }
 
 function Members() {
@@ -214,10 +162,12 @@ function Members() {
   const [residency, setResidency] = useState("");
   const [tongue, setTongue] = useState("");
   const [religion, setReligion] = useState("");
-  const [minHeight, setMinHeight] = useState("");
-  const [sort, setSort] = useState<"recent" | "youngest" | "grad" | "match">("recent");
+  const [city, setCity] = useState("");
+  const [profession, setProfession] = useState("");
+  const [withPhoto, setWithPhoto] = useState(false);
+  const [feed, setFeed] = useState<"all" | "mutual" | "looking_for_you" | "new" | "shortlisted" | "viewed_by_you" | "viewed_you">("all");
+  const [sort, setSort] = useState<"joined" | "youngest" | "active">("joined");
   const [page, setPage] = useState(0);
-  const [savedOnly, setSavedOnly] = useState(false);
   const debouncedQ = useDebouncedValue(q);
 
   const me = useMyProfile();
@@ -240,37 +190,16 @@ function Members() {
   });
   const isCopilot = (copilotQuery.data?.length ?? 0) > 0;
 
-  // The viewer's own partner preferences (private row; may not exist yet).
-  const prefs = useQuery({
-    queryKey: ["partner-preferences"],
+  const activityTracking = useQuery({
+    queryKey: ["activity-tracking", me.data?.id],
     enabled: !!me.data,
-    queryFn: async (): Promise<Omit<PartnerPreferences, "user_id">> => {
+    queryFn: async () => {
       const { data, error } = await supabase
-        .from("partner_preferences")
-        .select(
-          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
-        )
+        .from("member_activity")
+        .select("enabled")
         .maybeSingle();
-      if (error) {
-        console.warn("Could not load partner preferences:", error.message);
-        return { ...EMPTY_PREFERENCES };
-      }
-      if (!data) return { ...EMPTY_PREFERENCES };
-      return {
-        min_age: data.min_age,
-        max_age: data.max_age,
-        min_height_cm: data.min_height_cm,
-        max_height_cm: data.max_height_cm,
-        genders: data.genders ?? [],
-        marital_statuses: data.marital_statuses ?? [],
-        diets: data.diets ?? [],
-        religions: data.religions ?? [],
-        caste_preference: data.caste_preference ?? null,
-        institutions: data.institutions ?? [],
-        cities: data.cities ?? [],
-        relocations: data.relocations ?? [],
-        shield_employer: data.shield_employer ?? false,
-      };
+      if (error) throw error;
+      return data?.enabled ?? false;
     },
   });
 
@@ -289,63 +218,34 @@ function Members() {
   // search availability for a filter that can be wrong only in a transient way.
   const dismissed = useDismissedIds(!!me.data);
 
-  const saved = useQuery({
-    queryKey: ["saved"],
-    enabled: !!me.data,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("saved_profiles").select("profile_id");
-      if (error) throw error;
-      return (data ?? []).map((r) => r.profile_id);
-    },
-  });
-
-  // The directory policy already hides ghosts, the unverified, the not-onboarded
-  // and pauses; the reporter's own blocks are excluded client-side below, so
-  // rows + count stay in agreement. (Blocks are NOT an RLS clause: filtering
-  // them in the policy would corrupt the page count — see migration 20261010.)
   const hidden = useMemo(
     () => [...new Set([...(blocked.data ?? []), ...(dismissed.data ?? [])])],
     [blocked.data, dismissed.data],
   );
   const blockedKey = useMemo(() => [...hidden].sort().join(","), [hidden]);
-  const savedIds = useMemo(() => saved.data ?? [], [saved.data]);
-  const savedKey = useMemo(() => [...savedIds].sort().join(","), [savedIds]);
+  const canUseVisitorFeed = me.data?.show_profile_views === true;
   const results = useQuery({
     queryKey: [
-      "members",
-      debouncedQ,
-      inst,
-      reloc,
-      gender,
-      ageBand,
-      diet,
-      maritalStatus,
-      residency,
-      tongue,
-      religion,
-      minHeight,
-      sort,
-      page,
-      me.data?.id,
-      blockedKey,
-      savedOnly,
-      savedKey,
+      "members", feed, page, city, profession, withPhoto, inst, reloc, gender,
+      ageBand, diet, maritalStatus, residency, tongue, religion, minHeight,
+      debouncedQ, sort, me.data?.id, blockedKey, canUseVisitorFeed, isCopilot,
     ],
     enabled:
       !onProfilePage &&
       !!me.data &&
-      (me.data.verification_status === "verified" || isCopilot) &&
+      (me.data.verification_status === "verified" || (isCopilot && feed === "all")) &&
       blocked.isSuccess &&
-      (!savedOnly || saved.isSuccess),
+      (feed !== "viewed_you" || canUseVisitorFeed),
     queryFn: async ({ signal }) => {
-      return runMemberDirectoryQuery({
+      const params: RunMemberDirectoryQueryParams = {
         pageNumber: page,
-        currentUserId: me.data!.id,
-        hidden,
-        savedOnly,
-        savedIds,
-        inst,
-        reloc,
+        city,
+        profession,
+        withPhoto,
+        feed,
+        sort,
+        institution: inst,
+        relocation: reloc,
         gender,
         diet,
         maritalStatus,
@@ -354,11 +254,23 @@ function Members() {
         religion,
         minHeight,
         ageBand,
-        year,
-        sort,
         debouncedQ,
         signal,
+      };
+      return isCopilot && me.data?.verification_status !== "verified"
+        ? runCopilotDirectoryQuery(params)
+        : runMemberDirectoryQuery(params);
+    },
+  });
+  const matchSignalsQuery = useQuery({
+    queryKey: ["directory-match-signals", me.data?.id, results.data?.rows.map((row) => row.id).join(",")],
+    enabled: !!me.data && me.data.verification_status === "verified" && (results.data?.rows.length ?? 0) > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("directory_match_signals", {
+        _candidate_ids: (results.data?.rows ?? []).map((row) => row.id),
       });
+      if (error) throw error;
+      return new Map((data ?? []).map((signal) => [signal.candidate_id, signal]));
     },
   });
 
@@ -366,38 +278,20 @@ function Members() {
   useEffect(() => {
     if (!results.data?.hasMore || onProfilePage) return;
     const nextPage = page + 1;
-    const nextKey = [
-      "members",
-      debouncedQ,
-      inst,
-      reloc,
-      gender,
-      ageBand,
-      diet,
-      maritalStatus,
-      residency,
-      tongue,
-      religion,
-      minHeight,
-      sort,
-      nextPage,
-      me.data?.id,
-      blockedKey,
-      savedOnly,
-      savedKey,
-    ];
+    const nextKey = ["members", feed, city, profession, withPhoto, inst, reloc, gender, diet, maritalStatus, residency, tongue, religion, minHeight, ageBand, debouncedQ, sort, nextPage];
     void queryClient.prefetchQuery({
       queryKey: nextKey,
-      staleTime: 4 * 60 * 1000,
+      staleTime: 60_000,
       queryFn: async () => {
-        return runMemberDirectoryQuery({
+        const params: RunMemberDirectoryQueryParams = {
           pageNumber: nextPage,
-          currentUserId: me.data!.id,
-          hidden,
-          savedOnly,
-          savedIds,
-          inst,
-          reloc,
+          city,
+          profession,
+          withPhoto,
+          feed,
+          sort,
+          institution: inst,
+          relocation: reloc,
           gender,
           diet,
           maritalStatus,
@@ -406,10 +300,11 @@ function Members() {
           religion,
           minHeight,
           ageBand,
-          year,
-          sort,
           debouncedQ,
-        });
+        };
+        return isCopilot && me.data?.verification_status !== "verified"
+          ? runCopilotDirectoryQuery(params)
+          : runMemberDirectoryQuery(params);
       },
     });
   }, [
@@ -427,12 +322,14 @@ function Members() {
     religion,
     minHeight,
     sort,
+    city,
+    profession,
+    withPhoto,
+    feed,
     me.data,
     blockedKey,
-    hidden,
-    savedOnly,
-    savedKey,
-    savedIds,
+    canUseVisitorFeed,
+    isCopilot,
     onProfilePage,
     queryClient,
   ]);
@@ -500,28 +397,26 @@ function Members() {
   const rows = results.data?.rows ?? [];
   const total = results.data?.total ?? 0;
   const hasMore = (page + 1) * PAGE_SIZE < total;
-
-  const mine = prefs.data ?? EMPTY_PREFERENCES;
-  const withAlignment =
-    sort === "match"
-      ? [...rows]
-          .map((p) => ({
-            p,
-            a: alignCandidate(
-              mine,
-              { city: me.data?.city ?? null, institution: me.data?.institution ?? null },
-              p,
-            ),
-          }))
-          .sort((x, y) => y.a.score - x.a.score)
-      : rows.map((p) => ({
-          p,
-          a: alignCandidate(
-            mine,
-            { city: me.data?.city ?? null, institution: me.data?.institution ?? null },
-            p,
-          ),
-        }));
+  const withAlignment = rows.map((p) => ({
+    p,
+    a: {
+      score: 0,
+      reasons: [],
+      badges: [
+        ...(matchSignalsQuery.data?.get(p.id)?.mutual_match
+          ? [{ label: "Mutual match", detail: "Your stated preferences align both ways" }]
+          : []),
+        ...(matchSignalsQuery.data?.get(p.id)?.matches_their_preferences && !matchSignalsQuery.data?.get(p.id)?.mutual_match
+          ? [{ label: "Looking for you", detail: "You match their stated preferences" }]
+          : []),
+        ...(matchSignalsQuery.data?.get(p.id)?.activity_bucket === "recently"
+          ? [{ label: "Active recently", detail: "Activity sharing is enabled" }]
+          : matchSignalsQuery.data?.get(p.id)?.activity_bucket === "this_week"
+            ? [{ label: "Active this week", detail: "Activity sharing is enabled" }]
+            : []),
+      ],
+    } satisfies Alignment,
+  }));
 
   return (
     <main className="mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
@@ -551,6 +446,20 @@ function Members() {
       )}
 
       <div className="mt-8 grid gap-3 border border-border bg-card p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <select
+          aria-label="Discovery feed"
+          className={selectCls}
+          value={feed}
+          onChange={(event) => { setFeed(event.target.value as typeof feed); resetPage(); }}
+        >
+          <option value="all">All verified members</option>
+          <option value="mutual" disabled={isCopilot && me.data?.verification_status !== "verified"}>Mutual matches</option>
+          <option value="looking_for_you" disabled={isCopilot && me.data?.verification_status !== "verified"}>Looking for you</option>
+          <option value="new">Recently joined (last 30 days)</option>
+          <option value="shortlisted" disabled={isCopilot && me.data?.verification_status !== "verified"}>Shortlisted by you</option>
+          <option value="viewed_by_you" disabled={isCopilot && me.data?.verification_status !== "verified"}>Viewed by you</option>
+          <option value="viewed_you" disabled={!canUseVisitorFeed || (isCopilot && me.data?.verification_status !== "verified")}>Viewed you (opt-in)</option>
+        </select>
         <label className="relative sm:col-span-2">
           <span className="sr-only">Search</span>
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -564,6 +473,18 @@ function Members() {
             }}
             maxLength={60}
           />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          City
+          <Input value={city} maxLength={80} onChange={(event) => { setCity(event.target.value); resetPage(); }} />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Profession
+          <Input value={profession} maxLength={80} onChange={(event) => { setProfession(event.target.value); resetPage(); }} />
+        </label>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" className="size-6 accent-[var(--brass)]" checked={withPhoto} onChange={(event) => { setWithPhoto(event.target.checked); resetPage(); }} />
+          Has a discoverable photo
         </label>
         <select
           aria-label="Institution"
@@ -709,58 +630,33 @@ function Members() {
             </option>
           ))}
         </select>
-        <select
-          aria-label="Sort"
-          className={selectCls}
-          value={sort}
-          onChange={(e) => setSort(e.target.value as typeof sort)}
-        >
-          <option value="recent">Recently active</option>
+        <select aria-label="Sort" className={selectCls} value={sort} onChange={(event) => { setSort(event.target.value as typeof sort); resetPage(); }}>
+          <option value="joined">Recently joined</option>
           <option value="youngest">Youngest first</option>
-          <option value="grad">Recent graduates</option>
-          <option value="match" disabled={prefs.isError}>
-            Best match to my criteria
-          </option>
+          <option value="active" disabled={!activityTracking.data}>Recently active (opt-in)</option>
         </select>
-        <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
-          <input
-            type="checkbox"
-            className="size-6 accent-[var(--brass)]"
-            checked={savedOnly}
-            onChange={(e) => {
-              setSavedOnly(e.target.checked);
-              resetPage();
-            }}
-          />
-          Shortlisted only{savedIds.length ? ` (${savedIds.length})` : ""}
-        </label>
       </div>
 
       {prefs.isError && (
         <p role="alert" className="mt-3 text-xs text-destructive">
-          Your partner preferences could not be loaded, so “Best match to my criteria” is
-          unavailable — results would silently fall back to recency order.{" "}
-          <button
-            type="button"
-            className="font-semibold underline underline-offset-2"
-            onClick={() => void prefs.refetch()}
-            disabled={prefs.isFetching}
-          >
-            {prefs.isFetching ? "Retrying…" : "Retry"}
-          </button>
+          Your partner preferences are used privately to calculate match signals.{" "}
         </p>
       )}
 
-      {prefs.data && hasAnyPreferences(prefs.data) && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Alignment badges reflect your own criteria —{" "}
-          <Link
-            to="/settings"
-            className="font-semibold text-foreground underline underline-offset-4"
-          >
-            edit partner preferences
-          </Link>
-          .
+      <p className="mt-3 text-xs text-muted-foreground">
+        Mutual matches meet both members’ stated preferences. Activity labels are broad and opt-in;
+        shortlists stay private.
+      </p>
+
+      {feed === "viewed_you" && !canUseVisitorFeed && (
+        <p role="status" className="mt-3 text-sm text-muted-foreground">
+          Enable both Show visitors and Coarse activity sharing in Settings to see this private feed.
+          Visitor names and exact activity times remain hidden unless those controls are enabled.
+        </p>
+      )}
+      {matchSignalsQuery.isError && rows.length > 0 && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          Match signals could not be loaded. Profiles are still searchable; match badges are hidden.
         </p>
       )}
 
@@ -797,12 +693,10 @@ function Members() {
         ) : !rows.length ? (
           <div className="border border-dashed border-border p-10 text-center">
             <p className="font-serif text-xl">
-              {savedOnly ? "No shortlisted profiles yet" : "No members match yet"}
+              {feed === "shortlisted" ? "No shortlisted profiles yet" : feed === "mutual" ? "No mutual matches yet" : feed === "viewed_you" ? "No opted-in profile visits yet" : "No members match yet"}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              {savedOnly
-                ? "Open a profile and choose “Shortlist” to keep it here for later."
-                : "Try broader filters. New verified members join every week."}
+              {feed === "shortlisted" ? "Shortlists are private and visible only to you." : "Try broader filters or review your partner preferences."}
             </p>
           </div>
         ) : (

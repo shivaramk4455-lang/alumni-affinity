@@ -583,6 +583,27 @@ export type Database = {
           },
         ]
       }
+      member_activity: {
+        Row: { enabled: boolean; last_active_at: string | null; updated_at: string; user_id: string }
+        Insert: { enabled?: boolean; last_active_at?: string | null; updated_at?: string; user_id: string }
+        Update: { enabled?: boolean; last_active_at?: string | null; updated_at?: string; user_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "member_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_outbox: {
         Row: {
           attempts: number
@@ -1589,6 +1610,84 @@ export type Database = {
       get_or_create_conversation: {
         Args: { _interest_id: string }
         Returns: string
+      }
+      get_profile_partner_preferences: {
+        Args: { _profile: string }
+        Returns: {
+          caste_preference: string | null
+          cities: string[]
+          diets: string[]
+          genders: string[]
+          institutions: string[]
+          marital_statuses: string[]
+          max_age: number | null
+          max_height_cm: number | null
+          min_age: number | null
+          min_height_cm: number | null
+          relocations: string[]
+          religions: string[]
+        }[]
+      }
+      directory_match_signals: {
+        Args: { _candidate_ids: string[] }
+        Returns: {
+          activity_bucket: string | null
+          candidate_id: string
+          matches_their_preferences: boolean
+          matches_your_preferences: boolean
+          mutual_match: boolean
+        }[]
+      }
+      discover_members: {
+        Args: {
+          _city?: string | null
+          _feed?: string
+          _page?: number
+          _page_size?: number
+          _profession?: string | null
+          _sort?: string
+          _with_photo?: boolean
+          _institution?: string | null
+          _relocation?: string | null
+          _gender?: string | null
+          _diet?: string | null
+          _marital_status?: string | null
+          _residency?: string | null
+          _mother_tongue?: string | null
+          _religion?: string | null
+          _min_height?: number | null
+          _min_birth_year?: number | null
+          _max_birth_year?: number | null
+          _search?: string | null
+        }
+        Returns: {
+          activity_bucket: string | null
+          birth_year: number | null
+          caste: string | null
+          city: string | null
+          created_at: string
+          degree: string | null
+          diet: string | null
+          full_name: string
+          gender: string | null
+          gotra: string | null
+          grad_year: number | null
+          height_cm: number | null
+          id: string
+          institution: string | null
+          matches_their_preferences: boolean
+          matches_your_preferences: boolean
+          marital_status: string | null
+          mutual_match: boolean
+          mother_tongue: string | null
+          photo_path: string | null
+          photo_visibility: string
+          profession: string | null
+          religion: string | null
+          relocation: string | null
+          residency_status: string | null
+          total_count: number
+        }[]
       }
       notification_channels_for: {
         Args: { _template: string; _user: string }

@@ -19,6 +19,7 @@ export type ConsentPurpose =
   | "contact_disclosure"
   | "sabbatical_visibility"
   | "profile_views_display"
+  | "activity_tracking"
   | "account_deletion";
 
 export const CONSENT_LABELS: Record<ConsentPurpose, string> = {
@@ -29,6 +30,7 @@ export const CONSENT_LABELS: Record<ConsentPurpose, string> = {
   contact_disclosure: "Contact coordinates shared on accepted introductions",
   sabbatical_visibility: "Sabbatical visibility (paused discovery)",
   profile_views_display: "Visitor log displayed to me",
+  activity_tracking: "Coarse recent activity shown to verified members",
   account_deletion: "Account deletion request",
 };
 

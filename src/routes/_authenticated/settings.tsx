@@ -269,6 +269,32 @@ function Settings() {
   // Access audit surfaces (visitor log is opt-in; the reveal log is always
   // available to the member whose coordinates were opened).
   const visitorLog = useVisitorLog(p?.show_profile_views === true);
+  const activityTracking = useQuery({
+    queryKey: ["activity-tracking", p?.id],
+    enabled: !!p?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("member_activity").select("enabled").maybeSingle();
+      if (error) throw error;
+      return data?.enabled ?? false;
+    },
+  });
+  const saveActivityTracking = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { error } = await supabase.rpc("set_member_activity_tracking", {
+        _enabled: enabled,
+        _policy_version: "2026-09",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["activity-tracking"] });
+      void qc.invalidateQueries({ queryKey: ["directory-match-signals"] });
+      void qc.invalidateQueries({ queryKey: ["members"] });
+      void qc.invalidateQueries({ queryKey: ["consent-events"] });
+      toast.success("Activity sharing preference saved.");
+    },
+    onError: () => toast.error("Could not update activity sharing."),
+  });
   const contactLog = useContactAccessLog(p?.id);
   const names = useProfileNames([
     ...(visitorLog.data ?? []).map((v) => v.viewer_id),
@@ -1290,15 +1316,36 @@ function Settings() {
               </p>
             )}
           </div>
-          <label className="flex items-center gap-3 text-sm font-medium">
-            <Switch
-              checked={p?.show_profile_views === true}
-              disabled={saveViewPref.isPending}
-              onCheckedChange={(v) => saveViewPref.mutate(v)}
-              aria-label="Show who viewed my profile"
-            />
-            Show visitors
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex items-start gap-3 text-sm font-medium">
+              <Switch
+                checked={p?.show_profile_views === true}
+                disabled={saveViewPref.isPending}
+                onCheckedChange={(v) => saveViewPref.mutate(v)}
+                aria-label="Show who viewed my profile"
+              />
+              <span>
+                Show visitors
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                  When on, verified members who opted to show visitor history can appear here.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm font-medium">
+              <Switch
+                checked={activityTracking.data === true}
+                disabled={activityTracking.isLoading || saveActivityTracking.isPending}
+                onCheckedChange={(enabled) => saveActivityTracking.mutate(enabled)}
+                aria-label="Share coarse recent activity"
+              />
+              <span>
+                Share coarse recent activity
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                  Optional. Verified members may see “active recently” or “active this week”, never an exact time.
+                </span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-6 md:grid-cols-2">

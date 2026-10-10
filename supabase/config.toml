@@ -3,3 +3,10 @@ project_id = "beetszutyuihbnzzmokr"
 # Health probes come from uptime monitors, not browsers: no JWT required.
 [functions.health]
 verify_jwt = false
+
+# Razorpay sends its webhooks server-to-server with no user JWT; authenticity is
+# established by the HMAC signature check against RAZORPAY_WEBHOOK_SECRET inside
+# the function (fail-closed). Without this bypass the gateway rejects the POST
+# before the function ever runs.
+[functions.razorpay-webhook]
+verify_jwt = false

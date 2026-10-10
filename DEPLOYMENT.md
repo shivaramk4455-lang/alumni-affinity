@@ -151,7 +151,7 @@ Run in this order; each step is verifiable on its own.
    `cron_secret` equal to `CRON_SECRET`, otherwise the two unattended functions
    answer 500 to pg_cron and no alert ever sends.
 4. **Migrations**: `supabase db push` — applies the full chain through
-   `20261029000000_deletion_receipts`. Two migrations fail loudly on
+   `20261030000000_private_discovery_matching`. Two migrations fail loudly on
    purpose: `20261010000001_phase2_regression_assertions` (Phase-2
    fixes) and `20261026000000_repair_photo_view_requests` (photo
    request guards). On a production database this also removes
@@ -183,9 +183,12 @@ Run in this order; each step is verifiable on its own.
    password to the new value on its next session start.
 9. **Smoke tests**: signup → onboarding → verification submit → admin approve →
    search → interest → accept → contact reveal → message → call → block → logout.
-10. **Cron**: `select * from cron.job;` shows `notify-dispatch` (`*/5`) and
-    `weekly-digest` (`30 6 * * 2`); manually `POST` `notify-dispatch` with the
-    `X-Cron-Secret` header and confirm `{"ok":true,...}`.
+10. **Cron**: `select * from cron.job;` shows all four jobs —
+    `notify-dispatch` (`*/5 * * * *`), `weekly-digest` (`30 6 * * 2`,
+    Mondays 06:30 UTC), `prune-webhook-events` (`0 3 * * *`), and
+    `purge-verification-docs` (`47 3 * * *`); manually `POST`
+    `notify-dispatch` with the `X-Cron-Secret` header and confirm
+    `{"ok":true,...}`.
 
 ## 10. Rollback Plan
 
