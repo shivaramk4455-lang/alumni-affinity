@@ -352,8 +352,8 @@ BEGIN
     f.id
   OFFSET _page * _page_size LIMIT _page_size;
 END; $$;
-REVOKE EXECUTE ON FUNCTION public.discover_members(text,int,int,text,text,boolean,text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.discover_members(text,int,int,text,text,boolean,text) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.discover_members(text,int,int,text,text,boolean,text,text,text,text,text,text,text,text,text,int,int,int,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.discover_members(text,int,int,text,text,boolean,text,text,text,text,text,text,text,text,text,int,int,int,text) TO authenticated, service_role;
 
 -- Regression assertions for the privacy boundaries and public RPC signatures.
 DO $$
@@ -369,7 +369,7 @@ BEGIN
   ) THEN RAISE EXCEPTION 'REGRESSION: raw partner preferences are not owner-only'; END IF;
   IF to_regprocedure('public.directory_match_signals(uuid[])') IS NULL
     OR to_regprocedure('public.get_profile_partner_preferences(uuid)') IS NULL
-    OR to_regprocedure('public.discover_members(text,integer,integer,text,text,boolean,text)') IS NULL
+    OR to_regprocedure('public.discover_members(text,int,int,text,text,boolean,text,text,text,text,text,text,text,text,text,int,int,int,text)') IS NULL
     OR to_regprocedure('public.set_member_activity_tracking(boolean,text)') IS NULL
     OR to_regprocedure('public.record_member_activity()') IS NULL
   THEN RAISE EXCEPTION 'REGRESSION: Phase B discovery RPC missing'; END IF;
