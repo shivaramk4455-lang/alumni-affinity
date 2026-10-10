@@ -54,7 +54,14 @@ jobs:
       - name: Show migration status (local vs production)
         run: supabase migration list
 
+      # Production's recorded history skips 14 files from 2026-09-28/30 (suite-split
+      # UUID renames that left different filename versions than the ones recorded
+      # on the linked DB). --include-all applies them in timestamp order. Verified
+      # safe BEFORE this runs: every CREATE mirrors a matching DROP IF EXISTS or
+      # uses IF NOT EXISTS / OR REPLACE, every INSERT carries ON CONFLICT, the
+      # demo seed is deleted by 20261010's cleanup on the same run, and the exact
+      # selection is proven clean on a fresh DB by the CI migration-drill job.
       - name: Push migrations
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --include-all --password "$SUPABASE_DB_PASSWORD"
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
