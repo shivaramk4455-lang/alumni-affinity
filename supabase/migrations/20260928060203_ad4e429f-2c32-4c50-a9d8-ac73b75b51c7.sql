@@ -29,6 +29,13 @@ CREATE VIEW public.my_profile WITH (security_invoker = false) AS
   WHERE p.id = auth.uid();
 REVOKE ALL ON public.my_profile FROM PUBLIC, anon;
 GRANT SELECT ON public.my_profile TO authenticated, service_role;
+-- Retroactive-apply safety (same DROP-first rule as the my_profile view
+-- above): 20261005000000_access_audit.sql (already applied on this database)
+-- converted these to VOLATILE plpgsql bodies, so plain OR REPLACE here trips
+-- SQLSTATE 42P13. Rebuilding via DROP-first is safe because both overloads are
+-- re-created immediately below with identical signatures.
+DROP FUNCTION IF EXISTS public.reveal_contact(uuid);
+DROP FUNCTION IF EXISTS public.reveal_contacts(uuid[]);
 CREATE OR REPLACE FUNCTION public.reveal_contact(_profile uuid)
 RETURNS TABLE (profile_id uuid, contact_phone text, linkedin_url text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -61,6 +68,12 @@ GRANT EXECUTE ON FUNCTION public.reveal_contacts(uuid[]) TO authenticated, servi
 -- paged database would actively downgrade the desk queue. This keeps the
 -- retroactive insert from firing on every remaining historical file.
 DROP FUNCTION IF EXISTS public.desk_review_queue();
+-- Retroactive-apply safety (same DROP-first rule): 20261011000000
+-- (already applied on this database) later widens the reporter desk return
+-- shape, so re-creating the historic shape via OR REPLACE trips 42P13.
+-- The wider shape is re-created by the already-applied file; this historic
+-- block drops-first so the retroactive insert does not error.
+DROP FUNCTION IF EXISTS public.desk_reports(int);
 CREATE OR REPLACE FUNCTION public.desk_reports(_limit int DEFAULT 200)
 RETURNS TABLE (
   id uuid, reason text, created_at timestamptz,
