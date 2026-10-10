@@ -1,0 +1,44 @@
+name: Push DB Migrations
+
+# Migrations are the one piece Supabase's GitHub integration does NOT apply
+# automatically: CI's migration-assertions job only proves the chain works on a
+# throwaway local instance. This workflow applies it to the PRODUCTION project
+# and must be started by a human (workflow_dispatch only — never on push).
+#
+# Requires two repo secrets:
+#   SUPABASE_ACCESS_TOKEN (or CRI) — a Supabase access token
+#   SUPABASE_DB_PASSWORD          — the project's Postgres password
+#     (Database → Connect → Session pooler password, or the DB password)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  db-push:
+    name: Push migrations to production
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.CRI || secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: beetszutyuihbnzzmokr
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Verify access token is configured
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::Neither the CRI nor the SUPABASE_ACCESS_TOKEN repo secret is set."
+            exit 1
+          fi
+
+      - name: Push migrations
+        run: supabase db push --project-ref "$PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
