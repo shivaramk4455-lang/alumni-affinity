@@ -128,7 +128,8 @@ serve(async (req) => {
   }
 
   const entity = (event.payload?.subscription?.entity ?? event.payload?.entity ?? {}) as
-    SubscriptionEntity | InvoiceEntity;
+    | SubscriptionEntity
+    | InvoiceEntity;
   const rzpSubscriptionId =
     (event.payload?.subscription?.entity as SubscriptionEntity)?.id ?? entity.id;
 

@@ -65,13 +65,14 @@ interface RunMemberDirectoryQueryParams {
 }
 
 async function runCopilotDirectoryQuery(params: RunMemberDirectoryQueryParams) {
-  const ageBounds = params.ageBand === "20s"
-    ? { min: year - 29, max: year - 21 }
-    : params.ageBand === "30s"
-      ? { min: year - 39, max: year - 30 }
-      : params.ageBand === "40plus"
-        ? { min: undefined, max: year - 40 }
-        : { min: undefined, max: undefined };
+  const ageBounds =
+    params.ageBand === "20s"
+      ? { min: year - 29, max: year - 21 }
+      : params.ageBand === "30s"
+        ? { min: year - 39, max: year - 30 }
+        : params.ageBand === "40plus"
+          ? { min: undefined, max: year - 40 }
+          : { min: undefined, max: undefined };
   let query = supabase
     .from("profiles")
     .select(SEARCH_COLUMNS, { count: "exact" })
@@ -92,29 +93,55 @@ async function runCopilotDirectoryQuery(params: RunMemberDirectoryQueryParams) {
   if (params.minHeight) query = query.gte("height_cm", Number(params.minHeight));
   if (ageBounds.min) query = query.gte("birth_year", ageBounds.min);
   if (ageBounds.max) query = query.lte("birth_year", ageBounds.max);
-  const term = params.debouncedQ.trim().replace(/[%,()]/g, "").slice(0, 60);
-  if (term) query = query.or(`full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`);
+  const term = params.debouncedQ
+    .trim()
+    .replace(/[%,()]/g, "")
+    .slice(0, 60);
+  if (term)
+    query = query.or(
+      `full_name.ilike.%${term}%,city.ilike.%${term}%,profession.ilike.%${term}%,degree.ilike.%${term}%`,
+    );
   if (params.sort === "youngest") query = query.order("birth_year", { ascending: false });
   else query = query.order("created_at", { ascending: false });
   query = query.range(params.pageNumber * PAGE_SIZE, params.pageNumber * PAGE_SIZE + PAGE_SIZE - 1);
   const response = params.signal ? await query.abortSignal(params.signal) : await query;
   if (response.error) throw response.error;
-  return { rows: (response.data ?? []) as SearchResultRow[], total: response.count ?? 0, hasMore: (response.count ?? 0) > (params.pageNumber + 1) * PAGE_SIZE };
+  return {
+    rows: (response.data ?? []) as SearchResultRow[],
+    total: response.count ?? 0,
+    hasMore: (response.count ?? 0) > (params.pageNumber + 1) * PAGE_SIZE,
+  };
 }
 
 async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
   const {
-    pageNumber, city, profession, withPhoto, feed, sort, institution, relocation,
-    gender, diet, maritalStatus, residency, tongue, religion, minHeight, ageBand,
-    debouncedQ, signal,
+    pageNumber,
+    city,
+    profession,
+    withPhoto,
+    feed,
+    sort,
+    institution,
+    relocation,
+    gender,
+    diet,
+    maritalStatus,
+    residency,
+    tongue,
+    religion,
+    minHeight,
+    ageBand,
+    debouncedQ,
+    signal,
   } = params;
-  const ageBounds = ageBand === "20s"
-    ? { min: year - 29, max: year - 21 }
-    : ageBand === "30s"
-      ? { min: year - 39, max: year - 30 }
-      : ageBand === "40plus"
-        ? { min: undefined, max: year - 40 }
-        : { min: undefined, max: undefined };
+  const ageBounds =
+    ageBand === "20s"
+      ? { min: year - 29, max: year - 21 }
+      : ageBand === "30s"
+        ? { min: year - 39, max: year - 30 }
+        : ageBand === "40plus"
+          ? { min: undefined, max: year - 40 }
+          : { min: undefined, max: undefined };
   const result = supabase.rpc("discover_members", {
     _feed: feed,
     _page: pageNumber,
@@ -166,7 +193,9 @@ function Members() {
   const [city, setCity] = useState("");
   const [profession, setProfession] = useState("");
   const [withPhoto, setWithPhoto] = useState(false);
-  const [feed, setFeed] = useState<"all" | "mutual" | "looking_for_you" | "new" | "shortlisted" | "viewed_by_you" | "viewed_you">("all");
+  const [feed, setFeed] = useState<
+    "all" | "mutual" | "looking_for_you" | "new" | "shortlisted" | "viewed_by_you" | "viewed_you"
+  >("all");
   const [sort, setSort] = useState<"joined" | "youngest" | "active">("joined");
   const [page, setPage] = useState(0);
   const debouncedQ = useDebouncedValue(q);
@@ -227,9 +256,28 @@ function Members() {
   const canUseVisitorFeed = me.data?.show_profile_views === true;
   const results = useQuery({
     queryKey: [
-      "members", feed, page, city, profession, withPhoto, inst, reloc, gender,
-      ageBand, diet, maritalStatus, residency, tongue, religion, minHeight,
-      debouncedQ, sort, me.data?.id, blockedKey, canUseVisitorFeed, isCopilot,
+      "members",
+      feed,
+      page,
+      city,
+      profession,
+      withPhoto,
+      inst,
+      reloc,
+      gender,
+      ageBand,
+      diet,
+      maritalStatus,
+      residency,
+      tongue,
+      religion,
+      minHeight,
+      debouncedQ,
+      sort,
+      me.data?.id,
+      blockedKey,
+      canUseVisitorFeed,
+      isCopilot,
     ],
     enabled:
       !onProfilePage &&
@@ -264,8 +312,15 @@ function Members() {
     },
   });
   const matchSignalsQuery = useQuery({
-    queryKey: ["directory-match-signals", me.data?.id, results.data?.rows.map((row) => row.id).join(",")],
-    enabled: !!me.data && me.data.verification_status === "verified" && (results.data?.rows.length ?? 0) > 0,
+    queryKey: [
+      "directory-match-signals",
+      me.data?.id,
+      results.data?.rows.map((row) => row.id).join(","),
+    ],
+    enabled:
+      !!me.data &&
+      me.data.verification_status === "verified" &&
+      (results.data?.rows.length ?? 0) > 0,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("directory_match_signals", {
         _candidate_ids: (results.data?.rows ?? []).map((row) => row.id),
@@ -279,7 +334,26 @@ function Members() {
   useEffect(() => {
     if (!results.data?.hasMore || onProfilePage) return;
     const nextPage = page + 1;
-    const nextKey = ["members", feed, city, profession, withPhoto, inst, reloc, gender, diet, maritalStatus, residency, tongue, religion, minHeight, ageBand, debouncedQ, sort, nextPage];
+    const nextKey = [
+      "members",
+      feed,
+      city,
+      profession,
+      withPhoto,
+      inst,
+      reloc,
+      gender,
+      diet,
+      maritalStatus,
+      residency,
+      tongue,
+      religion,
+      minHeight,
+      ageBand,
+      debouncedQ,
+      sort,
+      nextPage,
+    ];
     void queryClient.prefetchQuery({
       queryKey: nextKey,
       staleTime: 60_000,
@@ -407,7 +481,8 @@ function Members() {
         ...(matchSignalsQuery.data?.get(p.id)?.mutual_match
           ? [{ label: "Mutual match", detail: "Your stated preferences align both ways" }]
           : []),
-        ...(matchSignalsQuery.data?.get(p.id)?.matches_their_preferences && !matchSignalsQuery.data?.get(p.id)?.mutual_match
+        ...(matchSignalsQuery.data?.get(p.id)?.matches_their_preferences &&
+        !matchSignalsQuery.data?.get(p.id)?.mutual_match
           ? [{ label: "Looking for you", detail: "You match their stated preferences" }]
           : []),
         ...(matchSignalsQuery.data?.get(p.id)?.activity_bucket === "recently"
@@ -451,15 +526,45 @@ function Members() {
           aria-label="Discovery feed"
           className={selectCls}
           value={feed}
-          onChange={(event) => { setFeed(event.target.value as typeof feed); resetPage(); }}
+          onChange={(event) => {
+            setFeed(event.target.value as typeof feed);
+            resetPage();
+          }}
         >
           <option value="all">All verified members</option>
-          <option value="mutual" disabled={isCopilot && me.data?.verification_status !== "verified"}>Mutual matches</option>
-          <option value="looking_for_you" disabled={isCopilot && me.data?.verification_status !== "verified"}>Looking for you</option>
+          <option
+            value="mutual"
+            disabled={isCopilot && me.data?.verification_status !== "verified"}
+          >
+            Mutual matches
+          </option>
+          <option
+            value="looking_for_you"
+            disabled={isCopilot && me.data?.verification_status !== "verified"}
+          >
+            Looking for you
+          </option>
           <option value="new">Recently joined (last 30 days)</option>
-          <option value="shortlisted" disabled={isCopilot && me.data?.verification_status !== "verified"}>Shortlisted by you</option>
-          <option value="viewed_by_you" disabled={isCopilot && me.data?.verification_status !== "verified"}>Viewed by you</option>
-          <option value="viewed_you" disabled={!canUseVisitorFeed || (isCopilot && me.data?.verification_status !== "verified")}>Viewed you (opt-in)</option>
+          <option
+            value="shortlisted"
+            disabled={isCopilot && me.data?.verification_status !== "verified"}
+          >
+            Shortlisted by you
+          </option>
+          <option
+            value="viewed_by_you"
+            disabled={isCopilot && me.data?.verification_status !== "verified"}
+          >
+            Viewed by you
+          </option>
+          <option
+            value="viewed_you"
+            disabled={
+              !canUseVisitorFeed || (isCopilot && me.data?.verification_status !== "verified")
+            }
+          >
+            Viewed you (opt-in)
+          </option>
         </select>
         <label className="relative sm:col-span-2">
           <span className="sr-only">Search</span>
@@ -477,14 +582,36 @@ function Members() {
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           City
-          <Input value={city} maxLength={80} onChange={(event) => { setCity(event.target.value); resetPage(); }} />
+          <Input
+            value={city}
+            maxLength={80}
+            onChange={(event) => {
+              setCity(event.target.value);
+              resetPage();
+            }}
+          />
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Profession
-          <Input value={profession} maxLength={80} onChange={(event) => { setProfession(event.target.value); resetPage(); }} />
+          <Input
+            value={profession}
+            maxLength={80}
+            onChange={(event) => {
+              setProfession(event.target.value);
+              resetPage();
+            }}
+          />
         </label>
         <label className="flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" className="size-6 accent-[var(--brass)]" checked={withPhoto} onChange={(event) => { setWithPhoto(event.target.checked); resetPage(); }} />
+          <input
+            type="checkbox"
+            className="size-6 accent-[var(--brass)]"
+            checked={withPhoto}
+            onChange={(event) => {
+              setWithPhoto(event.target.checked);
+              resetPage();
+            }}
+          />
           Has a discoverable photo
         </label>
         <select
@@ -631,10 +758,20 @@ function Members() {
             </option>
           ))}
         </select>
-        <select aria-label="Sort" className={selectCls} value={sort} onChange={(event) => { setSort(event.target.value as typeof sort); resetPage(); }}>
+        <select
+          aria-label="Sort"
+          className={selectCls}
+          value={sort}
+          onChange={(event) => {
+            setSort(event.target.value as typeof sort);
+            resetPage();
+          }}
+        >
           <option value="joined">Recently joined</option>
           <option value="youngest">Youngest first</option>
-          <option value="active" disabled={!activityTracking.data}>Recently active (opt-in)</option>
+          <option value="active" disabled={!activityTracking.data}>
+            Recently active (opt-in)
+          </option>
         </select>
       </div>
 
@@ -645,8 +782,9 @@ function Members() {
 
       {feed === "viewed_you" && !canUseVisitorFeed && (
         <p role="status" className="mt-3 text-sm text-muted-foreground">
-          Enable both Show visitors and Coarse activity sharing in Settings to see this private feed.
-          Visitor names and exact activity times remain hidden unless those controls are enabled.
+          Enable both Show visitors and Coarse activity sharing in Settings to see this private
+          feed. Visitor names and exact activity times remain hidden unless those controls are
+          enabled.
         </p>
       )}
       {matchSignalsQuery.isError && rows.length > 0 && (
@@ -688,10 +826,18 @@ function Members() {
         ) : !rows.length ? (
           <div className="border border-dashed border-border p-10 text-center">
             <p className="font-serif text-xl">
-              {feed === "shortlisted" ? "No shortlisted profiles yet" : feed === "mutual" ? "No mutual matches yet" : feed === "viewed_you" ? "No opted-in profile visits yet" : "No members match yet"}
+              {feed === "shortlisted"
+                ? "No shortlisted profiles yet"
+                : feed === "mutual"
+                  ? "No mutual matches yet"
+                  : feed === "viewed_you"
+                    ? "No opted-in profile visits yet"
+                    : "No members match yet"}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              {feed === "shortlisted" ? "Shortlists are private and visible only to you." : "Try broader filters or review your partner preferences."}
+              {feed === "shortlisted"
+                ? "Shortlists are private and visible only to you."
+                : "Try broader filters or review your partner preferences."}
             </p>
           </div>
         ) : (

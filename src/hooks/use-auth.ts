@@ -23,7 +23,10 @@ export function useAuth() {
       if (cancelled) return;
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")) {
+      if (
+        session?.user &&
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")
+      ) {
         void supabase.rpc("record_member_activity");
       }
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {

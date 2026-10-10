@@ -273,7 +273,10 @@ function Settings() {
     queryKey: ["activity-tracking", p?.id],
     enabled: !!p?.id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("member_activity").select("enabled").maybeSingle();
+      const { data, error } = await supabase
+        .from("member_activity")
+        .select("enabled")
+        .maybeSingle();
       if (error) throw error;
       return data?.enabled ?? false;
     },
@@ -1341,7 +1344,8 @@ function Settings() {
               <span>
                 Share coarse recent activity
                 <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                  Optional. Verified members may see “active recently” or “active this week”, never an exact time.
+                  Optional. Verified members may see “active recently” or “active this week”, never
+                  an exact time.
                 </span>
               </span>
             </label>

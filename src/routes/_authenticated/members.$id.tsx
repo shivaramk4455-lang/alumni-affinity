@@ -411,10 +411,20 @@ function MemberProfile() {
     reasons: [],
     badges: [
       ...(matchSignals.data?.mutual_match
-        ? [{ label: "Mutual preference match", detail: "You both meet each other's stated preferences" }]
+        ? [
+            {
+              label: "Mutual preference match",
+              detail: "You both meet each other's stated preferences",
+            },
+          ]
         : []),
       ...(matchSignals.data?.matches_their_preferences && !matchSignals.data?.mutual_match
-        ? [{ label: "You fit what they're looking for", detail: "You meet this member's stated preferences" }]
+        ? [
+            {
+              label: "You fit what they're looking for",
+              detail: "You meet this member's stated preferences",
+            },
+          ]
         : []),
     ],
   };
@@ -446,11 +456,19 @@ function MemberProfile() {
 
   const cp = candidatePrefs.data;
   const hasCandidatePrefs = Boolean(
-    cp && (
-      cp.min_age !== null || cp.max_age !== null || cp.min_height_cm !== null || cp.max_height_cm !== null ||
-      cp.genders.length || cp.marital_statuses.length || cp.diets.length || cp.religions.length ||
-      cp.institutions.length || cp.cities.length || cp.relocations.length || cp.caste_preference
-    ),
+    cp &&
+    (cp.min_age !== null ||
+      cp.max_age !== null ||
+      cp.min_height_cm !== null ||
+      cp.max_height_cm !== null ||
+      cp.genders.length ||
+      cp.marital_statuses.length ||
+      cp.diets.length ||
+      cp.religions.length ||
+      cp.institutions.length ||
+      cp.cities.length ||
+      cp.relocations.length ||
+      cp.caste_preference),
   );
   const viewerMatchesCandidate = matchSignals.data?.matches_their_preferences === true;
   const mutualMatch = matchSignals.data?.mutual_match === true;
