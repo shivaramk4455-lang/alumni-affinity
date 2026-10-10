@@ -46,6 +46,14 @@ jobs:
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
+      # Read-only first: print exactly which migrations the production database
+      # already has versus the local chain, so db push decisions are informed.
+      # db push refuses (by design) to insert local files older than the remote's
+      # newest recorded version unless --include-all is passed; seeing the actual
+      # remote state tells us whether that is safe.
+      - name: Show migration status (local vs production)
+        run: supabase migration list
+
       - name: Push migrations
         run: supabase db push --password "$SUPABASE_DB_PASSWORD"
         env:
