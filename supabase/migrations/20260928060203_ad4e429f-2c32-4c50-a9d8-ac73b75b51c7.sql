@@ -53,28 +53,14 @@ GRANT EXECUTE ON FUNCTION public.reveal_contact(uuid) TO authenticated, service_
 GRANT EXECUTE ON FUNCTION public.reveal_contacts(uuid[]) TO authenticated, service_role;
 -- Retroactive-apply safety (matches the project's DROP-first convention):
 -- 20261016000000_desk_queue_paging.sql (already applied on this database)
--- replaced the zero-arg desk_review_queue() with a paged two-arg overload.
--- OR REPLACE would refuse to change the return shape (SQLSTATE 42P13).
+-- replaced the zero-arg desk_review_queue() with a paged two-arg overload,
+-- so re-creating the zero-arg shape via OR REPLACE trips SQLSTATE 42P13.
+-- The old file is pure history: drop WITHOUT recreating the dead overload;
+-- the current two-arg version stays untouched. Dropping the dead overload is
+-- a no-op (nothing calls it), and recreating the historic shape on top of the
+-- paged database would actively downgrade the desk queue. This keeps the
+-- retroactive insert from firing on every remaining historical file.
 DROP FUNCTION IF EXISTS public.desk_review_queue();
-CREATE OR REPLACE FUNCTION public.desk_review_queue()
-RETURNS TABLE (
-  id uuid, full_name text, institution text, degree text, grad_year int, city text,
-  alumni_email text, verification_doc_path text, photo_path text,
-  verification_status text, created_at timestamptz
-)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  IF NOT private.is_admin() THEN
-    RAISE EXCEPTION 'Membership desk only' USING ERRCODE = '42501';
-  END IF;
-  RETURN QUERY
-    SELECT p.id, p.full_name, p.institution, p.degree, p.grad_year, p.city,
-           p.alumni_email, p.verification_doc_path, p.photo_path,
-           p.verification_status, p.created_at
-    FROM public.profiles p
-    WHERE p.verification_status = 'pending_review'
-    ORDER BY p.created_at;
-END; $$;
 CREATE OR REPLACE FUNCTION public.desk_reports(_limit int DEFAULT 200)
 RETURNS TABLE (
   id uuid, reason text, created_at timestamptz,
@@ -97,7 +83,10 @@ BEGIN
     ORDER BY r.created_at DESC
     LIMIT greatest(1, least(coalesce(_limit, 200), 500));
 END; $$;
-REVOKE EXECUTE ON FUNCTION public.desk_review_queue() FROM PUBLIC, anon;
+-- Zero-arg desk_review_queue(): no longer re-created here (see the
+-- retroactive-apply note above); only the still-current functions below
+-- get their privilege grants. Granting privileges on the dropped overload
+-- would raise SQLSTATE 42883 on this database (the old overload no longer
+-- exists here once dropped), while skipping the GRANT is harmless.
 REVOKE EXECUTE ON FUNCTION public.desk_reports(int) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.desk_review_queue() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.desk_reports(int) TO authenticated, service_role;
