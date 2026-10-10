@@ -51,6 +51,11 @@ REVOKE EXECUTE ON FUNCTION public.reveal_contact(uuid) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.reveal_contacts(uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.reveal_contact(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.reveal_contacts(uuid[]) TO authenticated, service_role;
+-- Retroactive-apply safety (matches the project's DROP-first convention):
+-- 20261016000000_desk_queue_paging.sql (already applied on this database)
+-- replaced the zero-arg desk_review_queue() with a paged two-arg overload.
+-- OR REPLACE would refuse to change the return shape (SQLSTATE 42P13).
+DROP FUNCTION IF EXISTS public.desk_review_queue();
 CREATE OR REPLACE FUNCTION public.desk_review_queue()
 RETURNS TABLE (
   id uuid, full_name text, institution text, degree text, grad_year int, city text,
