@@ -56,8 +56,10 @@ BEGIN
   PERFORM cron.schedule(
     'prune-webhook-events',
     '0 3 * * *',
-    -- Tagged dollar-quote: an untagged $$ here would terminate the outer DO $$
-    -- block early and leave DELETE parsed as a bare statement (SQLSTATE 42601).
+    -- Tagged dollar-quote: an untagged delimiter here would terminate the
+    -- outer DO block early and leave DELETE parsed as a bare statement
+    -- (SQLSTATE 42601). Note: never write a bare dollar-quote pair inside a
+    -- comment within a DO block either — the lexer still honours it.
     $job$DELETE FROM public.webhook_events WHERE processed_at < now() - interval '90 days'$job$
   );
 END $$;
