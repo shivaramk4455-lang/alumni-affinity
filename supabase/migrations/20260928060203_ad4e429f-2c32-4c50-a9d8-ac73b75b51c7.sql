@@ -12,7 +12,11 @@ GRANT UPDATE (
   is_visible, onboarded, photo_path, photo_visibility, verification_status,
   alumni_email, contact_phone, linkedin_url, verification_doc_path
 ) ON public.profiles TO authenticated;
-CREATE OR REPLACE VIEW public.my_profile WITH (security_invoker = false) AS
+-- Retroactive-apply safety (matches this project's DROP-first convention):
+-- on databases where later migrations already widened this view, plain
+-- OR REPLACE would refuse to drop columns (SQLSTATE 42P16).
+DROP VIEW IF EXISTS public.my_profile;
+CREATE VIEW public.my_profile WITH (security_invoker = false) AS
   SELECT
     p.id, p.full_name, p.gender, p.birth_year, p.city, p.institution, p.degree,
     p.grad_year, p.profession, p.employer, p.relocation, p.values_statement, p.bio,
