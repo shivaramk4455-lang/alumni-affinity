@@ -56,7 +56,9 @@ BEGIN
   PERFORM cron.schedule(
     'prune-webhook-events',
     '0 3 * * *',
-    $$DELETE FROM public.webhook_events WHERE processed_at < now() - interval '90 days'$$
+    -- Tagged dollar-quote: an untagged $$ here would terminate the outer DO $$
+    -- block early and leave DELETE parsed as a bare statement (SQLSTATE 42601).
+    $job$DELETE FROM public.webhook_events WHERE processed_at < now() - interval '90 days'$job$
   );
 END $$;
 
