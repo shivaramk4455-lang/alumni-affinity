@@ -466,13 +466,16 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- 7. [MED-01] Paid Tier Placement Weight in discover_members()
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.discover_members(text,int,int,text,text,boolean,text,text,text,text,text,text,text,text,text,int,int,int,text);
+
 CREATE OR REPLACE FUNCTION public.discover_members(
   _feed text DEFAULT 'all',
   _page int DEFAULT 0,
-  _page_size int DEFAULT 20,
+  _page_size int DEFAULT 24,
   _city text DEFAULT NULL,
   _profession text DEFAULT NULL,
   _with_photo boolean DEFAULT false,
+  _sort text DEFAULT 'joined',
   _institution text DEFAULT NULL,
   _relocation text DEFAULT NULL,
   _gender text DEFAULT NULL,
@@ -481,57 +484,29 @@ CREATE OR REPLACE FUNCTION public.discover_members(
   _residency text DEFAULT NULL,
   _mother_tongue text DEFAULT NULL,
   _religion text DEFAULT NULL,
-  _search text DEFAULT NULL,
   _min_height int DEFAULT NULL,
   _min_birth_year int DEFAULT NULL,
   _max_birth_year int DEFAULT NULL,
-  _sort text DEFAULT 'joined'
+  _search text DEFAULT NULL
 )
-RETURNS TABLE(
-  id uuid,
-  full_name text,
-  city text,
-  institution text,
-  degree text,
-  grad_year int,
-  profession text,
-  relocation text,
-  birth_year int,
-  gender text,
-  height_cm int,
-  marital_status text,
-  diet text,
-  mother_tongue text,
-  residency_status text,
-  photo_path text,
-  photo_visibility text,
-  religion text,
-  caste text,
-  gotra text,
-  created_at timestamptz,
-  total_count bigint,
-  you_fit boolean,
-  they_fit boolean,
-  mutual_fit boolean,
-  activity_level text
+RETURNS TABLE (
+  id uuid, full_name text, city text, institution text, degree text, grad_year int,
+  profession text, relocation text, birth_year int, gender text, height_cm int,
+  marital_status text, diet text, mother_tongue text, residency_status text,
+  photo_path text, photo_visibility text, religion text, caste text, gotra text,
+  created_at timestamptz, total_count bigint, matches_your_preferences boolean,
+  matches_their_preferences boolean, mutual_match boolean, activity_bucket text
 )
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, private
 AS $$
 DECLARE
   _uid uuid := auth.uid();
 BEGIN
-  IF _uid IS NULL THEN
-    RAISE EXCEPTION 'Authentication required for directory discovery' USING ERRCODE = '42501';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM public.profiles p WHERE p.id = _uid AND p.verification_status = 'verified'
-  ) AND NOT EXISTS (
-    SELECT 1 FROM public.copilots c WHERE c.copilot_user_id = _uid AND c.status = 'active'
-  ) THEN
-    RAISE EXCEPTION 'Verified membership required for directory discovery' USING ERRCODE = '42501';
+  IF _uid IS NULL OR NOT private.is_verified(_uid) THEN
+    RAISE EXCEPTION 'Verified membership required' USING ERRCODE = '42501';
   END IF;
   IF _feed NOT IN ('all', 'mutual', 'looking_for_you', 'new', 'shortlisted', 'viewed_by_you', 'viewed_you') THEN
     RAISE EXCEPTION 'Invalid discovery feed' USING ERRCODE = '22023';
@@ -637,7 +612,7 @@ BEGIN
     f.marital_status, f.diet, f.mother_tongue, f.residency_status,
     f.photo_path, f.photo_visibility, f.religion, f.caste, f.gotra,
     f.created_at, f.total_count, f.you_fit, f.they_fit,
-    f.you_fit AND f.they_fit,
+    (f.you_fit AND f.they_fit),
     CASE WHEN f.active_recently THEN 'recently' WHEN f.active_this_week THEN 'this_week' ELSE NULL END
   FROM counted f
   ORDER BY
@@ -649,6 +624,9 @@ BEGIN
     f.id
   OFFSET _page * _page_size LIMIT _page_size;
 END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.discover_members(text,int,int,text,text,boolean,text,text,text,text,text,text,text,text,text,int,int,int,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.discover_members(text,int,int,text,text,boolean,text,text,text,text,text,text,text,text,text,int,int,int,text) TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 8. [LOW-02] Storage Bucket Mime Types - Allow WebP
