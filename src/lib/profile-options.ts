@@ -310,7 +310,21 @@ export const RESIDENCY_STATUSES = [
   "Other International",
 ];
 
-export const RELATIONS = ["Mother", "Father", "Brother", "Sister", "Sibling", "Uncle", "Aunt", "Cousin", "Guardian", "Close family", "Relative", "Friend", "Other"];
+export const RELATIONS = [
+  "Mother",
+  "Father",
+  "Brother",
+  "Sister",
+  "Sibling",
+  "Uncle",
+  "Aunt",
+  "Cousin",
+  "Guardian",
+  "Close family",
+  "Relative",
+  "Friend",
+  "Other",
+];
 
 /** Who filled in this profile. A cosmetic label only — the candidate still owns the account. */
 export const PROFILE_CREATED_BY = ["Self", "Parent", "Sibling", "Relative", "Friend", "Other"];
