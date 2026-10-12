@@ -310,7 +310,7 @@ export const RESIDENCY_STATUSES = [
   "Other International",
 ];
 
-export const RELATIONS = ["Mother", "Father", "Sibling", "Guardian", "Close family"];
+export const RELATIONS = ["Mother", "Father", "Brother", "Sister", "Sibling", "Uncle", "Aunt", "Cousin", "Guardian", "Close family", "Relative", "Friend", "Other"];
 
 /** Format height in centimeters to cm and feet-inches string (e.g., 175 cm (5'9")). */
 export function formatHeight(cm: number | null | undefined): string | null {
