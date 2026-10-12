@@ -27,6 +27,7 @@ import {
   MOTHER_TONGUES,
   PROFESSION_GROUPS,
   PROFESSIONS,
+  PROFILE_CREATED_BY,
   RELIGIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
@@ -53,6 +54,7 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 
 type Form = {
   full_name: string;
+  created_by: string;
   gender: string;
   birth_year: string;
   city: string;
@@ -83,6 +85,7 @@ type Form = {
 };
 const empty: Form = {
   full_name: "",
+  created_by: "Self",
   gender: "",
   birth_year: "",
   city: "",
@@ -117,6 +120,7 @@ const year = new Date().getFullYear();
 const schemas = [
   z.object({
     full_name: z.string().trim().min(2, "Enter your name").max(100),
+    created_by: z.string().optional(),
     gender: z.string().min(1, "Select gender"),
     birth_year: z.coerce
       .number()
@@ -371,6 +375,7 @@ function Onboarding() {
       setF((prev) => ({
         ...prev,
         full_name: data.full_name ?? "",
+        created_by: data.created_by ?? "Self",
         gender: data.gender ?? "",
         birth_year: data.birth_year?.toString() ?? "",
         city: data.city ?? "",
@@ -463,6 +468,7 @@ function Onboarding() {
     const heightNum = f.height_cm.trim() ? Number(f.height_cm.trim()) : null;
     const profileUpdates = {
       full_name: f.full_name.trim(),
+      created_by: f.created_by || "Self",
       gender: f.gender,
       birth_year: Number(f.birth_year),
       city: f.city.trim(),
@@ -498,7 +504,7 @@ function Onboarding() {
           error.message?.includes("gotra"))
       ) {
         console.warn("Retrying profile save without community columns:", error.message);
-        const { religion, caste, gotra, ...safeUpdates } = profileUpdates;
+        const { religion, caste, gotra, created_by, ...safeUpdates } = profileUpdates;
         const retry = await supabase.from("profiles").update(safeUpdates).eq("id", u.user.id);
         if (retry.error) throw retry.error;
       } else if (error) {
@@ -673,6 +679,22 @@ function Onboarding() {
                 value={f.full_name}
                 onChange={(e) => set("full_name", e.target.value)}
               />
+            </Field>
+            <Field
+              label="Profile created by"
+              note="You still own and control this profile — this is just a label for who filled it in."
+            >
+              <select
+                className={selectCls}
+                value={f.created_by}
+                onChange={(e) => set("created_by", e.target.value)}
+              >
+                {PROFILE_CREATED_BY.map((c) => (
+                  <option key={c} value={c}>
+                    {c === "Self" ? "Myself" : c}
+                  </option>
+                ))}
+              </select>
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Gender" error={errors["gender"]}>

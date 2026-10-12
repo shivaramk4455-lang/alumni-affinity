@@ -1037,6 +1037,7 @@ export type Database = {
           city: string | null
           contact_phone: string | null
           created_at: string
+          created_by: string | null
           degree: string | null
           diet: string | null
           employer: string | null
@@ -1079,6 +1080,7 @@ export type Database = {
           city?: string | null
           contact_phone?: string | null
           created_at?: string
+          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1121,6 +1123,7 @@ export type Database = {
           city?: string | null
           contact_phone?: string | null
           created_at?: string
+          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1392,6 +1395,7 @@ export type Database = {
           city: string | null
           contact_phone: string | null
           created_at: string | null
+          created_by: string | null
           degree: string | null
           diet: string | null
           employer: string | null

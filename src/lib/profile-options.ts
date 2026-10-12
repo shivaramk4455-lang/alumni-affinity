@@ -312,6 +312,9 @@ export const RESIDENCY_STATUSES = [
 
 export const RELATIONS = ["Mother", "Father", "Brother", "Sister", "Sibling", "Uncle", "Aunt", "Cousin", "Guardian", "Close family", "Relative", "Friend", "Other"];
 
+/** Who filled in this profile. A cosmetic label only — the candidate still owns the account. */
+export const PROFILE_CREATED_BY = ["Self", "Parent", "Sibling", "Relative", "Friend", "Other"];
+
 /** Format height in centimeters to cm and feet-inches string (e.g., 175 cm (5'9")). */
 export function formatHeight(cm: number | null | undefined): string | null {
   if (!cm || cm <= 0) return null;
