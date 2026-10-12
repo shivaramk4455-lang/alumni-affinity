@@ -694,6 +694,12 @@ function MemberProfile() {
                 {data.caste && <Row k="Caste / Community" v={data.caste} />}
                 {data.gotra && <Row k="Gotra" v={data.gotra} />}
                 {data.residency_status && <Row k="Residency" v={data.residency_status} />}
+                {data.created_by && (
+                  <Row
+                    k="Profile created by"
+                    v={data.created_by === "Self" ? "Self (Candidate)" : data.created_by}
+                  />
+                )}
               </dl>
 
               {alignment.badges.length > 0 && (

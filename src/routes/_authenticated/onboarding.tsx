@@ -844,7 +844,7 @@ function Onboarding() {
                 <span className="text-muted-foreground font-medium">
                   Popular in {selectedState}:
                 </span>
-                {MAJOR_CITIES_BY_STATE[selectedState].map((c) => (
+                {MAJOR_CITIES_BY_STATE[selectedState]?.map((c) => (
                   <button
                     key={c}
                     type="button"

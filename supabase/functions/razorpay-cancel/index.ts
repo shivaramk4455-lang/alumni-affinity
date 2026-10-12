@@ -69,12 +69,13 @@ serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  // Locate the caller's live subscription.
+  // Locate the caller's live subscription. Only active, authenticated, or pending
+  // subscriptions can be cancelled (guaranteed at most one by idx_subscriptions_one_live).
   const { data: sub, error: subError } = await admin
     .from("subscriptions")
     .select("id, razorpay_subscription_id, status, cancel_at_period_end, period_end")
     .eq("user_id", user.id)
-    .in("status", ["created", "authenticated", "active", "pending"])
+    .in("status", ["active", "authenticated", "pending"])
     .maybeSingle();
 
   if (subError) return json({ error: subError.message }, 500);

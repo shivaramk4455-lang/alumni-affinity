@@ -74,13 +74,25 @@ export function useMySubscription() {
       // legitimate `null` — otherwise a paying member sees the free-tier upsell.
       if (!user) throw new Error("session unavailable");
 
-      const { data, error } = await supabase
+      // Query active/authenticated/pending subscription (at most one exists due to idx_subscriptions_one_live)
+      const { data: liveSub, error: liveError } = await supabase
         .from("subscriptions")
         .select("plan_code, status, requests_used, period_end, cancel_at_period_end")
-        .in("status", ["created", "authenticated", "active", "pending"])
+        .in("status", ["active", "authenticated", "pending"])
         .maybeSingle();
-      if (error) throw error;
-      return (data ?? null) as MySubscription | null;
+      if (liveError) throw liveError;
+      if (liveSub) return liveSub as MySubscription;
+
+      // Fallback: check for newest 'created' checkout if no active subscription exists
+      const { data: createdSub, error: createdError } = await supabase
+        .from("subscriptions")
+        .select("plan_code, status, requests_used, period_end, cancel_at_period_end")
+        .eq("status", "created")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (createdError) throw createdError;
+      return (createdSub ?? null) as MySubscription | null;
     },
   });
 }

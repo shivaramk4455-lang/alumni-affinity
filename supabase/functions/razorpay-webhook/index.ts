@@ -150,10 +150,11 @@ serve(async (req) => {
   // so a captured old event replays validly. Ignore events older than the
   // row's last write, and never regress a terminal state (halted /
   // cancelled / completed / expired) back to an entitling one.
-  const eventTime = (event as { created_at?: number }).created_at
-    ? new Date((event as { created_at?: number }).created_at! * 1000).toISOString()
+  const eventSeconds = (event as { created_at?: number }).created_at;
+  const existingSeconds = existing?.updated_at
+    ? Math.floor(new Date(existing.updated_at).getTime() / 1000)
     : null;
-  if (existing && eventTime && existing.updated_at && eventTime < existing.updated_at) {
+  if (existingSeconds !== null && eventSeconds !== undefined && eventSeconds < existingSeconds) {
     return json({ ok: true, ignored: true, stale: true, event: event.event });
   }
   const TERMINAL = new Set(["halted", "cancelled", "completed", "expired"]);

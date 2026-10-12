@@ -4,7 +4,7 @@
 //     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import type { Plugin } from "vite";
+import type { PluginOption } from "vite";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 import { GRIEVANCE_OFFICER, unresolvedLegalFields } from "./src/lib/legal-identity";
@@ -23,7 +23,7 @@ import { GRIEVANCE_OFFICER, unresolvedLegalFields } from "./src/lib/legal-identi
  * Local/dev builds are unaffected (the env var is unset), so the gate can never
  * block day-to-day development. CI's release job sets it.
  */
-function legalIdentityGate(): Plugin {
+function legalIdentityGate(): PluginOption {
   return {
     name: "legal-identity-gate",
     apply: "build",

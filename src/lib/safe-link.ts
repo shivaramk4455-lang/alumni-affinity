@@ -5,7 +5,7 @@
  * also keeps `<Link to=...>` type-safe.
  */
 export type NotificationDestination =
-  "/connections" | "/copilots" | "/notifications" | "/dashboard";
+  "/connections" | "/copilots" | "/notifications" | "/dashboard" | "/verification";
 
 export function notificationDestination(link: string | null | undefined): NotificationDestination {
   switch (link) {
@@ -13,6 +13,7 @@ export function notificationDestination(link: string | null | undefined): Notifi
     case "/copilots":
     case "/notifications":
     case "/dashboard":
+    case "/verification":
       return link;
     default:
       return "/dashboard";

@@ -346,7 +346,7 @@ function Connections() {
                     >
                       <Check /> {pendingId === i.id ? "Working…" : "Accept"}
                     </Button>
-                    {confirm?.id === i.id && confirm.action === "declined" ? (
+                    {confirm && confirm.id === i.id && confirm.action === "declined" ? (
                       <div
                         role="group"
                         aria-label={`Confirm declining the introduction from ${o?.full_name ?? "this member"}`}
@@ -381,7 +381,7 @@ function Connections() {
                 )}
                 {tab === "sent" && i.status === "pending" && (
                   <div className="mt-5">
-                    {confirm?.id === i.id && confirm.action === "withdrawn" ? (
+                    {confirm && confirm.id === i.id && confirm.action === "withdrawn" ? (
                       <div
                         role="group"
                         aria-label="Confirm withdrawing this introduction"
@@ -474,7 +474,7 @@ function Connections() {
                         </div>
                       )}
                       <div className="flex flex-wrap items-center gap-3">
-                        {confirm?.id === i.id && confirm.action === "blocked" ? (
+                        {confirm && confirm.id === i.id && confirm.action === "blocked" ? (
                           <div
                             role="group"
                             aria-label={`Confirm blocking ${o?.full_name ?? "this member"}`}

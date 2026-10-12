@@ -119,5 +119,14 @@ serve(async (req) => {
     link: "/verification",
   });
 
+  // Enqueue transactional alert (email/SMS/WhatsApp) via notification_outbox
+  await admin.rpc("enqueue_notification", {
+    _user: body.profile_id,
+    _template: notice.kind,
+    _payload: {
+      note: body.note?.trim() || "",
+    },
+  });
+
   return json({ ok: true });
 });

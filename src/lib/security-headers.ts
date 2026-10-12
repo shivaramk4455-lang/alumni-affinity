@@ -19,16 +19,17 @@
  * Tightening further (adding nonces for inline styles, strict-dynamic for
  * scripts) requires nonce plumbing through TanStack Start's script injector.
  */
-const FRAME_ANCESTORS_PROD = [
+const FRAME_ANCESTORS_PROD = "'self'";
+
+// Dev allows localhost and internal development tools
+const FRAME_ANCESTORS_DEV = [
   "'self'",
+  "http://localhost:3000",
   "https://lovable.dev",
   "https://*.lovable.app",
   "https://*.lovableproject.com",
   "https://*.lovableproject-dev.com",
 ].join(" ");
-
-// localhost:3000 is only needed for local development — never in production.
-const FRAME_ANCESTORS_DEV = `${FRAME_ANCESTORS_PROD} http://localhost:3000`;
 
 function buildCsp(isProd: boolean): string {
   const frameAncestors = isProd ? FRAME_ANCESTORS_PROD : FRAME_ANCESTORS_DEV;

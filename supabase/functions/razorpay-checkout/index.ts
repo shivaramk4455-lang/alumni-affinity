@@ -155,6 +155,13 @@ serve(async (req) => {
           notes: { plan_code: plan.code },
         }),
       })) as { id: string };
+
+      // Persist plan ID so subsequent checkouts reuse this plan instead of creating duplicate plans
+      await admin
+        .from("subscription_plans")
+        .update({ razorpay_plan_id: rzpPlan.id })
+        .eq("code", plan.code);
+
       subscription = (await razorpay("/subscriptions", {
         method: "POST",
         body: JSON.stringify({

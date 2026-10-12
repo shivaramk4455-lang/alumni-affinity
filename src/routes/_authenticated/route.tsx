@@ -5,7 +5,13 @@ import { startDemoSession } from "@/lib/demo-access.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async ({ location, context }) => {
+  beforeLoad: async ({
+    location,
+    context,
+  }: {
+    location: { pathname: string; searchStr?: string };
+    context: { queryClient: { invalidateQueries: () => Promise<void> } };
+  }) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData.session?.user) return { user: sessionData.session.user };

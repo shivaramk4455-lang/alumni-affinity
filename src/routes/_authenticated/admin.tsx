@@ -389,7 +389,7 @@ function Admin() {
                       >
                         <Undo2 /> Request resubmission
                       </Button>
-                      {confirming?.id === p.id && confirming.kind === "rejected" ? (
+                      {confirming && confirming.id === p.id && confirming.kind === "rejected" ? (
                         <div
                           role="group"
                           aria-label={`Confirm declining ${p.full_name || "this member"}`}
@@ -614,7 +614,7 @@ function Admin() {
                       >
                         <CheckCircle2 className="size-4" /> Resolve
                       </Button>
-                      {confirming?.id === r.id && confirming.kind === "dismissed" ? (
+                      {confirming && confirming.id === r.id && confirming.kind === "dismissed" ? (
                         <div
                           role="group"
                           aria-label="Confirm dismissing this report"

@@ -35,7 +35,7 @@ export const BASE_DIRECTORY_COLUMNS =
   "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status";
 
 export const DIRECTORY_COLUMNS =
-  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status, religion, caste, gotra";
+  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status, religion, caste, gotra, created_by";
 
 export const BASE_SEARCH_COLUMNS =
   "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility";
@@ -50,7 +50,7 @@ export const SEARCH_COLUMNS =
   // outright when the member has not opened their photo to us, instead of
   // firing a request that storage RLS will refuse. Both columns are inside the
   // existing column-level GRANT on profiles.
-  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility, religion, caste, gotra";
+  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility, religion, caste, gotra, created_by";
 
 export type MemberDirectoryProfile = {
   id: string;
@@ -79,6 +79,7 @@ export type MemberDirectoryProfile = {
   religion?: string | null;
   caste?: string | null;
   gotra?: string | null;
+  created_by?: string | null;
 };
 
 export type SearchResultRow = {
@@ -102,4 +103,5 @@ export type SearchResultRow = {
   religion?: string | null;
   caste?: string | null;
   gotra?: string | null;
+  created_by?: string | null;
 };

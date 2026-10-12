@@ -33,6 +33,7 @@ import {
   INSTITUTIONS,
   MARITAL_STATUSES,
   PHOTO_VISIBILITY,
+  PROFILE_CREATED_BY,
   RELOCATION,
 } from "@/lib/profile-options";
 import { CONSENT_LABELS, useConsentLog, recordConsent, type ConsentPurpose } from "@/lib/consent";
@@ -669,6 +670,30 @@ function Settings() {
               PHOTO_VISIBILITY.find((o) => o.value === (p?.photo_visibility ?? "accepted_only"))
                 ?.detail
             }
+          </span>
+        </div>
+        <div className="mt-5">
+          <Label htmlFor="created-by" className="text-sm font-semibold">
+            Profile created by
+          </Label>
+          <select
+            id="created-by"
+            className={selectCls}
+            value={p?.created_by ?? "Self"}
+            onChange={(e) => save.mutate({ created_by: e.target.value })}
+            aria-describedby="created-by-detail"
+          >
+            {PROFILE_CREATED_BY.map((c) => (
+              <option key={c} value={c}>
+                {c === "Self" ? "Myself" : c}
+              </option>
+            ))}
+          </select>
+          <span
+            id="created-by-detail"
+            className="text-xs font-normal leading-5 text-muted-foreground"
+          >
+            Indicates whether this profile is managed directly by the candidate or a family member.
           </span>
         </div>
       </section>

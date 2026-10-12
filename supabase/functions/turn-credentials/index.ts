@@ -59,6 +59,15 @@ serve(async (req) => {
   } = await caller.auth.getUser();
   if (!user) return json({ error: "Unauthorized" }, 401);
 
+  // Require verified membership to prevent unauthorized TURN proxy abuse
+  const { data: profile } = await caller
+    .from("my_profile")
+    .select("verification_status")
+    .maybeSingle();
+  if (!profile || profile.verification_status !== "verified") {
+    return json({ error: "Verified membership required for audio/video calling" }, 403);
+  }
+
   // Credentials live 6h, so minting is rare by construction: 60s per-user
   // cooldown stops credential harvesting without touching call setup.
   const limited = await rateLimitError(SUPABASE_URL, SERVICE_KEY, user.id, {

@@ -29,16 +29,22 @@ export function useMyProfile() {
   });
 }
 
+export type RevealedContact = {
+  profile_id: string;
+  contact_phone: string;
+  linkedin_url: string;
+};
+
 /** Contact coordinates for members with a mutually accepted introduction. */
 export function useRevealedContacts(profileIds: string[]) {
   const key = [...new Set(profileIds)].sort().join(",");
-  return useQuery({
+  return useQuery<RevealedContact[]>({
     queryKey: ["revealed-contacts", key],
     enabled: key.length > 0,
-    queryFn: async () => {
+    queryFn: async (): Promise<RevealedContact[]> => {
       const { data, error } = await supabase.rpc("reveal_contacts", { _profiles: key.split(",") });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as RevealedContact[];
     },
   });
 }

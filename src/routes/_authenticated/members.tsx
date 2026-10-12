@@ -10,6 +10,7 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDismissedIds } from "@/lib/dismissals";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { BASE_SEARCH_COLUMNS, SEARCH_COLUMNS, type SearchResultRow } from "@/lib/profile-columns";
 import {
   DIETS,
@@ -326,7 +327,11 @@ function Members() {
         _candidate_ids: (results.data?.rows ?? []).map((row) => row.id),
       });
       if (error) throw error;
-      return new Map((data ?? []).map((signal) => [signal.candidate_id, signal]));
+      type MatchSignal =
+        Database["public"]["Functions"]["directory_match_signals"]["Returns"][number];
+      return new Map<string, MatchSignal>(
+        ((data ?? []) as MatchSignal[]).map((signal) => [signal.candidate_id, signal]),
+      );
     },
   });
 
