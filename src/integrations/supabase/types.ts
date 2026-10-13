@@ -1032,6 +1032,8 @@ export type Database = {
           alumni_email: string | null
           alumni_email_verified: boolean
           bio: string | null
+          birth_place: string | null
+          birth_time: string | null
           birth_year: number | null
           caste: string | null
           city: string | null
@@ -1051,14 +1053,18 @@ export type Database = {
           is_admin: boolean
           is_visible: boolean
           linkedin_url: string | null
+          manglik: string | null
           marital_status: string | null
           mother_tongue: string | null
+          nakshatra: string | null
+          nakshatra_pada: number | null
           onboarded: boolean
           paused_reason: string | null
           paused_until: string | null
           photo_path: string | null
           photo_visibility: string
           profession: string | null
+          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null
@@ -1075,6 +1081,8 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
@@ -1094,14 +1102,18 @@ export type Database = {
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1118,6 +1130,8 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
@@ -1137,14 +1151,18 @@ export type Database = {
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1390,6 +1408,8 @@ export type Database = {
           alumni_email: string | null
           alumni_email_verified: boolean | null
           bio: string | null
+          birth_place: string | null
+          birth_time: string | null
           birth_year: number | null
           caste: string | null
           city: string | null
@@ -1409,14 +1429,18 @@ export type Database = {
           is_admin: boolean | null
           is_visible: boolean | null
           linkedin_url: string | null
+          manglik: string | null
           marital_status: string | null
           mother_tongue: string | null
+          nakshatra: string | null
+          nakshatra_pada: number | null
           onboarded: boolean | null
           paused_reason: string | null
           paused_until: string | null
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
+          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null
@@ -1433,6 +1457,8 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean | null
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
@@ -1451,14 +1477,18 @@ export type Database = {
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean | null
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1475,6 +1505,8 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean | null
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
@@ -1493,14 +1525,18 @@ export type Database = {
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean | null
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1659,6 +1695,8 @@ export type Database = {
           _residency?: string | null
           _mother_tongue?: string | null
           _religion?: string | null
+          _rashi?: string | null
+          _manglik?: string | null
           _min_height?: number | null
           _min_birth_year?: number | null
           _max_birth_year?: number | null
@@ -1682,11 +1720,14 @@ export type Database = {
           matches_their_preferences: boolean
           matches_your_preferences: boolean
           marital_status: string | null
+          manglik: string | null
           mutual_match: boolean
           mother_tongue: string | null
+          nakshatra: string | null
           photo_path: string | null
           photo_visibility: string
           profession: string | null
+          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null

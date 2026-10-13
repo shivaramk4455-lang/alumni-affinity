@@ -35,7 +35,7 @@ export const BASE_DIRECTORY_COLUMNS =
   "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status";
 
 export const DIRECTORY_COLUMNS =
-  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status, religion, caste, gotra, created_by";
+  "id, full_name, city, institution, degree, grad_year, profession, employer, relocation, birth_year, gender, values_statement, bio, photo_path, photo_visibility, verification_status, is_visible, onboarded, height_cm, marital_status, diet, mother_tongue, residency_status, religion, caste, gotra, created_by, birth_time, birth_place, rashi, nakshatra, nakshatra_pada, manglik";
 
 export const BASE_SEARCH_COLUMNS =
   "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility";
@@ -50,7 +50,7 @@ export const SEARCH_COLUMNS =
   // outright when the member has not opened their photo to us, instead of
   // firing a request that storage RLS will refuse. Both columns are inside the
   // existing column-level GRANT on profiles.
-  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility, religion, caste, gotra, created_by";
+  "id, full_name, city, institution, degree, grad_year, profession, relocation, birth_year, gender, height_cm, marital_status, diet, mother_tongue, residency_status, photo_path, photo_visibility, religion, caste, gotra, created_by, rashi, nakshatra, manglik";
 
 export type MemberDirectoryProfile = {
   id: string;
@@ -80,6 +80,12 @@ export type MemberDirectoryProfile = {
   caste?: string | null;
   gotra?: string | null;
   created_by?: string | null;
+  birth_time?: string | null;
+  birth_place?: string | null;
+  rashi?: string | null;
+  nakshatra?: string | null;
+  nakshatra_pada?: number | null;
+  manglik?: string | null;
 };
 
 export type SearchResultRow = {
@@ -104,4 +110,7 @@ export type SearchResultRow = {
   caste?: string | null;
   gotra?: string | null;
   created_by?: string | null;
+  rashi?: string | null;
+  nakshatra?: string | null;
+  manglik?: string | null;
 };

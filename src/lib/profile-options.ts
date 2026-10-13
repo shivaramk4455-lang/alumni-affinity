@@ -298,6 +298,81 @@ export const GOTRAS = [
   "Other",
 ] as const;
 
+// ---------------------------------------------------------------------------
+// Horoscope / Jyotish
+//
+// Moon sign (Rashi) and birth star (Nakshatra) drive the Ashtakoota Guna Milan
+// score in src/lib/guna-milan.ts. The names here must match that module's
+// RASHI_NAMES / NAKSHATRA_ORDER keys exactly, or scoring silently degrades to
+// the Nakshatra-derived fallback.
+// ---------------------------------------------------------------------------
+
+/** Moon signs (Chandra Rashi) with the Sanskrit name first, as members say them. */
+export const RASHIS = [
+  "Mesha (Aries)",
+  "Vrishabha (Taurus)",
+  "Mithuna (Gemini)",
+  "Karka (Cancer)",
+  "Simha (Leo)",
+  "Kanya (Virgo)",
+  "Tula (Libra)",
+  "Vrischika (Scorpio)",
+  "Dhanu (Sagittarius)",
+  "Makara (Capricorn)",
+  "Kumbha (Aquarius)",
+  "Meena (Pisces)",
+] as const;
+
+/** The 27 birth stars (Nakshatra). */
+export const NAKSHATRAS = [
+  "Ashwini",
+  "Bharani",
+  "Krittika",
+  "Rohini",
+  "Mrigashira",
+  "Ardra",
+  "Punarvasu",
+  "Pushya",
+  "Ashlesha",
+  "Magha",
+  "Purva Phalguni",
+  "Uttara Phalguni",
+  "Hasta",
+  "Chitra",
+  "Swati",
+  "Vishakha",
+  "Anuradha",
+  "Jyeshtha",
+  "Mula",
+  "Purva Ashadha",
+  "Uttara Ashadha",
+  "Shravana",
+  "Dhanishta",
+  "Shatabhisha",
+  "Purva Bhadrapada",
+  "Uttara Bhadrapada",
+  "Revati",
+] as const;
+
+/** Nakshatra quarter (Pada / Charan), 1..4. */
+export const NAKSHATRA_PADAS = [1, 2, 3, 4] as const;
+
+/** Mangal Dosha (Manglik) status. */
+export const MANGALIK_OPTIONS = ["No", "Yes", "Anshik (partial)", "Don't know"] as const;
+
+/**
+ * Map a member-facing Rashi label ("Mesha (Aries)") back to the bare Sanskrit
+ * name ("Mesha") the scoring engine keys on. Unknown labels pass through so a
+ * future addition never crashes a profile render.
+ */
+export function rashiKey(label: string | null | undefined): string | null {
+  if (!label) return null;
+  const match = RASHIS.find((r) => r === label);
+  if (match) return match.split(" ")[0]!;
+  // Already a bare name, or a value we do not recognise — return as-is.
+  return label.split(" ")[0] ?? label;
+}
+
 export const RESIDENCY_STATUSES = [
   "India",
   "US (H-1B / O-1 / L-1)",

@@ -16,8 +16,10 @@ import {
   DIETS,
   GENDERS,
   INSTITUTIONS,
+  MANGALIK_OPTIONS,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
+  RASHIS,
   RELIGIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
@@ -59,6 +61,8 @@ interface RunMemberDirectoryQueryParams {
   residency: string;
   tongue: string;
   religion: string;
+  rashi: string;
+  manglik: string;
   minHeight: string;
   ageBand: string;
   debouncedQ: string;
@@ -89,6 +93,8 @@ async function runCopilotDirectoryQuery(params: RunMemberDirectoryQueryParams) {
   if (params.residency) query = query.eq("residency_status", params.residency);
   if (params.tongue) query = query.eq("mother_tongue", params.tongue);
   if (params.religion) query = query.eq("religion", params.religion);
+  if (params.rashi) query = query.eq("rashi", params.rashi);
+  if (params.manglik) query = query.eq("manglik", params.manglik);
   if (params.profession) query = query.ilike("profession", `%${params.profession}%`);
   if (params.withPhoto) query = query.not("photo_path", "is", null);
   if (params.minHeight) query = query.gte("height_cm", Number(params.minHeight));
@@ -130,6 +136,8 @@ async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
     residency,
     tongue,
     religion,
+    rashi,
+    manglik,
     minHeight,
     ageBand,
     debouncedQ,
@@ -159,6 +167,8 @@ async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
     _residency: residency || null,
     _mother_tongue: tongue || null,
     _religion: religion || null,
+    _rashi: rashi || null,
+    _manglik: manglik || null,
     _min_height: minHeight ? Number(minHeight) : null,
     _min_birth_year: ageBounds.min ?? null,
     _max_birth_year: ageBounds.max ?? null,
@@ -190,6 +200,8 @@ function Members() {
   const [residency, setResidency] = useState("");
   const [tongue, setTongue] = useState("");
   const [religion, setReligion] = useState("");
+  const [rashi, setRashi] = useState("");
+  const [manglik, setManglik] = useState("");
   const [minHeight, setMinHeight] = useState("");
   const [city, setCity] = useState("");
   const [profession, setProfession] = useState("");
@@ -272,6 +284,8 @@ function Members() {
       residency,
       tongue,
       religion,
+      rashi,
+      manglik,
       minHeight,
       debouncedQ,
       sort,
@@ -302,6 +316,8 @@ function Members() {
         residency,
         tongue,
         religion,
+        rashi,
+        manglik,
         minHeight,
         ageBand,
         debouncedQ,
@@ -353,6 +369,8 @@ function Members() {
       residency,
       tongue,
       religion,
+      rashi,
+      manglik,
       minHeight,
       ageBand,
       debouncedQ,
@@ -378,6 +396,8 @@ function Members() {
           residency,
           tongue,
           religion,
+          rashi,
+          manglik,
           minHeight,
           ageBand,
           debouncedQ,
@@ -400,6 +420,8 @@ function Members() {
     residency,
     tongue,
     religion,
+    rashi,
+    manglik,
     minHeight,
     sort,
     city,
@@ -744,6 +766,38 @@ function Members() {
           {RELIGIONS.map((r) => (
             <option key={r} value={r}>
               {r}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Moon sign (Rashi)"
+          className={selectCls}
+          value={rashi}
+          onChange={(e) => {
+            setRashi(e.target.value);
+            resetPage();
+          }}
+        >
+          <option value="">Any rashi</option>
+          {RASHIS.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Manglik"
+          className={selectCls}
+          value={manglik}
+          onChange={(e) => {
+            setManglik(e.target.value);
+            resetPage();
+          }}
+        >
+          <option value="">Any manglik status</option>
+          {MANGALIK_OPTIONS.map((m) => (
+            <option key={m} value={m}>
+              {m}
             </option>
           ))}
         </select>

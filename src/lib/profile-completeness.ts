@@ -107,6 +107,14 @@ export function profileCompleteness(p: MyProfileRow | null | undefined): {
       to: "/onboarding",
       actionLabel: "Edit details",
     },
+    {
+      label: "Add your horoscope for Guna Milan matching",
+      hint: "Your birth star lets us show Ashtakoota compatibility with other members who share theirs.",
+      weight: 2,
+      filled: has(p?.nakshatra),
+      to: "/onboarding",
+      actionLabel: "Add horoscope",
+    },
   ];
 
   const total = items.reduce((sum, i) => sum + i.weight, 0);

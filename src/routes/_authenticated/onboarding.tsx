@@ -23,11 +23,15 @@ import {
   HEIGHT_OPTIONS,
   INSTITUTIONS,
   MAJOR_CITIES_BY_STATE,
+  MANGALIK_OPTIONS,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
+  NAKSHATRAS,
+  NAKSHATRA_PADAS,
   PROFESSION_GROUPS,
   PROFESSIONS,
   PROFILE_CREATED_BY,
+  RASHIS,
   RELIGIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
@@ -35,6 +39,7 @@ import {
   detectStateFromCity,
   getRegionsForCountry,
 } from "@/lib/profile-options";
+import { starRashi } from "@/lib/guna-milan";
 import { APPLY_DRAFT_KEY } from "@/routes/apply";
 
 const prefillSchema = z.object({ prefill: z.string().optional() });
@@ -66,6 +71,12 @@ type Form = {
   religion: string;
   caste: string;
   gotra: string;
+  birth_time: string;
+  birth_place: string;
+  rashi: string;
+  nakshatra: string;
+  nakshatra_pada: string;
+  manglik: string;
   institution: string;
   degree: string;
   grad_year: string;
@@ -97,6 +108,12 @@ const empty: Form = {
   religion: "",
   caste: "",
   gotra: "",
+  birth_time: "",
+  birth_place: "",
+  rashi: "",
+  nakshatra: "",
+  nakshatra_pada: "",
+  manglik: "",
   institution: "",
   degree: "",
   grad_year: "",
@@ -141,6 +158,17 @@ const schemas = [
     religion: z.string().optional(),
     caste: z.string().optional(),
     gotra: z.string().optional(),
+    birth_time: z
+      .string()
+      .trim()
+      .regex(/^([01]?\d|2[0-3]):[0-5]\d$/, "Enter a valid time (HH:MM)")
+      .optional()
+      .or(z.literal("")),
+    birth_place: z.string().trim().max(120).optional().or(z.literal("")),
+    rashi: z.string().optional(),
+    nakshatra: z.string().optional(),
+    nakshatra_pada: z.string().optional(),
+    manglik: z.string().optional(),
   }),
   z.object({
     institution: z.string().min(1, "Select institution"),
@@ -387,6 +415,12 @@ function Onboarding() {
         religion: data.religion ?? "",
         caste: data.caste ?? "",
         gotra: data.gotra ?? "",
+        birth_time: data.birth_time ?? "",
+        birth_place: data.birth_place ?? "",
+        rashi: data.rashi ?? "",
+        nakshatra: data.nakshatra ?? "",
+        nakshatra_pada: data.nakshatra_pada?.toString() ?? "",
+        manglik: data.manglik ?? "",
         institution: data.institution ?? "",
         degree: data.degree ?? "",
         grad_year: data.grad_year?.toString() ?? "",
@@ -480,6 +514,12 @@ function Onboarding() {
       religion: f.religion ? f.religion.trim() : null,
       caste: f.caste ? f.caste.trim() : null,
       gotra: f.gotra ? f.gotra.trim() : null,
+      birth_time: f.birth_time.trim() || null,
+      birth_place: f.birth_place.trim() || null,
+      rashi: f.rashi || null,
+      nakshatra: f.nakshatra || null,
+      nakshatra_pada: f.nakshatra_pada ? Number(f.nakshatra_pada) : null,
+      manglik: f.manglik || null,
       institution: f.institution,
       degree: f.degree.trim(),
       grad_year: Number(f.grad_year),
@@ -501,10 +541,25 @@ function Onboarding() {
         (error.code === "PGRST204" ||
           error.message?.includes("religion") ||
           error.message?.includes("caste") ||
-          error.message?.includes("gotra"))
+          error.message?.includes("gotra") ||
+          error.message?.includes("rashi") ||
+          error.message?.includes("nakshatra") ||
+          error.message?.includes("manglik"))
       ) {
-        console.warn("Retrying profile save without community columns:", error.message);
-        const { religion, caste, gotra, created_by, ...safeUpdates } = profileUpdates;
+        console.warn("Retrying profile save without community/horoscope columns:", error.message);
+        const {
+          religion,
+          caste,
+          gotra,
+          created_by,
+          birth_time,
+          birth_place,
+          rashi,
+          nakshatra,
+          nakshatra_pada,
+          manglik,
+          ...safeUpdates
+        } = profileUpdates;
         const retry = await supabase.from("profiles").update(safeUpdates).eq("id", u.user.id);
         if (retry.error) throw retry.error;
       } else if (error) {
@@ -999,6 +1054,107 @@ function Onboarding() {
                   />
                 )}
               </Field>
+            </div>
+
+            {/* Horoscope / Jyotish. Optional across the board — many members
+                and communities do not use it, so nothing here is required, and
+                the Rashi is auto-filled from the chosen Nakshatra so members
+                only pick the one field they are sure of. */}
+            <div className="mt-2 border-t border-border/60 pt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
+                Horoscope (optional)
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                If you share your birth star, we can show a Guna Milan (Ashtakoota) compatibility
+                score with other members who have done the same. Everything here is optional.
+              </p>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <Field label="Birth star (Nakshatra)" note="Drives the match score">
+                  <select
+                    className={selectCls}
+                    value={f.nakshatra}
+                    onChange={(e) => {
+                      const star = e.target.value;
+                      set("nakshatra", star);
+                      // Auto-derive the Moon sign from the star so the member
+                      // never has to reconcile the two by hand.
+                      if (star) {
+                        const derived = RASHIS.find((r) => r.split(" ")[0] === starRashi(star));
+                        if (derived) set("rashi", derived);
+                      }
+                    }}
+                  >
+                    <option value="">Select birth star</option>
+                    {NAKSHATRAS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Birth star quarter (Pada / Charan)">
+                  <select
+                    className={selectCls}
+                    value={f.nakshatra_pada}
+                    onChange={(e) => set("nakshatra_pada", e.target.value)}
+                  >
+                    <option value="">Select pada</option>
+                    {NAKSHATRA_PADAS.map((p) => (
+                      <option key={p} value={String(p)}>
+                        Pada {p}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <Field label="Moon sign (Rashi)" note="Filled in from your birth star">
+                  <select
+                    className={selectCls}
+                    value={f.rashi}
+                    onChange={(e) => set("rashi", e.target.value)}
+                  >
+                    <option value="">Select moon sign</option>
+                    {RASHIS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Manglik / Mangal Dosha">
+                  <select
+                    className={selectCls}
+                    value={f.manglik}
+                    onChange={(e) => set("manglik", e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    {MANGALIK_OPTIONS.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <Field label="Time of birth">
+                  <Input
+                    type="time"
+                    value={f.birth_time}
+                    onChange={(e) => set("birth_time", e.target.value)}
+                  />
+                </Field>
+                <Field label="Place of birth">
+                  <Input
+                    autoComplete="off"
+                    placeholder="e.g. Pune, Maharashtra"
+                    value={f.birth_place}
+                    onChange={(e) => set("birth_place", e.target.value)}
+                    maxLength={120}
+                  />
+                </Field>
+              </div>
             </div>
           </>
         )}

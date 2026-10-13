@@ -12,6 +12,7 @@ import {
   ScrollText,
   ShieldAlert,
   SlidersHorizontal,
+  Sparkles,
   Trash2,
   TriangleAlert,
   UserRound,
@@ -31,11 +32,16 @@ import {
   GENDERS,
   HEIGHT_OPTIONS,
   INSTITUTIONS,
+  MANGALIK_OPTIONS,
   MARITAL_STATUSES,
+  NAKSHATRAS,
+  NAKSHATRA_PADAS,
   PHOTO_VISIBILITY,
   PROFILE_CREATED_BY,
+  RASHIS,
   RELOCATION,
 } from "@/lib/profile-options";
+import { starRashi } from "@/lib/guna-milan";
 import { CONSENT_LABELS, useConsentLog, recordConsent, type ConsentPurpose } from "@/lib/consent";
 import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/access-log";
 import { PhotoGalleryManager } from "@/components/photo-gallery";
@@ -695,6 +701,114 @@ function Settings() {
           >
             Indicates whether this profile is managed directly by the candidate or a family member.
           </span>
+        </div>
+
+        <div className="mt-8 border-t border-border pt-6">
+          <h2 className="flex items-center gap-2 font-serif text-xl font-semibold">
+            <Sparkles className="size-5 text-brass" /> Horoscope
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Optional. Your birth star lets us show a Guna Milan (Ashtakoota) compatibility score
+            with other members who have shared theirs.
+          </p>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="settings-nakshatra">Birth star (Nakshatra)</Label>
+              <select
+                id="settings-nakshatra"
+                className={selectCls}
+                value={p?.nakshatra ?? ""}
+                onChange={(e) => {
+                  const star = e.target.value || null;
+                  const patch: Database["public"]["Tables"]["profiles"]["Update"] = {
+                    nakshatra: star,
+                  };
+                  const derived = star ? starRashi(star) : null;
+                  if (derived) {
+                    const label = RASHIS.find((r) => r.split(" ")[0] === derived);
+                    if (label) patch.rashi = label;
+                  }
+                  save.mutate(patch);
+                }}
+              >
+                <option value="">Not shared</option>
+                {NAKSHATRAS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-pada">Birth star quarter (Pada)</Label>
+              <select
+                id="settings-pada"
+                className={selectCls}
+                value={p?.nakshatra_pada?.toString() ?? ""}
+                onChange={(e) =>
+                  save.mutate({ nakshatra_pada: e.target.value ? Number(e.target.value) : null })
+                }
+              >
+                <option value="">Not shared</option>
+                {NAKSHATRA_PADAS.map((n) => (
+                  <option key={n} value={String(n)}>
+                    Pada {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-rashi">Moon sign (Rashi)</Label>
+              <select
+                id="settings-rashi"
+                className={selectCls}
+                value={p?.rashi ?? ""}
+                onChange={(e) => save.mutate({ rashi: e.target.value || null })}
+              >
+                <option value="">Not shared</option>
+                {RASHIS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-manglik">Manglik / Mangal Dosha</Label>
+              <select
+                id="settings-manglik"
+                className={selectCls}
+                value={p?.manglik ?? ""}
+                onChange={(e) => save.mutate({ manglik: e.target.value || null })}
+              >
+                <option value="">Not shared</option>
+                {MANGALIK_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-birth-time">Time of birth</Label>
+              <Input
+                id="settings-birth-time"
+                type="time"
+                value={p?.birth_time ?? ""}
+                onChange={(e) => save.mutate({ birth_time: e.target.value || null })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-birth-place">Place of birth</Label>
+              <Input
+                id="settings-birth-place"
+                placeholder="e.g. Pune, Maharashtra"
+                maxLength={120}
+                value={p?.birth_place ?? ""}
+                onChange={(e) => save.mutate({ birth_place: e.target.value.trim() || null })}
+              />
+            </div>
+          </div>
         </div>
       </section>
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
