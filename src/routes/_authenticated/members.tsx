@@ -151,14 +151,18 @@ async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
         : ageBand === "40plus"
           ? { min: undefined, max: year - 40 }
           : { min: undefined, max: undefined };
-  const result = supabase.rpc("discover_members", {
+  // Generated RPC types use exactOptionalPropertyTypes: omit unset filters
+  // entirely rather than passing explicit undefined.
+  const args: Record<string, string | number | boolean> = {
     _feed: feed,
     _page: pageNumber,
     _page_size: PAGE_SIZE,
-    _city: city || undefined,
-    _profession: profession || undefined,
     _with_photo: withPhoto,
     _sort: sort,
+  };
+  const optional: Record<string, string | number | undefined> = {
+    _city: city || undefined,
+    _profession: profession || undefined,
     _institution: institution || undefined,
     _relocation: relocation || undefined,
     _gender: gender || undefined,
@@ -173,7 +177,11 @@ async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
     _min_birth_year: ageBounds.min,
     _max_birth_year: ageBounds.max,
     _search: debouncedQ.trim() || undefined,
-  });
+  };
+  for (const [key, value] of Object.entries(optional)) {
+    if (value !== undefined) args[key] = value;
+  }
+  const result = supabase.rpc("discover_members", args);
   const { data, error } = signal ? await result.abortSignal(signal) : await result;
   if (error) throw error;
   const rows = (data ?? []).map(({ total_count: _total, ...row }) => row) as SearchResultRow[];
