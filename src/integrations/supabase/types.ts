@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -583,27 +583,6 @@ export type Database = {
           },
         ]
       }
-      member_activity: {
-        Row: { enabled: boolean; last_active_at: string | null; updated_at: string; user_id: string }
-        Insert: { enabled?: boolean; last_active_at?: string | null; updated_at?: string; user_id: string }
-        Update: { enabled?: boolean; last_active_at?: string | null; updated_at?: string; user_id?: string }
-        Relationships: [
-          {
-            foreignKeyName: "member_activity_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "my_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "member_activity_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       notification_outbox: {
         Row: {
           attempts: number
@@ -1032,14 +1011,11 @@ export type Database = {
           alumni_email: string | null
           alumni_email_verified: boolean
           bio: string | null
-          birth_place: string | null
-          birth_time: string | null
           birth_year: number | null
           caste: string | null
           city: string | null
           contact_phone: string | null
           created_at: string
-          created_by: string | null
           degree: string | null
           diet: string | null
           employer: string | null
@@ -1053,18 +1029,14 @@ export type Database = {
           is_admin: boolean
           is_visible: boolean
           linkedin_url: string | null
-          manglik: string | null
           marital_status: string | null
           mother_tongue: string | null
-          nakshatra: string | null
-          nakshatra_pada: number | null
           onboarded: boolean
           paused_reason: string | null
           paused_until: string | null
           photo_path: string | null
           photo_visibility: string
           profession: string | null
-          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null
@@ -1081,14 +1053,11 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean
           bio?: string | null
-          birth_place?: string | null
-          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string
-          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1102,18 +1071,14 @@ export type Database = {
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
-          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
-          nakshatra?: string | null
-          nakshatra_pada?: number | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
-          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1130,14 +1095,11 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean
           bio?: string | null
-          birth_place?: string | null
-          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string
-          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1151,18 +1113,14 @@ export type Database = {
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
-          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
-          nakshatra?: string | null
-          nakshatra_pada?: number | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
-          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1408,14 +1366,11 @@ export type Database = {
           alumni_email: string | null
           alumni_email_verified: boolean | null
           bio: string | null
-          birth_place: string | null
-          birth_time: string | null
           birth_year: number | null
           caste: string | null
           city: string | null
           contact_phone: string | null
           created_at: string | null
-          created_by: string | null
           degree: string | null
           diet: string | null
           employer: string | null
@@ -1429,18 +1384,14 @@ export type Database = {
           is_admin: boolean | null
           is_visible: boolean | null
           linkedin_url: string | null
-          manglik: string | null
           marital_status: string | null
           mother_tongue: string | null
-          nakshatra: string | null
-          nakshatra_pada: number | null
           onboarded: boolean | null
           paused_reason: string | null
           paused_until: string | null
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
-          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null
@@ -1457,8 +1408,6 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean | null
           bio?: string | null
-          birth_place?: string | null
-          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
@@ -1477,18 +1426,14 @@ export type Database = {
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
-          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
-          nakshatra?: string | null
-          nakshatra_pada?: number | null
           onboarded?: boolean | null
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
-          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1505,8 +1450,6 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean | null
           bio?: string | null
-          birth_place?: string | null
-          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
@@ -1525,18 +1468,14 @@ export type Database = {
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
-          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
-          nakshatra?: string | null
-          nakshatra_pada?: number | null
           onboarded?: boolean | null
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
-          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1651,89 +1590,6 @@ export type Database = {
         Args: { _interest_id: string }
         Returns: string
       }
-      get_profile_partner_preferences: {
-        Args: { _profile: string }
-        Returns: {
-          caste_preference: string | null
-          cities: string[]
-          diets: string[]
-          genders: string[]
-          institutions: string[]
-          marital_statuses: string[]
-          max_age: number | null
-          max_height_cm: number | null
-          min_age: number | null
-          min_height_cm: number | null
-          relocations: string[]
-          religions: string[]
-        }[]
-      }
-      directory_match_signals: {
-        Args: { _candidate_ids: string[] }
-        Returns: {
-          activity_bucket: string | null
-          candidate_id: string
-          matches_their_preferences: boolean
-          matches_your_preferences: boolean
-          mutual_match: boolean
-        }[]
-      }
-      discover_members: {
-        Args: {
-          _city?: string | null
-          _feed?: string
-          _page?: number
-          _page_size?: number
-          _profession?: string | null
-          _sort?: string
-          _with_photo?: boolean
-          _institution?: string | null
-          _relocation?: string | null
-          _gender?: string | null
-          _diet?: string | null
-          _marital_status?: string | null
-          _residency?: string | null
-          _mother_tongue?: string | null
-          _religion?: string | null
-          _rashi?: string | null
-          _manglik?: string | null
-          _min_height?: number | null
-          _min_birth_year?: number | null
-          _max_birth_year?: number | null
-          _search?: string | null
-        }
-        Returns: {
-          activity_bucket: string | null
-          birth_year: number | null
-          caste: string | null
-          city: string | null
-          created_at: string
-          degree: string | null
-          diet: string | null
-          full_name: string
-          gender: string | null
-          gotra: string | null
-          grad_year: number | null
-          height_cm: number | null
-          id: string
-          institution: string | null
-          matches_their_preferences: boolean
-          matches_your_preferences: boolean
-          marital_status: string | null
-          manglik: string | null
-          mutual_match: boolean
-          mother_tongue: string | null
-          nakshatra: string | null
-          photo_path: string | null
-          photo_visibility: string
-          profession: string | null
-          rashi: string | null
-          religion: string | null
-          relocation: string | null
-          residency_status: string | null
-          total_count: number
-        }[]
-      }
       notification_channels_for: {
         Args: { _template: string; _user: string }
         Returns: string[]
@@ -1754,7 +1610,6 @@ export type Database = {
         Returns: string
       }
       record_intro_usage: { Args: { _user?: string }; Returns: undefined }
-      record_member_activity: { Args: never; Returns: undefined }
       record_profile_view: { Args: { _viewed: string }; Returns: undefined }
       response_rate: { Args: { _user: string }; Returns: number }
       reveal_contact: {
@@ -1772,10 +1627,6 @@ export type Database = {
           linkedin_url: string
           profile_id: string
         }[]
-      }
-      set_member_activity_tracking: {
-        Args: { _enabled: boolean; _policy_version: string }
-        Returns: undefined
       }
       sweep_stale_calls: { Args: never; Returns: number }
     }
