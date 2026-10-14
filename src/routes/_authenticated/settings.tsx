@@ -28,6 +28,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
 import { EMPTY_PREFERENCES, hasAnyPreferences } from "@/lib/alignment";
 import {
+  CASTES,
   DIETS,
   GENDERS,
   HEIGHT_OPTIONS,
@@ -39,6 +40,7 @@ import {
   PHOTO_VISIBILITY,
   PROFILE_CREATED_BY,
   RASHIS,
+  RELIGIONS,
   RELOCATION,
 } from "@/lib/profile-options";
 import { starRashi } from "@/lib/guna-milan";
@@ -163,6 +165,9 @@ function Settings() {
   const [prefGenders, setPrefGenders] = useState<string[]>([]);
   const [prefMaritalStatuses, setPrefMaritalStatuses] = useState<string[]>([]);
   const [prefDiets, setPrefDiets] = useState<string[]>([]);
+  const [prefReligions, setPrefReligions] = useState<string[]>([]);
+  const [prefCaste, setPrefCaste] = useState("");
+  const [prefManglik, setPrefManglik] = useState("");
   const [prefInstitutions, setPrefInstitutions] = useState<string[]>([]);
   const [prefCities, setPrefCities] = useState("");
   const [prefRelocations, setPrefRelocations] = useState<string[]>([]);
@@ -180,7 +185,7 @@ function Settings() {
       const { data, error } = await supabase
         .from("partner_preferences")
         .select(
-          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, institutions, cities, relocations, shield_employer",
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, manglik_preference, institutions, cities, relocations, shield_employer",
         )
         .maybeSingle();
       if (error) {
@@ -198,6 +203,7 @@ function Settings() {
         diets: data.diets ?? [],
         religions: data.religions ?? [],
         caste_preference: data.caste_preference ?? null,
+        manglik_preference: data.manglik_preference ?? null,
         institutions: data.institutions ?? [],
         cities: data.cities ?? [],
         relocations: data.relocations ?? [],
@@ -216,6 +222,9 @@ function Settings() {
       setPrefGenders(prefs.data.genders);
       setPrefMaritalStatuses(prefs.data.marital_statuses ?? []);
       setPrefDiets(prefs.data.diets ?? []);
+      setPrefReligions(prefs.data.religions ?? []);
+      setPrefCaste(prefs.data.caste_preference ?? "");
+      setPrefManglik(prefs.data.manglik_preference ?? "");
       setPrefInstitutions(prefs.data.institutions);
       setPrefCities(prefs.data.cities.join(", "));
       setPrefRelocations(prefs.data.relocations);
@@ -260,6 +269,9 @@ function Settings() {
     prefGenders.join() !== (prefs.data?.genders ?? []).join() ||
     prefMaritalStatuses.join() !== (prefs.data?.marital_statuses ?? []).join() ||
     prefDiets.join() !== (prefs.data?.diets ?? []).join() ||
+    prefReligions.join() !== (prefs.data?.religions ?? []).join() ||
+    prefCaste !== (prefs.data?.caste_preference ?? "") ||
+    prefManglik !== (prefs.data?.manglik_preference ?? "") ||
     prefInstitutions.join() !== (prefs.data?.institutions ?? []).join() ||
     prefCities !== (prefs.data?.cities ?? []).join(", ") ||
     prefRelocations.join() !== (prefs.data?.relocations ?? []).join() ||
@@ -459,6 +471,9 @@ function Settings() {
       genders: string[];
       marital_statuses: string[];
       diets: string[];
+      religions: string[];
+      caste_preference: string | null;
+      manglik_preference: string | null;
       institutions: string[];
       cities: string[];
       relocations: string[];
@@ -470,10 +485,22 @@ function Settings() {
         .from("partner_preferences")
         .upsert({ user_id: u.user.id, ...patch }, { onConflict: "user_id" });
       if (error) throw error;
+      const hasCriteria = hasAnyPreferences(patch);
+      return recordConsent(
+        "partnership_criteria",
+        hasCriteria,
+        hasCriteria
+          ? "Partner preferences updated in Settings"
+          : "Partner preferences cleared in Settings",
+      );
     },
-    onSuccess: () => {
+    onSuccess: (consent) => {
       qc.invalidateQueries({ queryKey: ["partner-preferences"] });
-      toast.success("Partner preferences saved.");
+      qc.invalidateQueries({ queryKey: ["directory-match-signals"] });
+      qc.invalidateQueries({ queryKey: ["members"] });
+      qc.invalidateQueries({ queryKey: ["consent-events"] });
+      if (consent.ok) toast.success("Partner preferences saved.");
+      else toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
     },
     onError: () => toast.error("Could not save your preferences. Please try again."),
   });
@@ -515,6 +542,9 @@ function Settings() {
       genders: prefGenders.slice(0, 5),
       marital_statuses: prefMaritalStatuses.slice(0, 5),
       diets: prefDiets.slice(0, 5),
+      religions: prefReligions.slice(0, 15),
+      caste_preference: prefCaste.trim() || null,
+      manglik_preference: prefManglik.trim() || null,
       institutions: prefInstitutions.slice(0, 20),
       cities,
       relocations: prefRelocations.slice(0, 5),
@@ -530,6 +560,9 @@ function Settings() {
     setPrefGenders([]);
     setPrefMaritalStatuses([]);
     setPrefDiets([]);
+    setPrefReligions([]);
+    setPrefCaste("");
+    setPrefManglik("");
     setPrefInstitutions([]);
     setPrefCities("");
     setPrefRelocations([]);
@@ -541,6 +574,9 @@ function Settings() {
       genders: [],
       marital_statuses: [],
       diets: [],
+      religions: [],
+      caste_preference: null,
+      manglik_preference: null,
       institutions: [],
       cities: [],
       relocations: [],
@@ -1132,9 +1168,10 @@ function Settings() {
           <SlidersHorizontal className="size-5 text-brass" /> Partner preferences
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          What you are looking for. These criteria are private to you — they are never shown to
-          other members, and they only ever produce the alignment badges on your own search results.
-          Leaving everything blank means no filtering, which is a perfectly respectable answer.
+          What you are looking for in a partner. When your profile is visible in the directory,
+          verified members see these stated criteria in the “Looking for in a partner” section on
+          your profile, and they power mutual preference badges across search. Your Employer Shield
+          setting below remains strictly private and is never shown to other members.
         </p>
 
         {/*
@@ -1269,6 +1306,62 @@ function Settings() {
                 ))}
               </div>
             </fieldset>
+
+            <fieldset className="mt-6">
+              <legend className="text-sm font-semibold">Preferred religion</legend>
+              <div className="mt-3 flex flex-wrap gap-4">
+                {RELIGIONS.map((r) => (
+                  <label key={r} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-6 accent-[var(--brass)]"
+                      checked={prefReligions.includes(r)}
+                      onChange={(e) =>
+                        setPrefReligions((prev) =>
+                          e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
+                        )
+                      }
+                    />
+                    {r}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="pref-caste">Preferred community / caste</Label>
+                <select
+                  id="pref-caste"
+                  className={selectCls}
+                  value={prefCaste}
+                  onChange={(e) => setPrefCaste(e.target.value)}
+                >
+                  <option value="">Any community / no constraint</option>
+                  {CASTES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pref-manglik">Preferred Manglik status</Label>
+                <select
+                  id="pref-manglik"
+                  className={selectCls}
+                  value={prefManglik}
+                  onChange={(e) => setPrefManglik(e.target.value)}
+                >
+                  <option value="">Any / no constraint</option>
+                  {MANGALIK_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <fieldset className="mt-6">
               <legend className="text-sm font-semibold">Preferred gender</legend>

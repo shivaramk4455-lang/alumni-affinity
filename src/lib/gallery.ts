@@ -506,7 +506,7 @@ export function useSetPrimaryPhoto() {
       // 1. Direct update to profiles.photo_path
       const { error: profError } = await supabase
         .from("profiles")
-        .update({ photo_path: photo.path, updated_at: new Date().toISOString() })
+        .update({ photo_path: photo.path })
         .eq("id", u.user.id);
 
       if (profError) {
@@ -581,10 +581,7 @@ export function useDeleteGalleryPhoto() {
             // Table not available
           }
 
-          await supabase
-            .from("profiles")
-            .update({ photo_path: nextPath, updated_at: new Date().toISOString() })
-            .eq("id", u.user.id);
+          await supabase.from("profiles").update({ photo_path: nextPath }).eq("id", u.user.id);
         }
       } catch (err) {
         console.warn("profiles.photo_path cleanup error:", err);

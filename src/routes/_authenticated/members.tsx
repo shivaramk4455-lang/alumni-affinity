@@ -25,7 +25,7 @@ import {
   RESIDENCY_STATUSES,
   formatHeight,
 } from "@/lib/profile-options";
-import type { Alignment } from "@/lib/alignment";
+import { alignCandidate, EMPTY_PREFERENCES, type Alignment } from "@/lib/alignment";
 
 export const Route = createFileRoute("/_authenticated/members")({
   head: () => ({
@@ -151,37 +151,29 @@ async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
         : ageBand === "40plus"
           ? { min: undefined, max: year - 40 }
           : { min: undefined, max: undefined };
-  // Generated RPC types use exactOptionalPropertyTypes: omit unset filters
-  // entirely rather than passing explicit undefined.
-  const args: Record<string, string | number | boolean> = {
+  const result = supabase.rpc("discover_members", {
     _feed: feed,
     _page: pageNumber,
     _page_size: PAGE_SIZE,
+    _city: city || null,
+    _profession: profession || null,
     _with_photo: withPhoto,
     _sort: sort,
-  };
-  const optional: Record<string, string | number | undefined> = {
-    _city: city || undefined,
-    _profession: profession || undefined,
-    _institution: institution || undefined,
-    _relocation: relocation || undefined,
-    _gender: gender || undefined,
-    _diet: diet || undefined,
-    _marital_status: maritalStatus || undefined,
-    _residency: residency || undefined,
-    _mother_tongue: tongue || undefined,
-    _religion: religion || undefined,
-    _rashi: rashi || undefined,
-    _manglik: manglik || undefined,
-    _min_height: minHeight ? Number(minHeight) : undefined,
-    _min_birth_year: ageBounds.min,
-    _max_birth_year: ageBounds.max,
-    _search: debouncedQ.trim() || undefined,
-  };
-  for (const [key, value] of Object.entries(optional)) {
-    if (value !== undefined) args[key] = value;
-  }
-  const result = supabase.rpc("discover_members", args);
+    _institution: institution || null,
+    _relocation: relocation || null,
+    _gender: gender || null,
+    _diet: diet || null,
+    _marital_status: maritalStatus || null,
+    _residency: residency || null,
+    _mother_tongue: tongue || null,
+    _religion: religion || null,
+    _rashi: rashi || null,
+    _manglik: manglik || null,
+    _min_height: minHeight ? Number(minHeight) : null,
+    _min_birth_year: ageBounds.min ?? null,
+    _max_birth_year: ageBounds.max ?? null,
+    _search: debouncedQ.trim() || null,
+  });
   const { data, error } = signal ? await result.abortSignal(signal) : await result;
   if (error) throw error;
   const rows = (data ?? []).map(({ total_count: _total, ...row }) => row) as SearchResultRow[];
@@ -275,11 +267,11 @@ function Members() {
   );
   const blockedKey = useMemo(() => [...hidden].sort().join(","), [hidden]);
   const canUseVisitorFeed = me.data?.show_profile_views === true;
-  const results = useQuery({
-    queryKey: [
+  const buildMembersQueryKey = (targetPage: number) =>
+    [
       "members",
       feed,
-      page,
+      targetPage,
       city,
       profession,
       withPhoto,
@@ -301,7 +293,10 @@ function Members() {
       blockedKey,
       canUseVisitorFeed,
       isCopilot,
-    ],
+    ] as const;
+
+  const results = useQuery({
+    queryKey: buildMembersQueryKey(page),
     enabled:
       !onProfilePage &&
       !!me.data &&
@@ -336,16 +331,50 @@ function Members() {
         : runMemberDirectoryQuery(params);
     },
   });
+
+  const myPrefs = useQuery({
+    queryKey: ["partner-preferences"],
+    enabled: !onProfilePage && !!me.data && me.data.verification_status === "verified",
+    queryFn: async () => {
+      const { data: row, error } = await supabase
+        .from("partner_preferences")
+        .select(
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, manglik_preference, institutions, cities, relocations, shield_employer",
+        )
+        .maybeSingle();
+      if (error || !row) return { ...EMPTY_PREFERENCES };
+      return {
+        min_age: row.min_age,
+        max_age: row.max_age,
+        min_height_cm: row.min_height_cm,
+        max_height_cm: row.max_height_cm,
+        genders: row.genders ?? [],
+        marital_statuses: row.marital_statuses ?? [],
+        diets: row.diets ?? [],
+        religions: row.religions ?? [],
+        caste_preference: row.caste_preference ?? null,
+        manglik_preference: row.manglik_preference ?? null,
+        institutions: row.institutions ?? [],
+        cities: row.cities ?? [],
+        relocations: row.relocations ?? [],
+        shield_employer: row.shield_employer ?? false,
+      };
+    },
+  });
+
+  // discover_members already computes mutual_match, matches_their_preferences,
+  // matches_your_preferences, and activity_bucket server-side on every row.
+  // Only fall back to directory_match_signals if rows came without those fields.
+  const rowsLackSignals =
+    (results.data?.rows.length ?? 0) > 0 && results.data?.rows[0]?.mutual_match === undefined;
+
   const matchSignalsQuery = useQuery({
     queryKey: [
       "directory-match-signals",
       me.data?.id,
       results.data?.rows.map((row) => row.id).join(","),
     ],
-    enabled:
-      !!me.data &&
-      me.data.verification_status === "verified" &&
-      (results.data?.rows.length ?? 0) > 0,
+    enabled: !!me.data && me.data.verification_status === "verified" && rowsLackSignals,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("directory_match_signals", {
         _candidate_ids: (results.data?.rows ?? []).map((row) => row.id),
@@ -359,34 +388,12 @@ function Members() {
     },
   });
 
-  // Professional prefetching: warm up the next page in cache so clicking "Next" is instantaneous
+  // Professional prefetching: warm up the next page in cache using the exact same queryKey
   useEffect(() => {
     if (!results.data?.hasMore || onProfilePage) return;
     const nextPage = page + 1;
-    const nextKey = [
-      "members",
-      feed,
-      city,
-      profession,
-      withPhoto,
-      inst,
-      reloc,
-      gender,
-      diet,
-      maritalStatus,
-      residency,
-      tongue,
-      religion,
-      rashi,
-      manglik,
-      minHeight,
-      ageBand,
-      debouncedQ,
-      sort,
-      nextPage,
-    ];
     void queryClient.prefetchQuery({
-      queryKey: nextKey,
+      queryKey: buildMembersQueryKey(nextPage),
       staleTime: 60_000,
       queryFn: async () => {
         const params: RunMemberDirectoryQueryParams = {
@@ -507,27 +514,41 @@ function Members() {
   const rows = results.data?.rows ?? [];
   const total = results.data?.total ?? 0;
   const hasMore = (page + 1) * PAGE_SIZE < total;
-  const withAlignment = rows.map((p) => ({
-    p,
-    a: {
-      score: 0,
-      reasons: [],
-      badges: [
-        ...(matchSignalsQuery.data?.get(p.id)?.mutual_match
-          ? [{ label: "Mutual match", detail: "Your stated preferences align both ways" }]
-          : []),
-        ...(matchSignalsQuery.data?.get(p.id)?.matches_their_preferences &&
-        !matchSignalsQuery.data?.get(p.id)?.mutual_match
-          ? [{ label: "Looking for you", detail: "You match their stated preferences" }]
-          : []),
-        ...(matchSignalsQuery.data?.get(p.id)?.activity_bucket === "recently"
-          ? [{ label: "Active recently", detail: "Activity sharing is enabled" }]
-          : matchSignalsQuery.data?.get(p.id)?.activity_bucket === "this_week"
-            ? [{ label: "Active this week", detail: "Activity sharing is enabled" }]
+  const withAlignment = rows.map((p) => {
+    const sig = matchSignalsQuery.data?.get(p.id);
+    const mutual = p.mutual_match ?? sig?.mutual_match ?? false;
+    const theyFit = p.matches_their_preferences ?? sig?.matches_their_preferences ?? false;
+    const bucket = p.activity_bucket ?? sig?.activity_bucket ?? null;
+    const localAlign = me.data
+      ? alignCandidate(
+          myPrefs.data ?? EMPTY_PREFERENCES,
+          { city: me.data.city ?? null, institution: me.data.institution ?? null },
+          p,
+        )
+      : { score: 0, badges: [], reasons: [] };
+
+    return {
+      p,
+      a: {
+        score: localAlign.score,
+        reasons: localAlign.reasons,
+        badges: [
+          ...(mutual
+            ? [{ label: "Mutual match", detail: "Your stated preferences align both ways" }]
             : []),
-      ],
-    } satisfies Alignment,
-  }));
+          ...(theyFit && !mutual
+            ? [{ label: "Looking for you", detail: "You match their stated preferences" }]
+            : []),
+          ...(bucket === "recently"
+            ? [{ label: "Active recently", detail: "Activity sharing is enabled" }]
+            : bucket === "this_week"
+              ? [{ label: "Active this week", detail: "Activity sharing is enabled" }]
+              : []),
+          ...localAlign.badges,
+        ],
+      } satisfies Alignment,
+    };
+  });
 
   return (
     <main className="mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">

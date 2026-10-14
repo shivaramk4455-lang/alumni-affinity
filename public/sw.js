@@ -7,7 +7,7 @@
  * (content-addressed names mean a stale copy is always byte-identical).
  */
 
-const CACHE = "merit-circle-shell-v1";
+const CACHE = "merit-circle-shell-v2";
 
 const SHELL = [
   "/",
@@ -20,6 +20,16 @@ const SHELL = [
   "/manifest.webmanifest",
   "/favicon.ico",
 ];
+
+const PUBLIC_DOCUMENT_PATHS = new Set([
+  "/",
+  "/apply",
+  "/auth",
+  "/privacy",
+  "/terms",
+  "/standards",
+  "/grievance",
+]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -45,7 +55,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Suppress the TS nudge for the worker scope; this file ships verbatim.
 const sw = self;
 
 sw.addEventListener("fetch", (event) => {
@@ -55,24 +64,36 @@ sw.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // Immutable hashed bundles: safe to serve stale forever.
-  if (url.pathname.startsWith("/assets/")) {
-    event.respondWith(caches.match(req).then((hit) => hit ?? fetch(req)));
+  // Immutable hashed bundles: cache-first and populate cache on miss.
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/fonts/")) {
+    event.respondWith(
+      (async () => {
+        const hit = await caches.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) {
+          const cache = await caches.open(CACHE);
+          void cache.put(req, res.clone());
+        }
+        return res;
+      })(),
+    );
     return;
   }
 
-  // Documents: network first, fall back to the cached shell only offline.
-  // Member routes are NOT in the cache, so they fail closed when offline
-  // instead of showing another member's stale data.
+  // Documents: network first. Public routes fall back to their cached shell;
+  // private member routes fail closed when offline rather than serving stale shell.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req)
-        .then((res) => res)
-        .catch(() =>
-          caches
-            .match(req)
-            .then((hit) => hit ?? caches.match("/").then((home) => home ?? Response.error())),
-        ),
+      fetch(req).catch(async () => {
+        const exactHit = await caches.match(req);
+        if (exactHit) return exactHit;
+        if (PUBLIC_DOCUMENT_PATHS.has(url.pathname)) {
+          const home = await caches.match("/");
+          if (home) return home;
+        }
+        return Response.error();
+      }),
     );
     return;
   }

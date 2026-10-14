@@ -9,6 +9,7 @@ export type PartnerPreferences = {
   diets: string[];
   religions: string[];
   caste_preference: string | null;
+  manglik_preference: string | null;
   institutions: string[];
   cities: string[];
   relocations: string[];
@@ -25,13 +26,18 @@ export const EMPTY_PREFERENCES: Omit<PartnerPreferences, "user_id"> = {
   diets: [],
   religions: [],
   caste_preference: null,
+  manglik_preference: null,
   institutions: [],
   cities: [],
   relocations: [],
   shield_employer: false,
 };
 
-/** Empty preference lists mean "no constraint", never "match nothing". */
+/**
+ * Empty preference lists mean "no constraint", never "match nothing".
+ * Note: `shield_employer` is a privacy filter, not a partner matching criterion
+ * (mirrors `private.preferences_have_criteria` in PostgreSQL).
+ */
 export function hasAnyPreferences(p: Omit<PartnerPreferences, "user_id">): boolean {
   return (
     p.min_age !== null ||
@@ -43,10 +49,10 @@ export function hasAnyPreferences(p: Omit<PartnerPreferences, "user_id">): boole
     p.diets.length > 0 ||
     p.religions.length > 0 ||
     Boolean(p.caste_preference) ||
+    Boolean(p.manglik_preference) ||
     p.institutions.length > 0 ||
     p.cities.length > 0 ||
-    p.relocations.length > 0 ||
-    p.shield_employer
+    p.relocations.length > 0
   );
 }
 
@@ -66,6 +72,9 @@ export type DirectoryCandidate = {
   marital_status?: string | null;
   religion?: string | null;
   caste?: string | null;
+  rashi?: string | null;
+  nakshatra?: string | null;
+  manglik?: string | null;
 };
 
 export type AlignmentBadge = { label: string; detail: string };
@@ -78,27 +87,17 @@ export type Alignment = { score: number; badges: AlignmentBadge[]; reasons: stri
  * Deterministic compatibility scoring over directory-visible fields only.
  * Weights are deliberately legible (and shown in the UI) rather than a black
  * box: institution affinity 3, city 2, relocation 2, age band 2, gender 1.
- * Returns 0 with an empty badge list when the member has set no preferences,
- * so "best match" degrades gracefully to the existing recency order.
+ * Shared alma mater / same city with the viewer always surface as helpful
+ * context badges even if no explicit partner preferences were saved.
  */
 export function alignCandidate(
   mine: Omit<PartnerPreferences, "user_id">,
   me: { city: string | null; institution: string | null },
   them: DirectoryCandidate,
 ): Alignment {
-  if (!hasAnyPreferences(mine)) return { score: 0, badges: [], reasons: [] };
-
   let score = 0;
   const badges: AlignmentBadge[] = [];
   const reasons: string[] = [];
-
-  if (mine.institutions.length > 0 && them.institution) {
-    if (mine.institutions.includes(them.institution)) {
-      score += 3;
-      badges.push({ label: "Institution match", detail: them.institution });
-      reasons.push(`institution:${them.institution}`);
-    }
-  }
 
   // Shared alma mater with the viewer is its own badge (not just a filter hit).
   if (me.institution && them.institution && me.institution === them.institution) {
@@ -106,17 +105,29 @@ export function alignCandidate(
     reasons.push("shared-alma-mater");
   }
 
-  if (mine.cities.length > 0 && them.city) {
-    if (mine.cities.includes(them.city)) {
-      score += 2;
-      badges.push({ label: "Same city", detail: them.city });
-      reasons.push(`city:${them.city}`);
+  if (me.city && them.city && me.city === them.city) {
+    badges.push({ label: "Same city", detail: them.city });
+    reasons.push(`city:${them.city}`);
+  }
+
+  if (!hasAnyPreferences(mine)) return { score, badges, reasons };
+
+  if (mine.institutions.length > 0 && them.institution) {
+    if (mine.institutions.includes(them.institution)) {
+      score += 3;
+      if (!badges.some((b) => b.label === "Shared alma mater")) {
+        badges.push({ label: "Institution match", detail: them.institution });
+      }
+      reasons.push(`institution:${them.institution}`);
     }
   }
 
-  if (me.city && them.city && me.city === them.city) {
-    if (!badges.some((b) => b.label === "Same city")) {
-      badges.push({ label: "Same city", detail: them.city });
+  if (mine.cities.length > 0 && them.city) {
+    if (mine.cities.includes(them.city)) {
+      score += 2;
+      if (!badges.some((b) => b.label === "Same city")) {
+        badges.push({ label: "Preferred city", detail: them.city });
+      }
       reasons.push(`city:${them.city}`);
     }
   }
@@ -173,6 +184,23 @@ export function alignCandidate(
       badges.push({ label: "Religion match", detail: them.religion });
       reasons.push(`religion:${them.religion}`);
     }
+  }
+
+  if (
+    mine.caste_preference &&
+    mine.caste_preference !== "Open to all / No caste bar" &&
+    them.caste &&
+    them.caste === mine.caste_preference
+  ) {
+    score += 2;
+    badges.push({ label: "Community match", detail: them.caste });
+    reasons.push(`caste:${them.caste}`);
+  }
+
+  if (mine.manglik_preference && them.manglik && them.manglik === mine.manglik_preference) {
+    score += 1;
+    badges.push({ label: "Manglik aligned", detail: them.manglik });
+    reasons.push(`manglik:${them.manglik}`);
   }
 
   if (mine.genders.length > 0 && them.gender) {

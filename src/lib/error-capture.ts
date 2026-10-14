@@ -1,17 +1,47 @@
 // Captures the original Error out-of-band so server.ts can recover the stack
 // when h3 has already swallowed the throw into a generic 500 Response.
+// Uses AsyncLocalStorage when available so concurrent SSR requests never
+// cross-consume each other's captured errors, with a TTL fallback.
 
-let lastCapturedError: { error: unknown; at: number } | undefined;
-const TTL_MS = 5_000;
+type CapturedEntry = { error: unknown; at: number };
+type StoreHolder = { current?: CapturedEntry | undefined };
 
-function record(error: unknown) {
-  lastCapturedError = { error, at: Date.now() };
+let requestStore: {
+  getStore: () => StoreHolder | undefined;
+  run: <T>(store: StoreHolder, fn: () => T) => T;
+} | null = null;
+
+try {
+  // Dynamically resolved in Node / Cloudflare Workers with nodejs_compat
+  const asyncHooks = (
+    globalThis as unknown as { AsyncLocalStorage?: new () => typeof requestStore }
+  ).AsyncLocalStorage;
+  if (asyncHooks) {
+    requestStore = new asyncHooks();
+  }
+} catch {
+  requestStore = null;
 }
 
-// h3's HTTPError serializes to {"status":500,"unhandled":true,"message":"HTTPError"} —
-// no stack, no cause — so a plain console.error(error) reaches the log pipeline with
-// the failure detail stripped. Expand Error-like args into a string that keeps the
-// message, stack, and the full cause chain.
+let lastCapturedError: CapturedEntry | undefined;
+const TTL_MS = 5_000;
+
+export function runWithErrorCapture<T>(fn: () => T): T {
+  if (requestStore) {
+    return requestStore.run({}, fn);
+  }
+  return fn();
+}
+
+function record(error: unknown) {
+  const entry: CapturedEntry = { error, at: Date.now() };
+  const store = requestStore?.getStore();
+  if (store) {
+    store.current = entry;
+  }
+  lastCapturedError = entry;
+}
+
 const CAUSE_DEPTH_LIMIT = 5;
 const DESCRIPTION_LENGTH_LIMIT = 8_000;
 
@@ -49,9 +79,6 @@ function isErrorLike(value: unknown): value is Error {
   return value instanceof Error;
 }
 
-// Wrap console.error so errors logged by any layer — including h3's internal
-// unhandled-error logging, which this file cannot hook directly — are both
-// recorded for consumeLastCapturedError and expanded before serialization.
 const originalConsoleError = console.error.bind(console);
 console.error = (...args: unknown[]) => {
   const expanded = args.map((arg) => {
@@ -70,6 +97,12 @@ if (typeof globalThis.addEventListener === "function") {
 }
 
 export function consumeLastCapturedError(): unknown {
+  const store = requestStore?.getStore();
+  if (store?.current) {
+    const { error, at } = store.current;
+    store.current = undefined;
+    if (Date.now() - at <= TTL_MS) return error;
+  }
   if (!lastCapturedError) return undefined;
   if (Date.now() - lastCapturedError.at > TTL_MS) {
     lastCapturedError = undefined;

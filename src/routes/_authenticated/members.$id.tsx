@@ -29,7 +29,7 @@ import { MemberPhoto } from "@/components/member-photo";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { recordProfileView } from "@/lib/access-log";
 import { supabase } from "@/integrations/supabase/client";
-import type { Alignment } from "@/lib/alignment";
+import { alignCandidate, EMPTY_PREFERENCES, type Alignment } from "@/lib/alignment";
 import {
   BASE_DIRECTORY_COLUMNS,
   DIRECTORY_COLUMNS,
@@ -405,12 +405,48 @@ function MemberProfile() {
   const canSeePhoto =
     data?.photo_visibility === "all_members" || (accepted && data?.photo_visibility !== "hidden");
 
-  // "Shared ground" is server-derived (directory_match_signals): a mutual badge
-  // means both members' stated preferences pass; the one-way badge means only
-  // this member's criteria include the viewer. Nothing is recomputed client-side.
+  const myPrefs = useQuery({
+    queryKey: ["partner-preferences"],
+    enabled: !!me.data && me.data.id !== id,
+    queryFn: async () => {
+      const { data: row, error } = await supabase
+        .from("partner_preferences")
+        .select(
+          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, manglik_preference, institutions, cities, relocations, shield_employer",
+        )
+        .maybeSingle();
+      if (error || !row) return { ...EMPTY_PREFERENCES };
+      return {
+        min_age: row.min_age,
+        max_age: row.max_age,
+        min_height_cm: row.min_height_cm,
+        max_height_cm: row.max_height_cm,
+        genders: row.genders ?? [],
+        marital_statuses: row.marital_statuses ?? [],
+        diets: row.diets ?? [],
+        religions: row.religions ?? [],
+        caste_preference: row.caste_preference ?? null,
+        manglik_preference: row.manglik_preference ?? null,
+        institutions: row.institutions ?? [],
+        cities: row.cities ?? [],
+        relocations: row.relocations ?? [],
+        shield_employer: row.shield_employer ?? false,
+      };
+    },
+  });
+
+  const detailAlignment =
+    data && me.data && me.data.id !== id
+      ? alignCandidate(
+          myPrefs.data ?? EMPTY_PREFERENCES,
+          { city: me.data.city ?? null, institution: me.data.institution ?? null },
+          data,
+        )
+      : { score: 0, badges: [], reasons: [] };
+
   const alignment: Alignment = {
-    score: 0,
-    reasons: [],
+    score: detailAlignment.score,
+    reasons: detailAlignment.reasons,
     badges: [
       ...(matchSignals.data?.mutual_match
         ? [
@@ -428,6 +464,7 @@ function MemberProfile() {
             },
           ]
         : []),
+      ...detailAlignment.badges,
     ],
   };
   const watermark = me.data?.full_name
@@ -470,7 +507,8 @@ function MemberProfile() {
       cp.institutions.length ||
       cp.cities.length ||
       cp.relocations.length ||
-      cp.caste_preference),
+      cp.caste_preference ||
+      (cp as { manglik_preference?: string | null }).manglik_preference),
   );
   const viewerMatchesCandidate = matchSignals.data?.matches_their_preferences === true;
   const mutualMatch = matchSignals.data?.mutual_match === true;
@@ -903,7 +941,16 @@ function MemberProfile() {
                   {cp.relocations && cp.relocations.length > 0 && (
                     <Row k="Relocation preference" v={cp.relocations.join(", ")} />
                   )}
+                  {cp.religions && cp.religions.length > 0 && (
+                    <Row k="Preferred religion" v={cp.religions.join(", ")} />
+                  )}
                   {cp.caste_preference && <Row k="Community / Caste" v={cp.caste_preference} />}
+                  {(cp as { manglik_preference?: string | null }).manglik_preference && (
+                    <Row
+                      k="Manglik preference"
+                      v={(cp as { manglik_preference?: string | null }).manglik_preference ?? null}
+                    />
+                  )}
                 </dl>
               )}
 

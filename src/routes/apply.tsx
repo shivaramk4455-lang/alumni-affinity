@@ -311,7 +311,7 @@ function ApplyPage() {
           <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
             <div>
               <h1 className="font-serif text-4xl font-semibold text-foreground md:text-5xl">
-                Begin with your own voice.
+                Your story, in your own words.
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Approximately 8 minutes. Your answers are kept on this device until you create an

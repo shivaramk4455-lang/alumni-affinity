@@ -162,12 +162,12 @@ function ConversationPage() {
   const counterpartFirstName = p?.full_name?.split(" ")[0] || "Member";
 
   async function handleStartCall() {
-    if (!convo.data || !myId || !otherId) return;
+    if (!convo.data?.id || !myId || !otherId) return;
     try {
       const { data: callRow, error } = await supabase
         .from("calls")
         .insert({
-          conversation_id: convo.data,
+          conversation_id: convo.data.id,
           caller_id: myId,
           callee_id: otherId,
         })

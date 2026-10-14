@@ -15,8 +15,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
-const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
-const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 
 // No CORS headers on this function: it is called only by Razorpay's servers,
 // never from a browser. Returning Access-Control-Allow-Origin: * would invite
@@ -73,15 +71,14 @@ type InvoiceEntity = {
 
 const iso = (seconds?: number) => (seconds ? new Date(seconds * 1000).toISOString() : null);
 
+const TERMINAL = new Set(["halted", "cancelled", "completed", "expired"]);
+
 serve(async (req) => {
-  // Razorpay calls POST only; no browser preflight is expected.
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY || !WEBHOOK_SECRET) {
     return json({ error: "Server configuration error" }, 500);
   }
 
-  // Read once as text: re-serialising the parsed JSON would change the bytes
-  // and the signature would no longer match.
   const raw = await req.text();
   const signature = req.headers.get("x-razorpay-signature") ?? "";
   if (!(await verify(raw, signature))) {
@@ -101,119 +98,132 @@ serve(async (req) => {
     return json({ error: "Malformed body" }, 400);
   }
 
-  // Create the service-role client once and reuse throughout the handler.
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  // F-02: Idempotency via event_id dedup.
-  // Razorpay signs only the body (no timestamp envelope), so a captured,
-  // validly-signed request is replayable indefinitely. We store the Razorpay
-  // event.id in a dedup table; any id we have seen before gets a 200
-  // immediately without touching the subscriptions table.
-  // The unique constraint on webhook_events.event_id turns a duplicate into
-  // a conflict; ON CONFLICT DO NOTHING means the insert is a no-op on replay.
+  // F-02: Idempotency check via event_id.
+  // Check whether this event_id was already processed first, and record it into
+  // webhook_events after the state update succeeds so a transient DB error
+  // does not permanently drop a valid retry.
   const eventId = event.id ?? null;
   if (eventId) {
-    const { error: dedupError } = await admin
+    const { data: seen } = await admin
       .from("webhook_events")
-      .insert({ event_id: eventId, event_type: event.event ?? null });
-    if (dedupError) {
-      // error code 23505 = unique_violation: this event was already processed.
-      if (dedupError.code === "23505") {
-        console.info("razorpay-webhook: duplicate event_id, skipping", eventId);
-        return json({ ok: true, ignored: true, duplicate: true, event: event.event });
-      }
-      // Any other dedup error: log and continue rather than dropping the event.
-      console.warn("razorpay-webhook: dedup insert failed, continuing:", dedupError.message);
+      .select("event_id")
+      .eq("event_id", eventId)
+      .maybeSingle();
+    if (seen) {
+      console.info("razorpay-webhook: duplicate event_id, skipping", eventId);
+      return json({ ok: true, ignored: true, duplicate: true, event: event.event });
     }
   }
 
-  const entity = (event.payload?.subscription?.entity ?? event.payload?.entity ?? {}) as
-    SubscriptionEntity | InvoiceEntity;
+  const subPayload = (
+    event.payload as { subscription?: { entity?: SubscriptionEntity } } | undefined
+  )?.subscription?.entity;
+  const invPayload = (event.payload as { invoice?: { entity?: InvoiceEntity } } | undefined)
+    ?.invoice?.entity;
+  const genericEntity = (
+    event.payload as { entity?: SubscriptionEntity & InvoiceEntity } | undefined
+  )?.entity;
+
+  const entity: SubscriptionEntity & InvoiceEntity = subPayload ?? genericEntity ?? {};
   const rzpSubscriptionId =
-    (event.payload?.subscription?.entity as SubscriptionEntity)?.id ?? entity.id;
+    subPayload?.id ?? invPayload?.subscription_id ?? entity.subscription_id ?? entity.id;
 
   if (!rzpSubscriptionId) {
-    // Some events (a failed payment) carry no subscription entity we act on.
     return json({ ok: true, ignored: true, event: event.event });
   }
 
-  // Entitlement is keyed on the Razorpay subscription, never on a user id
-  // from the payload: a forged-but-signed-for-another-subscription body would
-  // otherwise be able to credit the wrong member.
-  const { data: existing } = await admin
+  const { data: existing, error: fetchError } = await admin
     .from("subscriptions")
-    .select("id, status, updated_at")
+    .select("id, status, period_start, period_end, updated_at")
     .eq("razorpay_subscription_id", rzpSubscriptionId)
     .maybeSingle();
 
-  // Event ordering: Razorpay signs the body only (no timestamp envelope),
-  // so a captured old event replays validly. Ignore events older than the
-  // row's last write, and never regress a terminal state (halted /
-  // cancelled / completed / expired) back to an entitling one.
-  const eventSeconds = (event as { created_at?: number }).created_at;
-  const existingSeconds = existing?.updated_at
-    ? Math.floor(new Date(existing.updated_at).getTime() / 1000)
-    : null;
-  if (existingSeconds !== null && eventSeconds !== undefined && eventSeconds < existingSeconds) {
-    return json({ ok: true, ignored: true, stale: true, event: event.event });
+  if (fetchError) {
+    return json({ error: fetchError.message }, 500);
   }
-  const TERMINAL = new Set(["halted", "cancelled", "completed", "expired"]);
-  const regressing = !!existing && TERMINAL.has(existing.status) && event.event === "invoice.paid";
-  if (regressing) {
+
+  if (!existing) {
+    return json({ ok: true, ignored: true, reason: "unknown_subscription", event: event.event });
+  }
+
+  // State-machine monotonic ordering guard:
+  // Never compare Razorpay's `event.created_at` against `existing.updated_at`
+  // because `existing.updated_at` is modified by `mirror_intro_usage()` on
+  // every sent introduction and by wall-clock arrival of `subscription.authenticated`
+  // (which Razorpay creates within the same second as `subscription.activated`
+  // and `invoice.paid`). Instead:
+  //  1. Never allow a terminal state (halted/cancelled/completed/expired) to
+  //     regress back to an entitling state.
+  //  2. Never allow an out-of-order `subscription.authenticated` to downgrade
+  //     an already `active` subscription back to `authenticated`.
+  if (
+    TERMINAL.has(existing.status) &&
+    (event.event === "subscription.authenticated" ||
+      event.event === "subscription.activated" ||
+      event.event === "subscription.pending" ||
+      event.event === "invoice.paid" ||
+      event.event === "invoice.payment_failed")
+  ) {
     return json({ ok: true, ignored: true, terminal: existing.status, event: event.event });
   }
 
-  const status = entity.status ?? "created";
-  const periodStart = iso((entity as SubscriptionEntity).current_start);
-  const periodEnd = iso((entity as SubscriptionEntity).current_end);
-  const invoice = event.payload?.invoice?.entity as InvoiceEntity | undefined;
+  const rawStatus = entity.status ?? "created";
+  const periodStart = iso(entity.current_start);
+  const periodEnd = iso(entity.current_end);
+
+  let updateError: { message: string } | null = null;
 
   switch (event.event) {
-    // Money received: activate and reset the monthly allowance.
     case "subscription.activated":
     case "subscription.authenticated": {
+      const nextStatus =
+        event.event === "subscription.activated"
+          ? "active"
+          : existing.status === "active"
+            ? "active"
+            : rawStatus === "created"
+              ? "authenticated"
+              : rawStatus;
+
       const patch: Record<string, unknown> = {
-        status,
-        period_start: periodStart,
-        period_end: periodEnd,
-        cancel_at_period_end: Boolean((entity as SubscriptionEntity).cancel_at_cycle_end),
+        status: nextStatus,
+        period_start: periodStart ?? existing.period_start,
+        period_end: periodEnd ?? existing.period_end,
+        cancel_at_period_end: Boolean(entity.cancel_at_cycle_end),
         updated_at: new Date().toISOString(),
       };
       if (event.event === "subscription.activated") patch.requests_used = 0;
-      if (invoice?.id) patch.razorpay_order_id = String(invoice.id);
-      if (existing) {
-        await admin.from("subscriptions").update(patch).eq("id", existing.id);
-      }
+      if (invPayload?.id) patch.razorpay_order_id = String(invPayload.id);
+
+      const { error } = await admin.from("subscriptions").update(patch).eq("id", existing.id);
+      updateError = error;
       break;
     }
 
-    // A new billing period: the allowance refills, it does not accumulate.
     case "invoice.paid": {
-      if (existing) {
-        await admin
-          .from("subscriptions")
-          .update({
-            status: "active",
-            requests_used: 0,
-            period_start: iso(invoice?.period_start) ?? periodStart,
-            period_end: iso(invoice?.period_end) ?? periodEnd,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-      }
+      const { error } = await admin
+        .from("subscriptions")
+        .update({
+          status: "active",
+          requests_used: 0,
+          period_start: iso(invPayload?.period_start) ?? periodStart ?? existing.period_start,
+          period_end: iso(invPayload?.period_end) ?? periodEnd ?? existing.period_end,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+      updateError = error;
       break;
     }
 
-    // Payment failed but Razorpay is still retrying: keep the entitlement and
-    // let the dunning play out, rather than cutting a member off instantly.
     case "invoice.payment_failed":
     case "subscription.pending": {
-      if (existing) {
-        await admin
-          .from("subscriptions")
-          .update({ status: "pending", updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      }
+      const { error } = await admin
+        .from("subscriptions")
+        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      updateError = error;
       break;
     }
 
@@ -221,17 +231,34 @@ serve(async (req) => {
     case "subscription.cancelled":
     case "subscription.completed":
     case "subscription.expired": {
-      if (existing) {
-        await admin
-          .from("subscriptions")
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      }
+      const terminalStatus = event.event.replace("subscription.", "");
+      const { error } = await admin
+        .from("subscriptions")
+        .update({
+          status: TERMINAL.has(rawStatus) ? rawStatus : terminalStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+      updateError = error;
       break;
     }
 
     default:
       return json({ ok: true, ignored: true, event: event.event });
+  }
+
+  if (updateError) {
+    console.error("razorpay-webhook: subscription update failed:", updateError.message);
+    return json({ error: updateError.message }, 500);
+  }
+
+  if (eventId) {
+    const { error: dedupError } = await admin
+      .from("webhook_events")
+      .insert({ event_id: eventId, event_type: event.event ?? null });
+    if (dedupError && dedupError.code !== "23505") {
+      console.warn("razorpay-webhook: dedup insert warning:", dedupError.message);
+    }
   }
 
   return json({ ok: true, event: event.event });

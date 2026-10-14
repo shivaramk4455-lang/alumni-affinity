@@ -46,7 +46,7 @@ RETURNS TABLE (
   profession text, relocation text, birth_year int, gender text, height_cm int,
   marital_status text, diet text, mother_tongue text, residency_status text,
   photo_path text, photo_visibility text, religion text, caste text, gotra text,
-  rashi text, nakshatra text, manglik text,
+  created_by text, rashi text, nakshatra text, nakshatra_pada int, manglik text,
   created_at timestamptz, total_count bigint, matches_your_preferences boolean,
   matches_their_preferences boolean, mutual_match boolean, activity_bucket text
 )
@@ -166,7 +166,7 @@ BEGIN
     f.profession, f.relocation, f.birth_year, f.gender, f.height_cm,
     f.marital_status, f.diet, f.mother_tongue, f.residency_status,
     f.photo_path, f.photo_visibility, f.religion, f.caste, f.gotra,
-    f.rashi, f.nakshatra, f.manglik,
+    f.created_by, f.rashi, f.nakshatra, f.nakshatra_pada, f.manglik,
     f.created_at, f.total_count, f.you_fit, f.they_fit,
     (f.you_fit AND f.they_fit),
     CASE WHEN f.active_recently THEN 'recently' WHEN f.active_this_week THEN 'this_week' ELSE NULL END

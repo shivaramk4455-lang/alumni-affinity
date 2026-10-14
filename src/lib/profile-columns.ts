@@ -112,5 +112,10 @@ export type SearchResultRow = {
   created_by?: string | null;
   rashi?: string | null;
   nakshatra?: string | null;
+  nakshatra_pada?: number | null;
   manglik?: string | null;
+  matches_your_preferences?: boolean;
+  matches_their_preferences?: boolean;
+  mutual_match?: boolean;
+  activity_bucket?: string | null;
 };

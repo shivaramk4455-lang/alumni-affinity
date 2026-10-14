@@ -77,7 +77,8 @@ export const SITE_NAME = "The Merit Circle";
  * The service descriptor used in page titles, SEO metadata and the site
  * footer. Keep the short brand descriptor separate from the audience tagline.
  */
-export const SITE_TAGLINE = "IIT, IIM & Premier Alumni Matrimony";
+export const SITE_TAGLINE =
+  "The Private Matrimonial Circle for IIT, IIM & Premier Institute Alumni";
 
 /**
  * Every field the release gate inspects, paired with a human-readable label.

@@ -133,20 +133,10 @@ BEGIN
   _part_a := LEAST(_a, _b);
   _part_b := GREATEST(_a, _b);
 
-  -- First, check if a canonical conversation already exists between this pair
-  SELECT id INTO _conv
-  FROM public.conversations
-  WHERE participant_a = _part_a AND participant_b = _part_b
-  LIMIT 1;
-
-  IF _conv IS NOT NULL THEN
-    RETURN _conv;
-  END IF;
-
   INSERT INTO public.conversations (interest_id, participant_a, participant_b)
   VALUES (_interest_id, _part_a, _part_b)
   ON CONFLICT (participant_a, participant_b) DO UPDATE
-    SET updated_at = now()
+    SET interest_id = EXCLUDED.interest_id
   RETURNING id INTO _conv;
 
   RETURN _conv;
@@ -366,29 +356,29 @@ BEGIN
   FOR _row IN
     SELECT * FROM public.interests
      WHERE status = 'pending'
+       AND reminder_sent_at IS NULL
        AND expires_at IS NOT NULL
-       AND expires_at < now() + interval '3 days'
+       AND expires_at - interval '7 days' <= now()
        AND expires_at >= now()
-       AND NOT reminder_sent
      FOR UPDATE SKIP LOCKED
   LOOP
     UPDATE public.interests
-       SET reminder_sent = true, updated_at = now()
+       SET reminder_sent_at = now(), updated_at = now()
      WHERE id = _row.id;
 
     INSERT INTO public.notifications (user_id, kind, title, body, link)
     VALUES (
       _row.recipient_id,
-      'interest_received',
-      'An introduction will expire soon',
-      'An introduction waiting for your response will close in three days.',
+      'interest_reminder',
+      'An introduction is waiting for you',
+      'An introduction sent to you will close in seven days. A reply of any kind keeps it alive.',
       '/connections'
     );
 
     _reminded := _reminded + 1;
   END LOOP;
 
-  RETURN _expired;
+  RETURN _expired + _reminded;
 END;
 $$;
 
@@ -403,7 +393,7 @@ BEGIN
     SELECT id, callee_id
     FROM public.calls
     WHERE status = 'ringing'
-      AND created_at < now() - interval '90 seconds'
+      AND started_at < now() - interval '90 seconds'
     FOR UPDATE SKIP LOCKED
   LOOP
     UPDATE public.calls

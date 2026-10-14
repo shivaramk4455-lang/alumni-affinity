@@ -685,8 +685,8 @@ export function SiteHeader() {
             <span className="block truncate font-serif text-xl font-semibold leading-none text-foreground">
               The Merit Circle
             </span>
-            <span className="mt-1 block truncate text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              IIT, IIM & Premier Alumni Matrimony
+            <span className="mt-1 block truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {SITE_TAGLINE}
             </span>
           </span>
         </Link>

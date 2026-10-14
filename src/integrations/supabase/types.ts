@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -534,42 +534,6 @@ export type Database = {
           },
         ]
       }
-      member_activity: {
-        Row: {
-          enabled: boolean
-          last_active_at: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          enabled?: boolean
-          last_active_at?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          enabled?: boolean
-          last_active_at?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "member_activity_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "my_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "member_activity_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       messages: {
         Row: {
           body: string
@@ -614,6 +578,27 @@ export type Database = {
             foreignKeyName: "messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_activity: {
+        Row: { enabled: boolean; last_active_at: string | null; updated_at: string; user_id: string }
+        Insert: { enabled?: boolean; last_active_at?: string | null; updated_at?: string; user_id: string }
+        Update: { enabled?: boolean; last_active_at?: string | null; updated_at?: string; user_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "member_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -775,12 +760,12 @@ export type Database = {
       partner_preferences: {
         Row: {
           caste_preference: string | null
+          manglik_preference: string | null
           cities: string[]
           created_at: string
           diets: string[]
           genders: string[]
           institutions: string[]
-          manglik_preference: string | null
           marital_statuses: string[]
           max_age: number | null
           max_height_cm: number | null
@@ -794,12 +779,12 @@ export type Database = {
         }
         Insert: {
           caste_preference?: string | null
+          manglik_preference?: string | null
           cities?: string[]
           created_at?: string
           diets?: string[]
           genders?: string[]
           institutions?: string[]
-          manglik_preference?: string | null
           marital_statuses?: string[]
           max_age?: number | null
           max_height_cm?: number | null
@@ -813,12 +798,12 @@ export type Database = {
         }
         Update: {
           caste_preference?: string | null
+          manglik_preference?: string | null
           cities?: string[]
           created_at?: string
           diets?: string[]
           genders?: string[]
           institutions?: string[]
-          manglik_preference?: string | null
           marital_statuses?: string[]
           max_age?: number | null
           max_height_cm?: number | null
@@ -1482,7 +1467,6 @@ export type Database = {
           city?: string | null
           contact_phone?: string | null
           created_at?: string | null
-          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1531,7 +1515,6 @@ export type Database = {
           city?: string | null
           contact_phone?: string | null
           created_at?: string | null
-          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1642,72 +1625,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      directory_match_signals: {
-        Args: { _candidate_ids: string[] }
-        Returns: {
-          activity_bucket: string
-          candidate_id: string
-          matches_their_preferences: boolean
-          matches_your_preferences: boolean
-          mutual_match: boolean
-        }[]
-      }
-      discover_members: {
-        Args: {
-          _city?: string
-          _diet?: string
-          _feed?: string
-          _gender?: string
-          _institution?: string
-          _manglik?: string
-          _marital_status?: string
-          _max_birth_year?: number
-          _min_birth_year?: number
-          _min_height?: number
-          _mother_tongue?: string
-          _page?: number
-          _page_size?: number
-          _profession?: string
-          _rashi?: string
-          _religion?: string
-          _relocation?: string
-          _residency?: string
-          _search?: string
-          _sort?: string
-          _with_photo?: boolean
-        }
-        Returns: {
-          activity_bucket: string
-          birth_year: number
-          caste: string
-          city: string
-          created_at: string
-          degree: string
-          diet: string
-          full_name: string
-          gender: string
-          gotra: string
-          grad_year: number
-          height_cm: number
-          id: string
-          institution: string
-          manglik: string
-          marital_status: string
-          matches_their_preferences: boolean
-          matches_your_preferences: boolean
-          mother_tongue: string
-          mutual_match: boolean
-          nakshatra: string
-          photo_path: string
-          photo_visibility: string
-          profession: string
-          rashi: string
-          religion: string
-          relocation: string
-          residency_status: string
-          total_count: number
-        }[]
-      }
       enqueue_notification: {
         Args: {
           _idempotency_key?: string
@@ -1740,18 +1657,86 @@ export type Database = {
       get_profile_partner_preferences: {
         Args: { _profile: string }
         Returns: {
-          caste_preference: string
+          caste_preference: string | null
+          manglik_preference: string | null
           cities: string[]
           diets: string[]
           genders: string[]
           institutions: string[]
           marital_statuses: string[]
-          max_age: number
-          max_height_cm: number
-          min_age: number
-          min_height_cm: number
-          religions: string[]
+          max_age: number | null
+          max_height_cm: number | null
+          min_age: number | null
+          min_height_cm: number | null
           relocations: string[]
+          religions: string[]
+        }[]
+      }
+      directory_match_signals: {
+        Args: { _candidate_ids: string[] }
+        Returns: {
+          activity_bucket: string | null
+          candidate_id: string
+          matches_their_preferences: boolean
+          matches_your_preferences: boolean
+          mutual_match: boolean
+        }[]
+      }
+      discover_members: {
+        Args: {
+          _city?: string | null
+          _feed?: string
+          _page?: number
+          _page_size?: number
+          _profession?: string | null
+          _sort?: string
+          _with_photo?: boolean
+          _institution?: string | null
+          _relocation?: string | null
+          _gender?: string | null
+          _diet?: string | null
+          _marital_status?: string | null
+          _residency?: string | null
+          _mother_tongue?: string | null
+          _religion?: string | null
+          _rashi?: string | null
+          _manglik?: string | null
+          _min_height?: number | null
+          _min_birth_year?: number | null
+          _max_birth_year?: number | null
+          _search?: string | null
+        }
+        Returns: {
+          activity_bucket: string | null
+          birth_year: number | null
+          caste: string | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          degree: string | null
+          diet: string | null
+          full_name: string
+          gender: string | null
+          gotra: string | null
+          grad_year: number | null
+          height_cm: number | null
+          id: string
+          institution: string | null
+          matches_their_preferences: boolean
+          matches_your_preferences: boolean
+          marital_status: string | null
+          manglik: string | null
+          mutual_match: boolean
+          mother_tongue: string | null
+          nakshatra: string | null
+          photo_path: string | null
+          photo_visibility: string
+          profession: string | null
+          rashi: string | null
+          religion: string | null
+          relocation: string | null
+          residency_status: string | null
+          total_count: number
         }[]
       }
       notification_channels_for: {

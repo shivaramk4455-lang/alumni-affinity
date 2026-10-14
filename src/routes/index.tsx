@@ -7,7 +7,9 @@ import {
   Fingerprint,
   GraduationCap,
   LockKeyhole,
+  MapPin,
   ShieldCheck,
+  Sparkles,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -17,25 +19,60 @@ import { SITE_TAGLINE } from "@/lib/legal-identity";
 import { Button } from "@/components/ui/button";
 import { canonical, ORGANIZATION_JSON_LD } from "@/lib/seo";
 
+const ILLUSTRATIVE_ARCHETYPES = [
+  {
+    monogram: "A·R",
+    cohort: "IIT Bombay ’19",
+    degree: "B.Tech & M.Tech, Electrical Engineering",
+    role: "Principal Systems Architect",
+    location: "Bengaluru · Open to relocation",
+    tags: ["Classical Carnatic", "Vegetarian", "Family co-pilot active"],
+    visibilityNote: "Employer & photograph unlocked upon mutual introduction",
+  },
+  {
+    monogram: "M·S",
+    cohort: "IIM Ahmedabad ’21",
+    degree: "PGP in Management · SRCC ’19",
+    role: "Vice President, Private Equity",
+    location: "Mumbai",
+    tags: ["Marathoner", "Non-smoker", "Candidate-led"],
+    visibilityNote: "Batch & surname shielded to fellow firm alumni",
+  },
+  {
+    monogram: "K·V",
+    cohort: "AIIMS New Delhi ’18",
+    degree: "MBBS, MD (Internal Medicine)",
+    role: "Senior Clinical Fellow",
+    location: "London · Returning to India ’27",
+    tags: ["Reader & flautist", "Teetotaller", "Horoscope optional"],
+    visibilityNote: "Photographs blurred until explicit gallery grant",
+  },
+  {
+    monogram: "R·N",
+    cohort: "BITS Pilani ’20 · Stanford ’22",
+    degree: "M.S. Computer Science",
+    role: "Staff Machine Learning Engineer",
+    location: "San Francisco · Bengaluru roots",
+    tags: ["Mountaineering", "Egalitarian values", "Parent co-pilot invited"],
+    visibilityNote: "Direct messaging opens only after candidate acceptance",
+  },
+] as const;
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: `The Merit Circle — ${SITE_TAGLINE}` },
       {
         name: "description",
-        content:
-          "Thoughtful matchmaking for IIT, IIM and leading-institution alumni. A discreet, verified matrimonial circle where candidates lead and families participate by invitation.",
+        content: `${SITE_TAGLINE}. A discreet, verified matrimonial circle where candidates lead and families participate by invitation.`,
       },
       { property: "og:title", content: `The Merit Circle — ${SITE_TAGLINE}` },
       {
         property: "og:description",
-        content:
-          "Thoughtful matchmaking for IIT, IIM and leading-institution alumni. Candidate-led introductions, family co-piloted, private by design.",
+        content: `${SITE_TAGLINE}. Candidate-led introductions, family co-piloted, private by design.`,
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      // Structured data: what this organisation is and where it operates.
-      // Only the landing page carries it, so the entity is declared once.
       { "script:ld+json": ORGANIZATION_JSON_LD },
     ],
     links: [canonical("/")],
@@ -51,8 +88,7 @@ function Index() {
         <div className="mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
             <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] text-brass">
-              <span className="h-px w-9 bg-brass" /> Membership by Institutional Verification — IIT,
-              IIM, BITS & Global Alumni
+              <span className="h-px w-9 bg-brass" /> {SITE_TAGLINE}
             </div>
             <h1 className="mt-5 max-w-[16ch] font-serif text-4xl font-semibold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-5xl lg:text-[3.25rem] xl:text-[3.75rem]">
               For people who built their own lives—and wish to choose their own partner.
@@ -178,7 +214,7 @@ function Index() {
               <Eligibility
                 icon={<GraduationCap />}
                 title="Indian institutions"
-                text="IITs, IIMs, BITS Pilani, FMS, JBIMS, NIFT, IISc, ISI, NLSIU and a considered list of comparable institutions."
+                text="IITs, IIMs, AIIMS, BITS Pilani, FMS, JBIMS, NIFT, IISc, ISI, NLSIU and a considered list of comparable institutions."
               />
               <Eligibility
                 icon={<FileCheck2 />}
@@ -205,19 +241,81 @@ function Index() {
         className="border-b border-border px-5 py-16 md:px-8 md:py-24"
       >
         <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
-              Inside the Circle
-            </p>
-            <h2 className="mt-3 font-serif text-4xl font-semibold md:text-5xl">
-              A private process, built around your choice.
-            </h2>
-            <p className="mt-5 text-sm leading-7 text-muted-foreground">
-              Real member profiles are never displayed publicly. Here’s how a considered,
-              consent-led introduction works.
-            </p>
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div className="max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
+                Inside the Circle — Illustrative Profiles
+              </p>
+              <h2 className="mt-3 font-serif text-4xl font-semibold md:text-5xl">
+                Dignified dossiers, never a public feed.
+              </h2>
+              <p className="mt-5 text-sm leading-7 text-muted-foreground">
+                Real member profiles are never displayed publicly. The composite archetypes below
+                illustrate how institutional credentials, personal values, and granular discretion
+                locks appear inside a verified member dossier.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 self-start border border-brass/40 bg-secondary/60 px-3.5 py-2 text-xs font-semibold text-foreground lg:self-auto">
+              <Sparkles className="size-3.5 text-brass" aria-hidden="true" />
+              Illustrative composite archetypes · Zero real member data shown
+            </div>
           </div>
-          <div className="mt-10 grid border-y border-border md:grid-cols-3 md:divide-x md:divide-y-0 divide-y divide-border">
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {ILLUSTRATIVE_ARCHETYPES.map((item) => (
+              <article
+                key={item.cohort}
+                className="flex flex-col justify-between border border-border bg-card p-6 transition-colors hover:border-brass/60"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="grid size-12 shrink-0 place-items-center border border-brass/50 bg-secondary font-serif text-base font-semibold tracking-wider text-foreground">
+                      {item.monogram}
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-success">
+                      <ShieldCheck className="size-3.5" aria-hidden="true" /> Verified
+                    </span>
+                  </div>
+
+                  <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-brass">
+                    {item.cohort}
+                  </p>
+                  <h3 className="mt-1.5 font-serif text-xl font-semibold leading-snug text-foreground">
+                    {item.role}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.degree}</p>
+
+                  <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                    <MapPin className="size-3.5 shrink-0 text-brass" aria-hidden="true" />
+                    {item.location}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {item.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="border border-border bg-secondary/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-border pt-3.5">
+                  <p className="flex items-start gap-2 text-[11px] leading-4 text-muted-foreground">
+                    <LockKeyhole
+                      className="mt-0.5 size-3.5 shrink-0 text-brass"
+                      aria-hidden="true"
+                    />
+                    <span>{item.visibilityNote}</span>
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-12 grid border-y border-border md:grid-cols-3 md:divide-x md:divide-y-0 divide-y divide-border">
             <Principle
               n="01"
               icon={<ShieldCheck />}

@@ -224,7 +224,8 @@ serve(async (req) => {
   const summary = { claimed: rows.length, sent: 0, failed: 0, skipped: 0 };
 
   // Destinations are private profile columns, so they are read through the
-  // security-definer `my_profile`-style access the service role is entitled to.
+  // service-role client. If a member verified via credential document without
+  // filling `alumni_email`, fall back to their primary login email in `auth.users`.
   const userIds = [...new Set(rows.map((r) => r.user_id))];
   const destinations = new Map<string, Destination>();
   if (userIds.length) {
@@ -237,6 +238,21 @@ serve(async (req) => {
         email: p.alumni_email ?? undefined,
         phone: p.contact_phone ?? undefined,
       });
+    }
+
+    for (const uid of userIds) {
+      const current = destinations.get(uid) ?? {};
+      if (!current.email) {
+        try {
+          const { data: authUser } = await admin.auth.admin.getUserById(uid);
+          if (authUser?.user?.email) {
+            current.email = authUser.user.email;
+            destinations.set(uid, current);
+          }
+        } catch {
+          // Keep undefined; handled below per channel
+        }
+      }
     }
   }
 
@@ -257,7 +273,7 @@ serve(async (req) => {
     const text = channelBody(row.channel, rendered);
     let error: string | null = null;
     if (row.channel === "email") {
-      if (!dest.email) error = "member has no alumni email on file";
+      if (!dest.email) error = "member has no email on file";
       else error = await sendEmail(dest.email, rendered);
     } else if (!dest.phone) {
       error = "member has no phone on file";

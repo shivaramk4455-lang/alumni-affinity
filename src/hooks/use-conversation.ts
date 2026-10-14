@@ -34,35 +34,30 @@ export function useConversation(interestId: string | undefined) {
   const convo = useQuery({
     queryKey: ["conversation", interestId],
     enabled: !!interestId,
-    queryFn: async (): Promise<string | null> => {
-      // The RPC now returns the conversation UUID directly (atomic, canonical
-      // participant ordering enforced server-side).
-      const { data, error } = await supabase.rpc("get_or_create_conversation", {
+    queryFn: async (): Promise<ConversationRow | null> => {
+      const { data: rpcData, error } = await supabase.rpc("get_or_create_conversation", {
         _interest_id: interestId!,
       });
       if (error) throw error;
-      return (data as string | null) ?? null;
+      if (!rpcData) return null;
+
+      if (typeof rpcData === "object" && rpcData !== null && "id" in rpcData) {
+        return rpcData as unknown as ConversationRow;
+      }
+
+      const convId = String(rpcData);
+      const { data: row, error: rowErr } = await supabase
+        .from("conversations")
+        .select("id, interest_id, participant_a, participant_b, last_message_at, created_at")
+        .eq("id", convId)
+        .maybeSingle();
+      if (rowErr) throw rowErr;
+      return (row as ConversationRow | null) ?? null;
     },
     staleTime: 60_000,
   });
 
-  const conversationId = convo.data ?? null;
-
-  // Participants are needed only for the post-send counterpart notification.
-  const participants = useQuery({
-    queryKey: ["conversation-participants", conversationId],
-    enabled: !!conversationId,
-    queryFn: async (): Promise<ConversationRow | null> => {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select("id, interest_id, participant_a, participant_b, last_message_at, created_at")
-        .eq("id", conversationId!)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as ConversationRow | null) ?? null;
-    },
-    staleTime: 300_000,
-  });
+  const conversationId = convo.data?.id ?? null;
 
   const history = useQuery({
     queryKey: ["messages", conversationId],
@@ -81,8 +76,7 @@ export function useConversation(interestId: string | undefined) {
     },
   });
 
-  // Realtime appends; the channel is scoped per conversation id. History stays
-  // the source of truth — realtime only invalidates/appends.
+  // Realtime appends and read-receipt updates; the channel is scoped per conversation id.
   useEffect(() => {
     if (!conversationId) return;
     const channel = supabase
@@ -101,6 +95,22 @@ export function useConversation(interestId: string | undefined) {
             if (!old) return [row];
             if (old.some((m) => m.id === row.id)) return old;
             return [...old, row];
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          qc.setQueryData<MessageRow[]>(["messages", conversationId], (old) => {
+            if (!old) return old;
+            const updated = payload.new as unknown as MessageRow;
+            return old.map((m) => (m.id === updated.id ? { ...m, read_at: updated.read_at } : m));
           });
         },
       )
@@ -151,7 +161,7 @@ export function useConversation(interestId: string | undefined) {
 
     // Bell alert for the counterpart. Server-composed via notify_counterparty
     // (relationship-checked); a failure here must not lose the message.
-    const convoRow = participants.data;
+    const convoRow = convo.data;
     if (convoRow) {
       const other =
         convoRow.participant_a === u.user.id ? convoRow.participant_b : convoRow.participant_a;

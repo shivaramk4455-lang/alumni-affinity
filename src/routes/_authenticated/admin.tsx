@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Activity,
@@ -78,6 +78,11 @@ function Admin() {
   // 300-second signed URL, so an unbounded queue meant hundreds of image
   // requests against private storage just to review a dozen applications.
   // Rows are appended, not replaced, as the operator pages through.
+  type DeskQueueRow =
+    import("@/integrations/supabase/types").Database["public"]["Functions"]["desk_review_queue"]["Returns"][number];
+
+  const [accumulatedPages, setAccumulatedPages] = useState<Record<number, DeskQueueRow[]>>({});
+
   const pending = useQuery({
     queryKey: ["admin-pending"],
     enabled: me.data?.is_admin === true,
@@ -105,18 +110,39 @@ function Admin() {
     },
   });
 
+  useEffect(() => {
+    if (pending.data) {
+      setAccumulatedPages((prev) => ({ ...prev, 0: pending.data }));
+    }
+  }, [pending.data]);
+
+  useEffect(() => {
+    if (page > 0 && morePending.data) {
+      setAccumulatedPages((prev) => ({ ...prev, [page]: morePending.data }));
+    }
+  }, [page, morePending.data]);
+
   const pendingRows = useMemo(() => {
     const first = pending.data ?? [];
-    const rest = page > 0 ? (morePending.data ?? []) : [];
     const seen = new Set<string>();
-    const rows: typeof first = [];
-    for (const row of [...first, ...rest]) {
-      if (!row || seen.has(row.id)) continue;
-      seen.add(row.id);
-      rows.push(row);
+    const rows: DeskQueueRow[] = [];
+    for (let pIdx = 0; pIdx <= page; pIdx++) {
+      const chunk =
+        pIdx === 0
+          ? first
+          : (accumulatedPages[pIdx] ?? (pIdx === page ? (morePending.data ?? []) : []));
+      for (const row of chunk) {
+        if (!row || seen.has(row.id)) continue;
+        seen.add(row.id);
+        rows.push(row);
+      }
     }
     return rows;
-  }, [pending.data, morePending.data, page]);
+  }, [pending.data, morePending.data, accumulatedPages, page]);
+
+  const latestPageRows =
+    page === 0 ? (pending.data ?? []) : (morePending.data ?? accumulatedPages[page] ?? []);
+  const hasMoreQueue = latestPageRows.length >= PAGE;
 
   const reports = useQuery({
     queryKey: ["admin-reports"],
@@ -470,7 +496,7 @@ function Admin() {
                 <p className="text-sm text-muted-foreground">
                   Showing {pendingRows.length} application{pendingRows.length === 1 ? "" : "s"}.
                 </p>
-                {(morePending.data?.length ?? 0) > 0 && (
+                {hasMoreQueue && (
                   <Button
                     variant="outline"
                     onClick={() => setPage((n) => n + 1)}

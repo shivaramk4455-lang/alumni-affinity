@@ -18,25 +18,22 @@ export const Route = createFileRoute("/_authenticated")({
       const { data } = await supabase.auth.getUser();
       if (data?.user) return { user: data.user };
     } catch {
-      /* fall through to demo session or redirect */
+      /* fall through to redirect */
     }
-    // Pre-launch demo bypass: signed-out visitors are dropped into the shared
-    // guest account so member pages can be eyeballed without a login.
-    //
-    // The session is minted SERVER-SIDE only. A client-side sign-in would need
-    // the guest password in the browser, and Vite inlines every VITE_* value
-    // into the public bundle — i.e. the credential would ship. The server path
-    // refuses in production and requires DEMO_GUEST_PASSWORD to be set.
-    try {
-      const tokens = await startDemoSession();
-      const { data: s } = await supabase.auth.setSession(tokens);
-      if (s.user) {
-        // Chrome may have cached a signed-out profile while we were signing in.
-        await context.queryClient.invalidateQueries();
-        return { user: s.user };
+    // Launch gate: Guest preview bypass is OFF by default. It runs only in
+    // non-production builds when VITE_ENABLE_DEMO_MODE=true is explicitly set
+    // alongside server-side ENABLE_DEMO_MODE=true and DEMO_GUEST_PASSWORD.
+    if (!import.meta.env["PROD"] && import.meta.env["VITE_ENABLE_DEMO_MODE"] === "true") {
+      try {
+        const tokens = await startDemoSession();
+        const { data: s } = await supabase.auth.setSession(tokens);
+        if (s.user) {
+          await context.queryClient.invalidateQueries();
+          return { user: s.user };
+        }
+      } catch {
+        /* fall through to sign-in */
       }
-    } catch {
-      /* fall through to sign-in */
     }
     const redirectUrl = location.pathname + (location.searchStr || "");
     throw redirect({ to: "/auth", search: { redirect: redirectUrl } });
