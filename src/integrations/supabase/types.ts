@@ -534,6 +534,42 @@ export type Database = {
           },
         ]
       }
+      member_activity: {
+        Row: {
+          enabled: boolean
+          last_active_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          last_active_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          last_active_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "my_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -744,6 +780,7 @@ export type Database = {
           diets: string[]
           genders: string[]
           institutions: string[]
+          manglik_preference: string | null
           marital_statuses: string[]
           max_age: number | null
           max_height_cm: number | null
@@ -762,6 +799,7 @@ export type Database = {
           diets?: string[]
           genders?: string[]
           institutions?: string[]
+          manglik_preference?: string | null
           marital_statuses?: string[]
           max_age?: number | null
           max_height_cm?: number | null
@@ -780,6 +818,7 @@ export type Database = {
           diets?: string[]
           genders?: string[]
           institutions?: string[]
+          manglik_preference?: string | null
           marital_statuses?: string[]
           max_age?: number | null
           max_height_cm?: number | null
@@ -1011,11 +1050,14 @@ export type Database = {
           alumni_email: string | null
           alumni_email_verified: boolean
           bio: string | null
+          birth_place: string | null
+          birth_time: string | null
           birth_year: number | null
           caste: string | null
           city: string | null
           contact_phone: string | null
           created_at: string
+          created_by: string | null
           degree: string | null
           diet: string | null
           employer: string | null
@@ -1029,14 +1071,18 @@ export type Database = {
           is_admin: boolean
           is_visible: boolean
           linkedin_url: string | null
+          manglik: string | null
           marital_status: string | null
           mother_tongue: string | null
+          nakshatra: string | null
+          nakshatra_pada: number | null
           onboarded: boolean
           paused_reason: string | null
           paused_until: string | null
           photo_path: string | null
           photo_visibility: string
           profession: string | null
+          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null
@@ -1053,11 +1099,14 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string
+          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1071,14 +1120,18 @@ export type Database = {
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1095,11 +1148,14 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string
+          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1113,14 +1169,18 @@ export type Database = {
           is_admin?: boolean
           is_visible?: boolean
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1366,11 +1426,14 @@ export type Database = {
           alumni_email: string | null
           alumni_email_verified: boolean | null
           bio: string | null
+          birth_place: string | null
+          birth_time: string | null
           birth_year: number | null
           caste: string | null
           city: string | null
           contact_phone: string | null
           created_at: string | null
+          created_by: string | null
           degree: string | null
           diet: string | null
           employer: string | null
@@ -1384,14 +1447,18 @@ export type Database = {
           is_admin: boolean | null
           is_visible: boolean | null
           linkedin_url: string | null
+          manglik: string | null
           marital_status: string | null
           mother_tongue: string | null
+          nakshatra: string | null
+          nakshatra_pada: number | null
           onboarded: boolean | null
           paused_reason: string | null
           paused_until: string | null
           photo_path: string | null
           photo_visibility: string | null
           profession: string | null
+          rashi: string | null
           religion: string | null
           relocation: string | null
           residency_status: string | null
@@ -1408,11 +1475,14 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean | null
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string | null
+          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1426,14 +1496,18 @@ export type Database = {
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean | null
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1450,11 +1524,14 @@ export type Database = {
           alumni_email?: string | null
           alumni_email_verified?: boolean | null
           bio?: string | null
+          birth_place?: string | null
+          birth_time?: string | null
           birth_year?: number | null
           caste?: string | null
           city?: string | null
           contact_phone?: string | null
           created_at?: string | null
+          created_by?: string | null
           degree?: string | null
           diet?: string | null
           employer?: string | null
@@ -1468,14 +1545,18 @@ export type Database = {
           is_admin?: boolean | null
           is_visible?: boolean | null
           linkedin_url?: string | null
+          manglik?: string | null
           marital_status?: string | null
           mother_tongue?: string | null
+          nakshatra?: string | null
+          nakshatra_pada?: number | null
           onboarded?: boolean | null
           paused_reason?: string | null
           paused_until?: string | null
           photo_path?: string | null
           photo_visibility?: string | null
           profession?: string | null
+          rashi?: string | null
           religion?: string | null
           relocation?: string | null
           residency_status?: string | null
@@ -1561,6 +1642,72 @@ export type Database = {
         }
         Returns: undefined
       }
+      directory_match_signals: {
+        Args: { _candidate_ids: string[] }
+        Returns: {
+          activity_bucket: string
+          candidate_id: string
+          matches_their_preferences: boolean
+          matches_your_preferences: boolean
+          mutual_match: boolean
+        }[]
+      }
+      discover_members: {
+        Args: {
+          _city?: string
+          _diet?: string
+          _feed?: string
+          _gender?: string
+          _institution?: string
+          _manglik?: string
+          _marital_status?: string
+          _max_birth_year?: number
+          _min_birth_year?: number
+          _min_height?: number
+          _mother_tongue?: string
+          _page?: number
+          _page_size?: number
+          _profession?: string
+          _rashi?: string
+          _religion?: string
+          _relocation?: string
+          _residency?: string
+          _search?: string
+          _sort?: string
+          _with_photo?: boolean
+        }
+        Returns: {
+          activity_bucket: string
+          birth_year: number
+          caste: string
+          city: string
+          created_at: string
+          degree: string
+          diet: string
+          full_name: string
+          gender: string
+          gotra: string
+          grad_year: number
+          height_cm: number
+          id: string
+          institution: string
+          manglik: string
+          marital_status: string
+          matches_their_preferences: boolean
+          matches_your_preferences: boolean
+          mother_tongue: string
+          mutual_match: boolean
+          nakshatra: string
+          photo_path: string
+          photo_visibility: string
+          profession: string
+          rashi: string
+          religion: string
+          relocation: string
+          residency_status: string
+          total_count: number
+        }[]
+      }
       enqueue_notification: {
         Args: {
           _idempotency_key?: string
@@ -1590,6 +1737,23 @@ export type Database = {
         Args: { _interest_id: string }
         Returns: string
       }
+      get_profile_partner_preferences: {
+        Args: { _profile: string }
+        Returns: {
+          caste_preference: string
+          cities: string[]
+          diets: string[]
+          genders: string[]
+          institutions: string[]
+          marital_statuses: string[]
+          max_age: number
+          max_height_cm: number
+          min_age: number
+          min_height_cm: number
+          religions: string[]
+          relocations: string[]
+        }[]
+      }
       notification_channels_for: {
         Args: { _template: string; _user: string }
         Returns: string[]
@@ -1610,6 +1774,7 @@ export type Database = {
         Returns: string
       }
       record_intro_usage: { Args: { _user?: string }; Returns: undefined }
+      record_member_activity: { Args: never; Returns: undefined }
       record_profile_view: { Args: { _viewed: string }; Returns: undefined }
       response_rate: { Args: { _user: string }; Returns: number }
       reveal_contact: {
@@ -1627,6 +1792,10 @@ export type Database = {
           linkedin_url: string
           profile_id: string
         }[]
+      }
+      set_member_activity_tracking: {
+        Args: { _enabled: boolean; _policy_version: string }
+        Returns: undefined
       }
       sweep_stale_calls: { Args: never; Returns: number }
     }

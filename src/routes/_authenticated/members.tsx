@@ -151,29 +151,37 @@ async function runMemberDirectoryQuery(params: RunMemberDirectoryQueryParams) {
         : ageBand === "40plus"
           ? { min: undefined, max: year - 40 }
           : { min: undefined, max: undefined };
-  const result = supabase.rpc("discover_members", {
+  // Generated RPC types use exactOptionalPropertyTypes: omit unset filters
+  // entirely rather than passing explicit undefined.
+  const args: Record<string, string | number | boolean> = {
     _feed: feed,
     _page: pageNumber,
     _page_size: PAGE_SIZE,
-    _city: city || null,
-    _profession: profession || null,
     _with_photo: withPhoto,
     _sort: sort,
-    _institution: institution || null,
-    _relocation: relocation || null,
-    _gender: gender || null,
-    _diet: diet || null,
-    _marital_status: maritalStatus || null,
-    _residency: residency || null,
-    _mother_tongue: tongue || null,
-    _religion: religion || null,
-    _rashi: rashi || null,
-    _manglik: manglik || null,
-    _min_height: minHeight ? Number(minHeight) : null,
-    _min_birth_year: ageBounds.min ?? null,
-    _max_birth_year: ageBounds.max ?? null,
-    _search: debouncedQ.trim() || null,
-  });
+  };
+  const optional: Record<string, string | number | undefined> = {
+    _city: city || undefined,
+    _profession: profession || undefined,
+    _institution: institution || undefined,
+    _relocation: relocation || undefined,
+    _gender: gender || undefined,
+    _diet: diet || undefined,
+    _marital_status: maritalStatus || undefined,
+    _residency: residency || undefined,
+    _mother_tongue: tongue || undefined,
+    _religion: religion || undefined,
+    _rashi: rashi || undefined,
+    _manglik: manglik || undefined,
+    _min_height: minHeight ? Number(minHeight) : undefined,
+    _min_birth_year: ageBounds.min,
+    _max_birth_year: ageBounds.max,
+    _search: debouncedQ.trim() || undefined,
+  };
+  for (const [key, value] of Object.entries(optional)) {
+    if (value !== undefined) args[key] = value;
+  }
+  const result = supabase.rpc("discover_members", args);
   const { data, error } = signal ? await result.abortSignal(signal) : await result;
   if (error) throw error;
   const rows = (data ?? []).map(({ total_count: _total, ...row }) => row) as SearchResultRow[];

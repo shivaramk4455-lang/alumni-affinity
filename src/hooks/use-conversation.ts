@@ -34,18 +34,35 @@ export function useConversation(interestId: string | undefined) {
   const convo = useQuery({
     queryKey: ["conversation", interestId],
     enabled: !!interestId,
-    queryFn: async (): Promise<ConversationRow | null> => {
+    queryFn: async (): Promise<string | null> => {
+      // The RPC now returns the conversation UUID directly (atomic, canonical
+      // participant ordering enforced server-side).
       const { data, error } = await supabase.rpc("get_or_create_conversation", {
         _interest_id: interestId!,
       });
       if (error) throw error;
-      if (!data) return null;
-      return data as unknown as ConversationRow;
+      return (data as string | null) ?? null;
     },
     staleTime: 60_000,
   });
 
-  const conversationId = convo.data?.id ?? null;
+  const conversationId = convo.data ?? null;
+
+  // Participants are needed only for the post-send counterpart notification.
+  const participants = useQuery({
+    queryKey: ["conversation-participants", conversationId],
+    enabled: !!conversationId,
+    queryFn: async (): Promise<ConversationRow | null> => {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("id, interest_id, participant_a, participant_b, last_message_at, created_at")
+        .eq("id", conversationId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as ConversationRow | null) ?? null;
+    },
+    staleTime: 300_000,
+  });
 
   const history = useQuery({
     queryKey: ["messages", conversationId],
@@ -134,7 +151,7 @@ export function useConversation(interestId: string | undefined) {
 
     // Bell alert for the counterpart. Server-composed via notify_counterparty
     // (relationship-checked); a failure here must not lose the message.
-    const convoRow = convo.data;
+    const convoRow = participants.data;
     if (convoRow) {
       const other =
         convoRow.participant_a === u.user.id ? convoRow.participant_b : convoRow.participant_a;
