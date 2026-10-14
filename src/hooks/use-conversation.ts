@@ -48,6 +48,22 @@ export function useConversation(interestId: string | undefined) {
 
   const conversationId = convo.data ?? null;
 
+  // Participants are needed only for the post-send counterpart notification.
+  const participants = useQuery({
+    queryKey: ["conversation-participants", conversationId],
+    enabled: !!conversationId,
+    queryFn: async (): Promise<ConversationRow | null> => {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("id, interest_id, participant_a, participant_b, last_message_at, created_at")
+        .eq("id", conversationId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as ConversationRow | null) ?? null;
+    },
+    staleTime: 300_000,
+  });
+
   const history = useQuery({
     queryKey: ["messages", conversationId],
     enabled: !!conversationId,
