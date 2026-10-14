@@ -34,18 +34,19 @@ export function useConversation(interestId: string | undefined) {
   const convo = useQuery({
     queryKey: ["conversation", interestId],
     enabled: !!interestId,
-    queryFn: async (): Promise<ConversationRow | null> => {
+    queryFn: async (): Promise<string | null> => {
+      // The RPC now returns the conversation UUID directly (atomic, canonical
+      // participant ordering enforced server-side).
       const { data, error } = await supabase.rpc("get_or_create_conversation", {
         _interest_id: interestId!,
       });
       if (error) throw error;
-      if (!data) return null;
-      return data as unknown as ConversationRow;
+      return (data as string | null) ?? null;
     },
     staleTime: 60_000,
   });
 
-  const conversationId = convo.data?.id ?? null;
+  const conversationId = convo.data ?? null;
 
   const history = useQuery({
     queryKey: ["messages", conversationId],
