@@ -151,7 +151,7 @@ export function useConversation(interestId: string | undefined) {
 
     // Bell alert for the counterpart. Server-composed via notify_counterparty
     // (relationship-checked); a failure here must not lose the message.
-    const convoRow = convo.data;
+    const convoRow = participants.data;
     if (convoRow) {
       const other =
         convoRow.participant_a === u.user.id ? convoRow.participant_b : convoRow.participant_a;
