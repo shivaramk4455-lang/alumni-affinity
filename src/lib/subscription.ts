@@ -192,8 +192,21 @@ export function useCancelSubscription() {
 }
 
 async function readErrorMessage(error: { message?: string; context?: unknown }): Promise<string> {
-  const context = error.context as { error?: string } | undefined;
-  return context?.error ?? error.message ?? "Could not start the payment.";
+  const context = error.context;
+  // supabase-js attaches the raw Response to FunctionsHttpError as `context`,
+  // so the edge function's { error } body was previously never read and every
+  // non-2xx surfaced the generic "Edge Function returned a non-2xx status code"
+  // instead of the reason the desk or the provider actually gave.
+  if (context instanceof Response) {
+    try {
+      const body = (await context.json()) as { error?: string } | null;
+      if (body?.error) return body.error;
+    } catch {
+      // Body was not JSON, or had already been consumed — fall through.
+    }
+  }
+  const direct = (context as { error?: string } | undefined)?.error;
+  return direct ?? error.message ?? "Could not start the payment.";
 }
 
 let scriptPromise: Promise<void> | null = null;

@@ -13,6 +13,12 @@ name: Push DB Migrations
 on:
   workflow_dispatch:
 
+# Least privilege: this job authenticates to Supabase with the
+# SUPABASE_ACCESS_TOKEN secret, not GITHUB_TOKEN, so read-only contents is
+# sufficient.
+permissions:
+  contents: read
+
 jobs:
   db-push:
     name: Push migrations to production

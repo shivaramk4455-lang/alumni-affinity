@@ -90,16 +90,39 @@ serve(async (req) => {
     });
   }
 
-  // If Razorpay keys are configured, schedule cancellation at cycle end on Razorpay.
-  if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET && sub.razorpay_subscription_id) {
+  // A row carrying a real Razorpay subscription id may only be recorded as
+  // cancelled once the provider has confirmed it. Previously a failed (or
+  // unconfigured) provider call fell through to the database update below,
+  // which set cancel_at_period_end and told the member billing would stop while
+  // Razorpay kept charging at cycle end. Divergence like that is now surfaced
+  // instead of swallowed; the razorpay-webhook remains the reconciliation path
+  // if the subscription was cancelled out of band.
+  if (sub.razorpay_subscription_id) {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      return json(
+        {
+          error: "Cancellation is temporarily unavailable. Please contact the membership desk.",
+        },
+        503,
+      );
+    }
     try {
       await razorpay(`/subscriptions/${sub.razorpay_subscription_id}/cancel`, {
         method: "POST",
         body: JSON.stringify({ cancel_at_cycle_end: 1 }),
       });
     } catch (err) {
-      console.warn("Razorpay API cancel warning:", err instanceof Error ? err.message : err);
-      // Fall through to update database row
+      console.error(
+        "razorpay-cancel: provider cancellation failed:",
+        err instanceof Error ? err.message : err,
+      );
+      return json(
+        {
+          error:
+            "The payment provider could not schedule this cancellation, so nothing has changed. Please try again shortly.",
+        },
+        502,
+      );
     }
   }
 
