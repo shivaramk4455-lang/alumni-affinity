@@ -51,11 +51,44 @@ Disallow: /notifications
 Disallow: /onboarding
 Disallow: /dashboard
 
+# Link-preview crawlers are explicitly ALLOWED. Blocking them disabled every
+# OpenGraph card this site is built around: src/lib/seo.ts sets og:title,
+# og:description and og:image per public page, and scripts/generate-og-image.mjs
+# exists solely to produce the 1200x630 card. X, Facebook, WhatsApp, Instagram
+# and LinkedIn all honour robots.txt, so a shared link rendered as a bare URL
+# with no title and no image. They can only ever reach the public marketing
+# pages — every member route is disallowed above, and those routes are
+# client-rendered behind sign-in as well — so allowing them costs the
+# "no public directory" guarantee nothing.
 User-agent: Twitterbot
-Disallow: /
+Allow: /
+Disallow: /members
+Disallow: /connections
+Disallow: /copilots
+Disallow: /copilot-invite
+Disallow: /messages
+Disallow: /call
+Disallow: /verification
+Disallow: /settings
+Disallow: /admin
+Disallow: /notifications
+Disallow: /onboarding
+Disallow: /dashboard
 
 User-agent: facebookexternalhit
-Disallow: /
+Allow: /
+Disallow: /members
+Disallow: /connections
+Disallow: /copilots
+Disallow: /copilot-invite
+Disallow: /messages
+Disallow: /call
+Disallow: /verification
+Disallow: /settings
+Disallow: /admin
+Disallow: /notifications
+Disallow: /onboarding
+Disallow: /dashboard
 
 
 # Sitemap

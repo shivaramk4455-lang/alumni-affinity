@@ -134,16 +134,30 @@ const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
 const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER");
 const WHATSAPP_NUMBER = Deno.env.get("WHATSAPP_SENDER_NUMBER");
 
+// Every provider call carries a deadline. Without one, a stalled socket holds
+// the whole invocation open: the rest of the batch sits in 'sending' until the
+// stuck-row sweep re-queues it 15 minutes later, so those members' messages are
+// delayed — and the rows that already went out in this batch are sent a second
+// time by the re-queue.
+const PROVIDER_TIMEOUT_MS = 10_000;
+
 async function sendEmail(to: string, r: Rendered): Promise<string | null> {
   if (!RESEND_KEY) return "RESEND_API_KEY not configured";
+  // No sandbox fallback sender. `alerts@resend.dev` is Resend's onboarding
+  // address and only delivers to the account owner, so a deployment that forgot
+  // ALERT_FROM_EMAIL would queue every notification and fail every one of them
+  // silently. A missing sender is a configuration failure, reported per row.
+  const from = Deno.env.get("ALERT_FROM_EMAIL");
+  if (!from) return "ALERT_FROM_EMAIL not configured";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     headers: {
       authorization: `Bearer ${RESEND_KEY}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      from: Deno.env.get("ALERT_FROM_EMAIL") ?? "The Merit Circle <alerts@resend.dev>",
+      from,
       to: [to],
       subject: r.subject,
       text: r.body,
@@ -158,6 +172,7 @@ async function sendSms(to: string, text: string): Promise<string | null> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     headers: {
       authorization: `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`,
       "content-type": "application/x-www-form-urlencoded",
@@ -173,6 +188,7 @@ async function sendWhatsApp(to: string, text: string): Promise<string | null> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     headers: {
       authorization: `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`,
       "content-type": "application/x-www-form-urlencoded",
@@ -203,14 +219,39 @@ serve(async (req) => {
   // mid-flight. Re-queue it; the attempt counter makes the loss bounded.
   // F-08: Check status_changed_at (migration 20261019000002) rather than
   // created_at so a row claimed into 'sending' recently is not prematurely re-queued.
+  //
+  // The attempts filter is NOT optional. Without it a row that had already spent
+  // its entire budget was re-queued, the next claim pushed attempts past the
+  // CHECK, and — because the claim is a single statement — the whole batch
+  // failed, so every member's notification stopped until someone edited the row
+  // by hand. Migration 20261106000200 removes the trap at its source (the claim
+  // now skips such rows); this filter is the second half of that fix.
   const stuckCutoff = new Date(Date.now() - STUCK_AFTER_MINUTES * 60_000).toISOString();
-  await admin
+  const { error: sweepError } = await admin
     .from("notification_outbox")
     .update({ status: "queued" })
     .eq("status", "sending")
+    // Must match notification_outbox_attempts_valid and claim_due_notifications.
+    .lt("attempts", 25)
     .or(
       `status_changed_at.lt.${stuckCutoff},and(status_changed_at.is.null,created_at.lt.${stuckCutoff})`,
     );
+  if (sweepError) {
+    // Previously discarded, which made "the sweep found nothing" and "the sweep
+    // was rejected" look identical — so stranded rows never recovered and no one
+    // could tell why.
+    console.error("notify-dispatch: stuck-row sweep failed:", sweepError.message);
+  }
+
+  // A row that exhausted its attempts becomes a desk-visible failure instead of
+  // sitting in the queue forever. Runs before the claim so the claim is only
+  // ever given rows it is allowed to increment.
+  const { data: parked, error: parkError } = await admin.rpc("park_exhausted_notifications");
+  if (parkError) {
+    console.error("notify-dispatch: park failed:", parkError.message);
+  } else if (typeof parked === "number" && parked > 0) {
+    console.warn("notify-dispatch: parked", parked, "exhausted notification(s) as failed");
+  }
 
   const body = (await req.json().catch(() => null)) as { limit?: number } | null;
   const limit = Math.max(1, Math.min(body?.limit ?? DEFAULT_BATCH, 100));
@@ -272,15 +313,24 @@ serve(async (req) => {
 
     const text = channelBody(row.channel, rendered);
     let error: string | null = null;
-    if (row.channel === "email") {
-      if (!dest.email) error = "member has no email on file";
-      else error = await sendEmail(dest.email, rendered);
-    } else if (!dest.phone) {
-      error = "member has no phone on file";
-    } else if (row.channel === "sms") {
-      error = await sendSms(dest.phone, text);
-    } else {
-      error = await sendWhatsApp(dest.phone, text);
+
+    try {
+      if (row.channel === "email") {
+        if (!dest.email) error = "member has no email on file";
+        else error = await sendEmail(dest.email, rendered);
+      } else if (!dest.phone) {
+        error = "member has no phone on file";
+      } else if (row.channel === "sms") {
+        error = await sendSms(dest.phone, text);
+      } else {
+        error = await sendWhatsApp(dest.phone, text);
+      }
+    } catch (err) {
+      // A throwing provider must fail ONE row, not the batch. Previously an
+      // unhandled rejection here aborted the loop with the remaining rows left
+      // in 'sending' — the sweep re-queued them 15 minutes later, which also
+      // re-sent everything already delivered in this batch.
+      error = `provider threw: ${err instanceof Error ? err.message : String(err)}`;
     }
 
     if (error) {
@@ -289,7 +339,21 @@ serve(async (req) => {
     } else {
       summary.sent += 1;
     }
-    await admin.rpc("finish_notification", { _id: row.id, _ok: !error, _error: error });
+
+    // The result is checked because an unrecorded outcome is indistinguishable
+    // from success: the row would stay 'sending' and the sweep would send it a
+    // second time.
+    const { error: finishError } = await admin.rpc("finish_notification", {
+      _id: row.id,
+      _ok: !error,
+      _error: error,
+    });
+    if (finishError) {
+      console.error(
+        `notify ${row.channel} ${row.id}: could not record outcome:`,
+        finishError.message,
+      );
+    }
   }
 
   return json({ ok: true, ...summary });

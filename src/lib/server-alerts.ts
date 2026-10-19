@@ -30,22 +30,45 @@ const MAX_EMAIL_CHARS = 9_000;
 let buffer: ErrorRecord[] = [];
 let lastFlushAt = 0;
 
+/**
+ * Strip the query string and fragment before a URL leaves the platform.
+ *
+ * The digest is emailed to an ops inbox and retained by Resend. Member-scoped
+ * routes embed identifiers, and any error raised while handling a link can
+ * carry a PKCE code, a co-pilot invite code or a signed storage URL in its query
+ * string — so a 500 storm was copying live credentials to a third party as a
+ * side effect. The path is all the digest needs to be actionable.
+ */
+function scrubUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const cut = url.search(/[?#]/);
+  return cut === -1 ? url : url.slice(0, cut);
+}
+
 function alertConfig(): { apiKey: string; to: string; from: string } | null {
   const apiKey = process.env["RESEND_API_KEY"];
   const to = process.env["SERVER_ALERT_TO_EMAIL"];
   if (!apiKey || !to) return null;
-  return {
-    apiKey,
-    to,
-    from: process.env["ALERT_FROM_EMAIL"] ?? "The Merit Circle <alerts@resend.dev>",
-  };
+  const from = process.env["ALERT_FROM_EMAIL"];
+  if (!from) {
+    // No sandbox fallback sender. `alerts@resend.dev` is Resend's onboarding
+    // address and only delivers to the account owner, so a deployment missing
+    // this variable would re-queue every digest forever while paging nobody.
+    // Console logging stays the baseline (documented behaviour); this says why
+    // the email half is off rather than failing silently.
+    console.error(
+      "alert sink: ALERT_FROM_EMAIL is not set — digest email disabled, console logging remains the baseline",
+    );
+    return null;
+  }
+  return { apiKey, to, from };
 }
 
 export function reportServerError(error: unknown, context: ServerAlertContext = {}): void {
   try {
     buffer.push({
       at: new Date().toISOString(),
-      url: context.url,
+      url: scrubUrl(context.url),
       detail: describeError(error).slice(0, MAX_DETAIL_CHARS),
     });
     const due = buffer.length >= FLUSH_AFTER_COUNT || Date.now() - lastFlushAt >= FLUSH_AFTER_MS;
@@ -67,6 +90,10 @@ async function flush(records: ErrorRecord[]): Promise<void> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      // A deadline, because this runs inside a request's waitUntil: without one
+      // a stalled Resend socket holds the promise open and the buffered storm is
+      // neither delivered nor re-queued until the runtime kills it.
+      signal: AbortSignal.timeout(10_000),
       headers: {
         authorization: `Bearer ${cfg.apiKey}`,
         "content-type": "application/json",

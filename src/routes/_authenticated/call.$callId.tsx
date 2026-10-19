@@ -103,7 +103,7 @@ function CallPage() {
       toast.error("Please describe the concern in at least 10 characters.");
       return;
     }
-    if (!myId || !otherId) return;
+    if (!myId || !otherId || !call) return;
     setReporting(true);
     try {
       // Record the report BEFORE tearing the call down. Ending first meant a
@@ -115,6 +115,25 @@ function CallPage() {
         reason,
       });
       if (repErr) throw repErr;
+
+      // Make the block real: transition the underlying introduction to 'blocked'
+      // so neither messaging, calls, nor re-approaching remains possible.
+      if (call.conversation_id) {
+        const { data: conv } = await supabase
+          .from("conversations")
+          .select("interest_id")
+          .eq("id", call.conversation_id)
+          .maybeSingle();
+
+        if (conv?.interest_id) {
+          const { error: blockErr } = await supabase
+            .from("interests")
+            .update({ status: "blocked" })
+            .eq("id", conv.interest_id);
+          if (blockErr) throw blockErr;
+        }
+      }
+
       await endCall("declined");
       toast.success("Report submitted. Call ended and member blocked.");
       navigate({ to: "/connections" });

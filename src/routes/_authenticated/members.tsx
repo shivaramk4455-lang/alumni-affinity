@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GraduationCap, MapPin, Search, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/members")({
       },
       { property: "og:title", content: "Member search — The Merit Circle" },
       { property: "og:description", content: "Private search across verified alumni members." },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: Members,
@@ -267,11 +268,36 @@ function Members() {
   );
   const blockedKey = useMemo(() => [...hidden].sort().join(","), [hidden]);
   const canUseVisitorFeed = me.data?.show_profile_views === true;
-  const buildMembersQueryKey = (targetPage: number) =>
+  const buildMembersQueryKey = useCallback(
+    (targetPage: number) =>
+      [
+        "members",
+        feed,
+        targetPage,
+        city,
+        profession,
+        withPhoto,
+        inst,
+        reloc,
+        gender,
+        ageBand,
+        diet,
+        maritalStatus,
+        residency,
+        tongue,
+        religion,
+        rashi,
+        manglik,
+        minHeight,
+        debouncedQ,
+        sort,
+        me.data?.id,
+        blockedKey,
+        canUseVisitorFeed,
+        isCopilot,
+      ] as const,
     [
-      "members",
       feed,
-      targetPage,
       city,
       profession,
       withPhoto,
@@ -293,7 +319,8 @@ function Members() {
       blockedKey,
       canUseVisitorFeed,
       isCopilot,
-    ] as const;
+    ],
+  );
 
   const results = useQuery({
     queryKey: buildMembersQueryKey(page),
@@ -449,6 +476,7 @@ function Members() {
     isCopilot,
     onProfilePage,
     queryClient,
+    buildMembersQueryKey,
   ]);
 
   function resetPage() {

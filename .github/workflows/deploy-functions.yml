@@ -27,11 +27,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify deploy token is configured
+        # db-push.yml already fails loudly when its secret is absent; this
+        # workflow did not, so a missing token surfaced as an opaque CLI error
+        # (or, worse, a silently skipped deploy) instead of an explicit one.
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN (or CRI) is not set — refusing to attempt a deploy that would fail opaquely."
+            exit 1
+          fi
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
+      # NOTE: this workflow does NOT typecheck the functions it ships.
+      # `supabase functions deploy` bundles without typechecking, and tsconfig
+      # covers only src/**, so the payment webhook and checkout paths are
+      # deployed unverified. ci.yml now runs `deno check` over supabase/functions
+      # on every PR; once that job has a green history it should become a hard
+      # gate here (a `workflow_run` trigger or a shared reusable workflow).
+      # Deliberately not made blocking in the same change that introduced it,
+      # because a gate that fails on its first run would block a critical deploy.
       - name: Deploy Edge Functions
         run: |
           supabase functions deploy --project-ref $PROJECT_ID

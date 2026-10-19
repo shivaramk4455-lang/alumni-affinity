@@ -36,6 +36,91 @@ function json(body: unknown, status = 200): Response {
 
 const BUCKETS = ["profile-photos", "verification-docs"] as const;
 const CONFIRMATION = "DELETE MY ACCOUNT";
+const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
+const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
+
+/**
+ * Stop the member's recurring mandate before their profile goes.
+ *
+ * The defect this closes: `subscriptions.user_id` cascaded, so deleting the
+ * profile destroyed the only record of the subscription while Razorpay kept
+ * debiting the saved mandate — and the webhook, finding no row, answered 200 and
+ * stopped retrying. Money left a deleted member's account with no trace.
+ *
+ * 20261106000100 changed the FK to ON DELETE SET NULL, so a failure here is
+ * recoverable: the row survives as an orphan and the hourly
+ * reconcile-orphaned-subscriptions job retries the cancellation. Deletion is
+ * never blocked by a provider outage — erasure wins, billing follows.
+ */
+async function cancelBilling(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ cancelled: boolean; note: string }> {
+  const { data: sub, error } = await admin
+    .from("subscriptions")
+    .select("id, razorpay_subscription_id, status, cancel_at_period_end")
+    .eq("user_id", userId)
+    .in("status", ["active", "authenticated", "pending"])
+    .maybeSingle();
+
+  if (error) return { cancelled: false, note: `subscription lookup failed: ${error.message}` };
+  if (!sub) return { cancelled: true, note: "no live subscription" };
+  if (sub.cancel_at_period_end) {
+    return { cancelled: true, note: "already scheduled to cancel at period end" };
+  }
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    return {
+      cancelled: false,
+      note: "provider credentials absent — row kept as an orphan for the reconcile job",
+    };
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.razorpay.com/v1/subscriptions/${sub.razorpay_subscription_id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Basic ${btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ cancel_at_cycle_end: 0 }),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      return {
+        cancelled: false,
+        note: `provider refused (${res.status}): ${text.slice(0, 200)}`,
+      };
+    }
+  } catch (err) {
+    return {
+      cancelled: false,
+      note: `provider call failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  // Immediate cancellation, so record it as terminal rather than scheduled.
+  const { error: updateError } = await admin
+    .from("subscriptions")
+    .update({
+      status: "cancelled",
+      cancel_at_period_end: true,
+      updated_at: new Date().toISOString(),
+      last_event_at: new Date().toISOString(),
+    })
+    .eq("id", sub.id);
+
+  if (updateError) {
+    return {
+      cancelled: true,
+      note: `provider cancelled; row update failed: ${updateError.message}`,
+    };
+  }
+  return { cancelled: true, note: "cancelled immediately at the provider" };
+}
 
 /** Remove every object the member owns in the given bucket. */
 async function purgeBucket(
@@ -111,6 +196,18 @@ serve(async (req) => {
     console.warn("delete-account: consent insert warning:", consentErr.message);
   }
 
+  // Billing first: stop the mandate while it can still be found. A provider
+  // failure here must not block the erasure — the surviving orphan row is the
+  // retry record (see cancelBilling above).
+  const billing = await cancelBilling(admin, user.id);
+  if (!billing.cancelled) {
+    console.error(
+      "delete-account: DESK ACTION REQUIRED — billing not cancelled:",
+      billing.note,
+      "(subscription row kept as an orphan; the reconcile job retries hourly)",
+    );
+  }
+
   let objects = 0;
   for (const bucket of BUCKETS) {
     objects += await purgeBucket(admin, bucket, user.id);
@@ -126,9 +223,31 @@ serve(async (req) => {
   const purposes = [...new Set((consentRows ?? []).map((r) => r.purpose as string))];
 
   const { error: profileError } = await admin.from("profiles").delete().eq("id", user.id);
-  if (profileError) return json({ error: profileError.message, objects }, 400);
+  if (profileError) {
+    // Generic message: this handler runs while the caller is still authenticated,
+    // so echoing a PostgREST error could return row contents to the browser.
+    console.error("delete-account: profile delete failed:", profileError.message);
+    return json(
+      {
+        error:
+          "Deletion could not complete. Nothing further was removed — please contact the membership desk.",
+        objects,
+      },
+      500,
+    );
+  }
 
   const { error: authError } = await admin.auth.admin.deleteUser(user.id);
+  if (authError) {
+    // The member's data is gone but their login survives: they can still sign in
+    // to an empty account and ask the desk to finish. Recorded on the receipt so
+    // the desk can find it (`where not auth_deleted`) and logged loudly, rather
+    // than reported as a clean success the member cannot act on.
+    console.error(
+      "delete-account: DESK ACTION REQUIRED — auth user not deleted:",
+      authError.message,
+    );
+  }
 
   // DPDP Section 12 evidence: the receipt has no FK to profiles, so it
   // survives the cascade that eats consent_events. Best-effort — a receipt
@@ -139,11 +258,24 @@ serve(async (req) => {
     purposes,
     storage_objects_removed: objects,
     auth_deleted: !authError,
+    billing_cancelled: billing.cancelled,
+    billing_note: billing.note,
     note: "Member-initiated deletion via settings",
   });
   if (receiptError) {
     console.error("delete-account: receipt insert failed:", receiptError.message);
   }
 
-  return json({ ok: true, objects, authDeleted: !authError });
+  return json({
+    ok: true,
+    objects,
+    authDeleted: !authError,
+    billingCancelled: billing.cancelled,
+    // A non-null warning is the client's cue to say something needs the desk,
+    // instead of showing a clean "everything is gone" message that is not quite
+    // true.
+    warning: authError
+      ? "Your data was deleted, but the sign-in record could not be removed. The membership desk has been notified."
+      : null,
+  });
 });

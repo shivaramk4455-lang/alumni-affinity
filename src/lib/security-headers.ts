@@ -34,6 +34,8 @@ const FRAME_ANCESTORS_DEV = [
 function buildCsp(isProd: boolean): string {
   const frameAncestors = isProd ? FRAME_ANCESTORS_PROD : FRAME_ANCESTORS_DEV;
   return [
+    "default-src 'self'",
+    "form-action 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     `frame-ancestors ${frameAncestors}`,

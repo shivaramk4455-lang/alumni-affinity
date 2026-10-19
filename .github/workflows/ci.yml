@@ -25,6 +25,34 @@ jobs:
           node-version: 22
           cache: npm
 
+      # This repository once carried a second, contradictory migration chain
+      # under drizzle/: its 0001 used CREATE OR REPLACE VIEW against a view the
+      # Supabase chain DROPs first (so it would fail on a migrated database),
+      # its 0003 added the consent-purpose CHECK as NOT VALID — strictly weaker
+      # than the shipped constraint — and its 0005 dropped the FK-regression
+      # assertions. It was dead weight as well as wrong: drizzle/schema.ts was
+      # intentionally blank and nothing imported drizzle-orm at runtime.
+      #
+      # The guard exists because the Lovable editor can regenerate the folder,
+      # and a silently reintroduced second schema source of truth is worse than
+      # no schema at all. It runs before install so a resurrection fails fast.
+      - name: Guard against a resurrected drizzle migration chain
+        run: |
+          fail=0
+          if [ -e drizzle ]; then
+            echo "::error::drizzle/ is back. supabase/migrations/ is the only migration source of truth — delete it or reconcile it there."
+            fail=1
+          fi
+          if [ -e drizzle.config.ts ]; then
+            echo "::error::drizzle.config.ts is back. drizzle-kit must not be runnable against this project (it would propose dropping every table)."
+            fail=1
+          fi
+          if grep -qE '"drizzle-(kit|orm)"' package.json; then
+            echo "::error::drizzle-kit/drizzle-orm are back in package.json."
+            fail=1
+          fi
+          exit $fail
+
       - name: Install dependencies
         run: npm ci
 
@@ -43,36 +71,14 @@ jobs:
       - name: Build
         run: npm run build
 
-  release-gate:
-    name: Release gate (legal identity)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build with legal identity verification
-        run: npm run build
-        env:
-          # IT Rules 2021 Rules 3(2)(a)/3A/4(1) and DPDP Act 2023 Sections 5,
-          # 13 and 14 require a named Grievance Officer, a monitored complaint
-          # address, a Nodal Officer and a DPO contact before this service may
-          # be published.
-          #
-          # This job is EXPECTED TO FAIL until a real officer is appointed and
-          # src/lib/legal-identity.ts is filled in. That is deliberate: a red
-          # build here is the release blocker doing its job, and it cannot be
-          # bypassed by flipping `published` because the gate also rejects
-          # bracketed placeholders and `.invalid` mailboxes.
-          REQUIRE_LEGAL_IDENTITY: "1"
+  # The legal-identity release gate now lives in its own workflow
+  # (.github/workflows/legal-gate.yml) so that THIS file can be green and used
+  # as a required status check. See that file for why.
+  #
+  # The reason it had to move: a job that is red by design makes the whole
+  # workflow red, and a workflow that is always red cannot be required. A branch
+  # protection rule cannot distinguish "expected red" from "your test broke", so
+  # keeping it here would have trained everyone to ignore a failing CI.
 
   migration-assertions:
     name: SQL Migrations & Regressions Drill
@@ -94,3 +100,30 @@ jobs:
 
       - name: Verify migration status (clean chain)
         run: supabase migration list --local
+
+  functions-typecheck:
+    name: Edge function typecheck (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # tsconfig.json covers src/**, vite.config.ts and eslint.config.js only, so
+      # the nine edge functions — including the Razorpay webhook that decides
+      # entitlements and the delete-account handler — were never typechecked by
+      # anything. `supabase functions deploy` bundles with esbuild, which does
+      # not typecheck either.
+      #
+      # Deliberately NOT wired as a hard gate on deploy-functions.yml yet: a gate
+      # that fails on its first run would block a critical deploy. Read the
+      # first run's output, fix what it finds, then make it blocking.
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Typecheck edge functions
+        run: |
+          deno check \
+            supabase/functions/_shared/*.ts \
+            supabase/functions/*/index.ts

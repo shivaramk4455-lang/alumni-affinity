@@ -227,13 +227,15 @@ function MemberProfile() {
       if (error) throw error;
       const rows = data ?? [];
       const rank = (status: string, iAmRecipient: boolean) =>
-        status === "accepted"
-          ? 0
-          : status === "pending" && iAmRecipient
-            ? 1
-            : status === "pending"
-              ? 2
-              : 3;
+        status === "blocked"
+          ? -1
+          : status === "accepted"
+            ? 0
+            : status === "pending" && iAmRecipient
+              ? 1
+              : status === "pending"
+                ? 2
+                : 3;
       return (
         rows
           .slice()
@@ -1072,6 +1074,7 @@ function MemberProfile() {
                     {interest.data.status === "declined" && "This introduction was declined."}
                     {interest.data.status === "withdrawn" && "This interest was withdrawn."}
                     {interest.data.status === "accepted" && "Contact details are shown above."}
+                    {interest.data.status === "blocked" && "This connection has ended."}
                   </p>
                 )
               ) : (

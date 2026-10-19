@@ -52,6 +52,7 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
       { name: "description", content: "Complete your verified member profile." },
       { property: "og:title", content: "Onboarding — The Merit Circle" },
       { property: "og:description", content: "Complete your verified member profile." },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: Onboarding,
@@ -584,7 +585,7 @@ function Onboarding() {
         dietArr.length ||
         relocArr.length
       ) {
-        await supabase.from("partner_preferences").upsert(
+        const { error: prefErr } = await supabase.from("partner_preferences").upsert(
           {
             user_id: u.user.id,
             min_age: minAgeNum,
@@ -597,6 +598,7 @@ function Onboarding() {
           },
           { onConflict: "user_id" },
         );
+        if (prefErr) throw prefErr;
         void queryClient.invalidateQueries({ queryKey: ["partner-preferences"] });
       }
 

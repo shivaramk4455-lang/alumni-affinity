@@ -113,13 +113,43 @@ function AuthPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   /** Form-level server error, shown inline next to the form as well as a toast. */
   const [serverError, setServerError] = useState<string | null>(null);
+  /**
+   * Password recovery.
+   *
+   * Supabase's reset link lands here carrying `type=recovery` and mints a
+   * session, so `useAuth()` reports a user immediately. Without a branch for
+   * that, the redirect effect below fired at once and sent the member to
+   * /dashboard with their old password unchanged and no screen anywhere that
+   * calls updateUser — the email said "follow the link to choose a new
+   * password", and the link made that impossible. A member who forgot their
+   * password could never get back in.
+   */
+  const [recovery, setRecovery] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     setMode(modeParam ?? "signin");
   }, [modeParam]);
 
   useEffect(() => {
+    // The fragment is read directly as well as listened for: this component
+    // mounts after `onAuthStateChange` may already have fired PASSWORD_RECOVERY,
+    // and a missed event would silently drop the member back into the redirect
+    // path this exists to prevent.
+    if (window.location.hash.includes("type=recovery")) setRecovery(true);
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
+    // A recovery session is a user, but not a signed-in member yet: let them set
+    // a password before anything navigates them away.
+    if (recovery) return;
     const target = parseRedirect(redirect);
 
     // Deep links must survive sign-in, otherwise the co-pilot invite link an
@@ -143,7 +173,36 @@ function AuthPage() {
         ? (target.pathname as (typeof KNOWN_ROUTES)[number])
         : null;
     navigate({ to: known ?? "/dashboard", replace: true });
-  }, [user, redirect, navigate]);
+  }, [user, redirect, navigate, recovery]);
+
+  async function submitNewPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setServerError(null);
+    if (newPassword.length < 8) {
+      setFieldErrors({ password: "Use at least 8 characters." });
+      document.getElementById("auth-new-password")?.focus();
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setFieldErrors({ confirmPassword: "Both passwords must match." });
+      document.getElementById("auth-confirm-password")?.focus();
+      return;
+    }
+    setFieldErrors({});
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setBusy(false);
+    if (error) {
+      setServerError(error.message);
+      toast.error(error.message);
+      return;
+    }
+    setRecovery(false);
+    setNewPassword("");
+    setConfirmPassword("");
+    toast.success("Password updated. You are signed in.");
+    navigate({ to: "/dashboard", replace: true });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -301,7 +360,66 @@ function AuthPage() {
             {serverError}
           </p>
         )}
-        {sent ? (
+        {recovery ? (
+          <>
+            <h2 className="font-serif text-2xl font-semibold">Choose a new password</h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              You are signed in from the reset link. Set a new password to finish and you will be
+              taken to your dashboard.
+            </p>
+            <form onSubmit={submitNewPassword} noValidate className="mt-6 grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="auth-new-password">New password</Label>
+                <Input
+                  id="auth-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={fieldErrors["password"] ? true : undefined}
+                  aria-describedby={
+                    fieldErrors["password"] ? "auth-new-password-error" : "auth-new-password-hint"
+                  }
+                />
+                {fieldErrors["password"] ? (
+                  <p id="auth-new-password-error" role="alert" className="text-sm text-destructive">
+                    {fieldErrors["password"]}
+                  </p>
+                ) : (
+                  <p id="auth-new-password-hint" className="text-sm text-muted-foreground">
+                    At least 8 characters.
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="auth-confirm-password">Confirm password</Label>
+                <Input
+                  id="auth-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={fieldErrors["confirmPassword"] ? true : undefined}
+                  aria-describedby={
+                    fieldErrors["confirmPassword"] ? "auth-confirm-password-error" : undefined
+                  }
+                />
+                {fieldErrors["confirmPassword"] && (
+                  <p
+                    id="auth-confirm-password-error"
+                    role="alert"
+                    className="text-sm text-destructive"
+                  >
+                    {fieldErrors["confirmPassword"]}
+                  </p>
+                )}
+              </div>
+              <Button type="submit" size="lg" disabled={busy}>
+                {busy ? "Please wait…" : "Set new password"}
+              </Button>
+            </form>
+          </>
+        ) : sent ? (
           <div>
             <h2 className="font-serif text-2xl font-semibold">Check your inbox</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">

@@ -34,6 +34,11 @@ function json(body: unknown, status = 200): Response {
 async function razorpay(path: string, init: RequestInit = {}): Promise<unknown> {
   const res = await fetch(`https://api.razorpay.com/v1${path}`, {
     ...init,
+    // Every outbound provider call carries a deadline. Without one, a stalled
+    // Razorpay socket holds the invocation open until the platform kills it —
+    // and this function makes up to three of these calls per checkout, so a
+    // provider slowdown used to become checkout latency for the member.
+    signal: init.signal ?? AbortSignal.timeout(10_000),
     headers: {
       // Razorpay uses HTTP basic auth with key id + secret.
       authorization: `Basic ${btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)}`,
@@ -98,6 +103,31 @@ serve(async (req) => {
     );
     if (activeSub) {
       return json({ error: "You already have an active subscription" }, 409);
+    }
+
+    // A failed renewal leaves the mandate ALIVE at the provider — Razorpay does
+    // not cancel a subscription because one invoice failed. Minting a second
+    // Razorpay subscription here would hand the member two mandates, i.e. two
+    // debits. So the row that failed is the one to retry: return its id and let
+    // the member pay the same mandate again.
+    const pendingSub = existingSubs.find((s) => s.status === "pending");
+    if (pendingSub) {
+      if (pendingSub.plan_code !== plan.code) {
+        return json(
+          {
+            error:
+              "A payment for a different tier is still unresolved. Please contact the membership desk.",
+          },
+          409,
+        );
+      }
+      return json({
+        key_id: RAZORPAY_KEY_ID,
+        subscription_id: pendingSub.razorpay_subscription_id,
+        plan_code: plan.code,
+        amount_paise: plan.amount_paise,
+        currency: plan.currency,
+      });
     }
 
     const mostRecent = existingSubs[0];
@@ -173,7 +203,8 @@ serve(async (req) => {
       })) as Record<string, unknown>;
     }
   } catch (err) {
-    return json({ error: (err as Error).message }, 502);
+    console.error("razorpay-checkout: provider error:", err instanceof Error ? err.message : err);
+    return json({ error: "The payment provider is unavailable. Please try again shortly." }, 502);
   }
 
   // Mirror the row before the payment. Status stays non-entitling until the
@@ -185,7 +216,17 @@ serve(async (req) => {
     razorpay_subscription_id: String(subscription.id),
     status: "created",
   });
-  if (insertError) return json({ error: insertError.message }, 500);
+  if (insertError) {
+    // 23505 means a concurrent checkout beat the guard above to the insert. The
+    // member still holds exactly one open row, which is the invariant that
+    // matters, so it is reported as a conflict rather than a server fault.
+    // Either way the raw PostgREST message is not returned to the browser.
+    if (insertError.code === "23505") {
+      return json({ error: "A checkout for this plan is already in progress." }, 409);
+    }
+    console.error("razorpay-checkout: subscription insert failed:", insertError.message);
+    return json({ error: "Could not start checkout. Please try again." }, 500);
+  }
 
   return json({
     key_id: RAZORPAY_KEY_ID,

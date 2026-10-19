@@ -1,0 +1,53 @@
+name: Legal identity gate
+
+# This gate is deliberately in its own workflow, and it is EXPECTED TO FAIL
+# until a real Grievance Officer, Nodal Officer and DPO contact are appointed.
+#
+# IT Rules 2021 Rules 3(2)(a)/3A/4(1) and DPDP Act 2023 Sections 5, 13 and 14
+# require a named officer, a monitored complaint address and a data-protection
+# contact point before this service may be published. Until those real-world
+# facts exist, failing is the control doing its job — nothing fake ships.
+#
+# WHY IT IS NOT IN ci.yml ANY MORE: a permanently red job inside that file made
+# the whole "CI Gates" workflow red, and a workflow that is always red cannot be
+# a required status check. A branch-protection rule cannot tell "expected red"
+# from "your test just broke", so a genuine typecheck or test regression would
+# have been waved through as normal. Split out, the code gates stay green and
+# enforceable, and this one stays honestly and visibly red until the operator
+# supplies the facts.
+#
+# The gate cannot be satisfied by flipping the `published` boolean: the build
+# plugin in vite.config.ts derives completeness from the field values, rejects
+# bracketed placeholders and `.invalid` mailboxes, and lists every outstanding
+# field in a single error so one build tells the operator everything missing.
+
+on:
+  push:
+    branches: [main, feat/*, fix/*]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  legal-gate:
+    name: Release gate (legal identity) — expected to fail until officers are named
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with legal identity verification
+        run: npm run build
+        env:
+          REQUIRE_LEGAL_IDENTITY: "1"

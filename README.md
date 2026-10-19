@@ -1,4 +1,4 @@
-# Heritage Union
+# The Merit Circle
 
 Build a fully mobile-responsive web app for an elite IIT/IIM and premier-institute alumni matrimonial platform — a mature, private competitor to IITIIMShaadi where candidates lead and families co-pilot.
 
@@ -39,7 +39,13 @@ Required environment: copy `.env.example` to `.env` and fill it in. `SUPABASE_UR
 
 ### Database
 
-Apply everything in `supabase/migrations/` in order:
+`supabase/migrations/` is the only migration chain — apply it in filename order
+(`supabase db push`, or `supabase db reset` locally). The chain head is
+`20261105000000_copilot_photo_directory_repair`; `DEPLOYMENT.md` carries the
+deployment steps (§2) and the launch checklist (§9).
+
+The table below maps the foundations only. The chain has since grown well past
+it, so treat the directory listing — not this table — as the record:
 
 | Migration                                     | What it adds                                                                                                                         |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -66,13 +72,22 @@ Apply everything in `supabase/migrations/` in order:
 | --------- | ------------- | ------------------------- | ---------------- |
 | Free      | —             | 5 outstanding at any time | 14-day expiry    |
 | Concierge | ₹1,499        | 20 per billing month      | as free          |
-| Founder   | ₹3,999        | unlimited                 | as free          |
+| Founder   | ₹3,999        | 60 per billing month      | as free          |
+
+Founder is **grandfathered and no longer sold** (`sellable = false`); it is kept
+so existing payers keep the tier they bought. No plan may promise unlimited
+volume — `20261011000000` fails at migrate time if one does — so this table and
+the numbers in `subscription_plans` must agree.
 
 Enforcement lives in the database (`interests_allowance` trigger calling
 `public.entitlement()`), never in the browser, and an **unpaid checkout never
-entitles**: only `authenticated` / `active` / `pending` subscription rows count.
-A "no" from the recipient does not consume the sender's allowance twice.
-Change prices or allowances in `subscription_plans`; no code change is needed.
+entitles**. The one definition of "counts as paid" is
+`private.subscription_is_live()` (migration `20261106000000`): status
+`active`/`authenticated` **and** an unexpired `period_end`. `pending` is the
+payment-failure state and never entitles; neither does `created` (an abandoned
+checkout). A "no" from the recipient does not consume the sender's allowance
+twice. Change prices or allowances in `subscription_plans`; no code change is
+needed.
 
 > One product decision was made for you and is marked `SAFE DEFAULT` in
 > `20261010000000_phase2_fix_batch.sql`: the free tier keeps the 5-outstanding

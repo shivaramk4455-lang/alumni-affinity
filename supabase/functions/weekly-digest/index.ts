@@ -43,40 +43,52 @@ serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const since = new Date(Date.now() - WEEK_DAYS * 86_400_000).toISOString();
+  const weekId = getIsoWeekString();
 
-  // Keyset pagination past MAX_MEMBERS: the old code stopped at 5000 with
-  // only a log line, so member 5001+ silently never got a digest. Pages are
-  // idempotent (per-day idempotency keys), so a timed-out run simply resumes.
+  type InterestRecipientRow = { recipient_id: string };
+  type InterestAcceptRow = { sender_id: string; recipient_id: string };
+  type ProfileCityRow = { id: string; city: string | null };
+  type ProfileViewRow = { viewed_id: string };
+
+  // Paginated aggregate scans past single-query limits:
   // Week aggregates are shared across pages (computed once): per-page
-  // recomputation would repeat the same four scans and drift mid-run.
-  const [interests, accepts, newMembers, views] = await Promise.all([
-    admin
-      .from("interests")
-      .select("recipient_id")
-      .gte("created_at", since)
-      .eq("status", "pending")
-      .limit(20000),
-    admin
-      .from("interests")
-      .select("sender_id, recipient_id")
-      .gte("decided_at", since)
-      .eq("status", "accepted")
-      .limit(20000),
-    admin.from("profiles").select("id, city").gte("created_at", since).limit(20000),
-    admin.from("profile_views").select("viewed_id").gte("viewed_at", since).limit(20000),
+  // recomputation would repeat the same scans and drift mid-run.
+  const [interestsRows, acceptsRows, newMembersRows, viewsRows] = await Promise.all([
+    fetchAllRows<InterestRecipientRow>((from, to) =>
+      admin
+        .from("interests")
+        .select("recipient_id")
+        .gte("created_at", since)
+        .eq("status", "pending")
+        .range(from, to),
+    ),
+    fetchAllRows<InterestAcceptRow>((from, to) =>
+      admin
+        .from("interests")
+        .select("sender_id, recipient_id")
+        .gte("decided_at", since)
+        .eq("status", "accepted")
+        .range(from, to),
+    ),
+    fetchAllRows<ProfileCityRow>((from, to) =>
+      admin.from("profiles").select("id, city").gte("created_at", since).range(from, to),
+    ),
+    fetchAllRows<ProfileViewRow>((from, to) =>
+      admin.from("profile_views").select("viewed_id").gte("viewed_at", since).range(from, to),
+    ),
   ]);
 
-  const newInterests = tally(interests.data, "recipient_id");
-  const acceptSent = tally(accepts.data, "sender_id");
-  const acceptReceived = tally(accepts.data, "recipient_id");
-  const profileViews = tally(views.data, "viewed_id");
+  const newInterests = tally(interestsRows, "recipient_id");
+  const acceptSent = tally(acceptsRows, "sender_id");
+  const acceptReceived = tally(acceptsRows, "recipient_id");
+  const profileViews = tally(viewsRows, "viewed_id");
 
   const cityCount = new Map<string, number>();
-  for (const p of newMembers.data ?? []) {
+  for (const p of newMembersRows ?? []) {
     if (p.city) cityCount.set(p.city, (cityCount.get(p.city) ?? 0) + 1);
   }
 
-  const summary = { considered: 0, queued: 0, skipped_empty: 0, failed: 0, pages: 0 };
+  const summary = { considered: 0, queued: 0, skipped_empty: 0, failed: 0, pages: 0, week: weekId };
 
   // Recipients page by keyset (user_id order); each page advances the cursor,
   // so a 5001st opt-in is page two, not a silent drop.
@@ -136,13 +148,13 @@ serve(async (req) => {
         continue;
       }
 
-      // The date is part of the key, so a re-run on the same day collapses onto
+      // The ISO week is part of the key, so a re-run in the same week collapses onto
       // the same rows instead of mailing everyone twice.
       const { error } = await admin.rpc("enqueue_notification", {
         _user: memberId,
         _template: "weekly_digest",
         _payload: payload,
-        _idempotency_key: `weekly_digest:${memberId}:${new Date().toISOString().slice(0, 10)}`,
+        _idempotency_key: `weekly_digest:${memberId}:${weekId}`,
       });
       if (error) {
         summary.failed += 1;
@@ -157,6 +169,37 @@ serve(async (req) => {
 
   return json({ ok: true, ...summary });
 });
+
+/** Formats the current date as an ISO week string, e.g. "2026-W42" */
+function getIsoWeekString(date = new Date()): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+/** Keyset/range pages through all records for an unbounded aggregate scan */
+async function fetchAllRows<T extends Record<string, unknown>>(
+  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>,
+  pageSize = 5000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await fetchPage(from, from + pageSize - 1);
+    if (error) {
+      console.error("Aggregation scan error:", error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
 
 /** Count rows into a map keyed by the given column. */
 function tally<T extends Record<string, unknown>>(

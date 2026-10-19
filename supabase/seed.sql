@@ -7,6 +7,21 @@
 -- needs a disabled placeholder auth.users row before it can be inserted:
 -- empty password, no identities, .invalid address — they can never sign in.
 -- Same pattern as the backfill in 20260928000200_storage_and_integrity.sql.
+--
+-- PRODUCTION GUARD: `supabase db seed` can be pointed at a linked remote
+-- project, and this file would then insert eight fabricated profiles marked
+-- `verified` and `is_visible`, carrying real-institution alumni addresses.
+-- Nothing downstream reports their arrival, so the risk is silent.
+--
+-- Both INSERTs are therefore conditional on the database never having held a
+-- real person: a seed row is by definition an `@example.invalid` address, so
+-- the first genuine member makes the predicate permanently false and the seed
+-- becomes a no-op forever after. This is deliberately not an environment flag
+-- (a flag can be set by accident; a populated production database cannot look
+-- fresh), and it is deliberately not an exception either — `supabase db reset`
+-- runs this file in CI, and a hard failure there would break the migration
+-- drill for no security gain. A fresh local or staging database still seeds
+-- exactly as before.
 -- ===========================================================================
 
 INSERT INTO auth.users (
@@ -34,6 +49,11 @@ FROM (VALUES
   ('a1000000-0000-4000-8000-000000000007'::uuid),
   ('a1000000-0000-4000-8000-000000000008'::uuid)
 ) AS seed_ids(id)
+-- PRODUCTION GUARD: never seed into a database that has held a real member.
+WHERE NOT EXISTS (
+  SELECT 1 FROM auth.users u
+  WHERE coalesce(u.email, '') NOT LIKE '%@example.invalid'
+)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.profiles (
@@ -41,7 +61,11 @@ INSERT INTO public.profiles (
   profession, employer, relocation, values_statement, bio,
   is_visible, onboarded, verification_status, alumni_email, alumni_email_verified,
   verification_decided_at, photo_visibility
-) VALUES
+)
+-- PRODUCTION GUARD: skipped in lockstep with the placeholder auth rows above.
+-- The FK to auth.users makes a half-applied seed fail loudly rather than write
+-- fabricated profiles that no later query would question.
+SELECT * FROM (VALUES
   (
     'a1000000-0000-4000-8000-000000000001', 'Ananya Iyer', 'Woman', 1994, 'Mumbai',
     'IIT Bombay', 'B.Tech Computer Science', 2016, 'Engagement Manager', 'McKinsey & Company',
@@ -106,6 +130,12 @@ INSERT INTO public.profiles (
     'Studied economics in Delhi, spent three years in analytics, then IIM Ahmedabad. I now run strategy and operations for a consumer goods business and split my time between Gurugram and a farmhouse near Alwar. I fly gliders, which explains the patience.',
     true, true, 'needs_resubmission', 'vikram.sethi@iima.ac.in', false, now() - interval '5 days', 'accepted_only'
   )
+) AS seeded_profile
+-- PRODUCTION GUARD: see the file header.
+WHERE NOT EXISTS (
+  SELECT 1 FROM auth.users u
+  WHERE coalesce(u.email, '') NOT LIKE '%@example.invalid'
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- Desk notes so the queue and member view have realistic context.

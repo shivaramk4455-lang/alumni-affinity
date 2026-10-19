@@ -151,10 +151,13 @@ Run in this order; each step is verifiable on its own.
    `cron_secret` equal to `CRON_SECRET`, otherwise the two unattended functions
    answer 500 to pg_cron and no alert ever sends.
 4. **Migrations**: `supabase db push` — applies the full chain through
-   `20261030000000_private_discovery_matching`. Two migrations fail loudly on
-   purpose: `20261010000001_phase2_regression_assertions` (Phase-2
-   fixes) and `20261026000000_repair_photo_view_requests` (photo
-   request guards). On a production database this also removes
+   `20261105000000_copilot_photo_directory_repair`. Four migrations fail loudly
+   on purpose, by design: `20261010000001_phase2_regression_assertions`
+   (Phase-2 fixes), `20261026000000_repair_photo_view_requests` (photo
+   request guards), `20261028000000_rate_limit_purposes` (the purposes CHECK)
+   and `20261029000000_deletion_receipts` (the receipt must never carry an FK
+   to `profiles`, or Section 12 evidence would cascade away with the member).
+   On a production database this also removes
    residual demo-directory rows (guarded, see README) and repairs the
    `my_profile` view. Link once, then push (the database password is
    prompted, never passed here):
@@ -184,8 +187,8 @@ Run in this order; each step is verifiable on its own.
 9. **Smoke tests**: signup → onboarding → verification submit → admin approve →
    search → interest → accept → contact reveal → message → call → block → logout.
 10. **Cron**: `select * from cron.job;` shows all four jobs —
-    `notify-dispatch` (`*/5 * * * *`), `weekly-digest` (`30 6 * * 2`,
-    Mondays 06:30 UTC), `prune-webhook-events` (`0 3 * * *`), and
+    `notify-dispatch` (`*/5 * * * *`), `weekly-digest` (`30 6 * * 1`,
+    Mondays 06:30 UTC = 12:00 IST), `prune-webhook-events` (`0 3 * * *`), and
     `purge-verification-docs` (`47 3 * * *`); manually `POST`
     `notify-dispatch` with the `X-Cron-Secret` header and confirm
     `{"ok":true,...}`.

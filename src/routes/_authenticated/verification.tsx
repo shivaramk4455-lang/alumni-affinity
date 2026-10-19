@@ -13,6 +13,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
 import { compressPhotograph, formatErrorMessage } from "@/lib/gallery";
 import { recordConsent } from "@/lib/consent";
+import { assertAllowedFileType } from "@/lib/magic-bytes";
 import {
   PHOTO_VISIBILITY,
   canSubmitForReview,
@@ -89,6 +90,11 @@ function Verification() {
       bucket: "profile-photos" | "verification-docs";
     }) => {
       const { data: u } = await supabase.auth.getUser();
+      if (bucket === "profile-photos") {
+        await assertAllowedFileType(file, ["jpeg", "png", "webp"], "Photograph");
+      } else {
+        await assertAllowedFileType(file, ["pdf", "jpeg", "png"], "Verification document");
+      }
       const fileToUpload = bucket === "profile-photos" ? await compressPhotograph(file) : file;
       const ext = fileToUpload.name.split(".").pop()?.toLowerCase() ?? "dat";
       const path = `${u.user!.id}/${bucket === "profile-photos" ? "portrait" : "credential"}.${ext}`;
@@ -436,8 +442,21 @@ function Verification() {
           className="mt-5"
           disabled={save.isPending}
           onClick={() => {
+            const cleanPhone = phone.trim() || null;
+            const cleanLinkedin = linkedin.trim() || null;
+            if (cleanLinkedin) {
+              const valid =
+                cleanLinkedin.startsWith("https://linkedin.com/") ||
+                cleanLinkedin.startsWith("https://www.linkedin.com/");
+              if (!valid) {
+                toast.error(
+                  "LinkedIn URL must start with https://linkedin.com/ or https://www.linkedin.com/",
+                );
+                return;
+              }
+            }
             save.mutate(
-              { contact_phone: phone.trim() || null, linkedin_url: linkedin.trim() || null },
+              { contact_phone: cleanPhone, linkedin_url: cleanLinkedin },
               {
                 onSuccess: () => toast.success("Contact details saved."),
               },

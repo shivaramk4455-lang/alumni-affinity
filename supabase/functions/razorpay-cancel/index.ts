@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
 import { rateLimitError } from "../_shared/rate-limit.ts";
+import { cronAuthError } from "../_shared/cron-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -46,6 +47,69 @@ serve(async (req) => {
   if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY)
     return json({ error: "Server configuration error" }, 500);
 
+  const payload = (await req.json().catch(() => null)) as { mode?: string } | null;
+
+  // ---------------------------------------------------------------------------
+  // Unattended mode: drain mandates whose member no longer exists.
+  //
+  // delete-account cancels billing before it deletes the profile, but a provider
+  // outage there must not be allowed to block an erasure request — so a failure
+  // leaves an orphaned row (subscriptions.user_id IS NULL, 20261106000100) and
+  // this job retries hourly. Without it, "I deleted my account" and "the debit
+  // continued" were both true at once, with no record left to fix it.
+  //
+  // Checked BEFORE the Bearer requirement below: pg_cron has no caller identity
+  // by design (see _shared/cron-auth.ts), and the gateway JWT it presents is the
+  // service-role key, which caller.auth.getUser() would reject.
+  // ---------------------------------------------------------------------------
+  if (payload?.mode === "reconcile-orphans") {
+    const cronError = cronAuthError(req);
+    if (cronError) return cronError;
+
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      return json({ error: "Payments are not configured" }, 503);
+    }
+
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const { data: orphans, error: orphanError } = await admin.rpc("orphaned_subscriptions");
+    if (orphanError) return json({ error: orphanError.message }, 500);
+
+    const failures: string[] = [];
+    let cancelled = 0;
+
+    for (const orphan of (orphans ?? []) as Array<{
+      id: string;
+      razorpay_subscription_id: string;
+    }>) {
+      try {
+        await razorpay(`/subscriptions/${orphan.razorpay_subscription_id}/cancel`, {
+          method: "POST",
+          body: JSON.stringify({ cancel_at_cycle_end: 0 }),
+        });
+        await admin
+          .from("subscriptions")
+          .update({
+            status: "cancelled",
+            updated_at: new Date().toISOString(),
+            last_event_at: new Date().toISOString(),
+          })
+          .eq("id", orphan.id);
+        cancelled++;
+      } catch (err) {
+        // Left in place for the next run: the surviving row IS the retry record,
+        // which is the whole reason the FK became ON DELETE SET NULL.
+        failures.push(orphan.id);
+        console.error(
+          "razorpay-cancel: orphan drain failed for",
+          orphan.id,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
+    return json({ ok: true, mode: "reconcile-orphans", cancelled, failed: failures.length });
+  }
+
   const auth = req.headers.get("authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
@@ -78,7 +142,10 @@ serve(async (req) => {
     .in("status", ["active", "authenticated", "pending"])
     .maybeSingle();
 
-  if (subError) return json({ error: subError.message }, 500);
+  if (subError) {
+    console.error("razorpay-cancel: subscription lookup failed:", subError.message);
+    return json({ error: "Could not load your subscription. Please try again." }, 500);
+  }
   if (!sub) return json({ error: "No active subscription found to cancel." }, 404);
 
   if (sub.cancel_at_period_end) {
@@ -135,7 +202,19 @@ serve(async (req) => {
     })
     .eq("id", sub.id);
 
-  if (updateError) return json({ error: updateError.message }, 500);
+  if (updateError) {
+    // The provider has already scheduled the cancellation, so this is the one
+    // case where the member must be told to check with a human: their tier will
+    // stop at the provider while the row here still says otherwise.
+    console.error("razorpay-cancel: row update failed after provider cancel:", updateError.message);
+    return json(
+      {
+        error:
+          "Your cancellation was recorded with the payment provider but not saved here. Please contact the membership desk so we can reconcile it.",
+      },
+      500,
+    );
+  }
 
   // Record consent audit entry for cancellation.
   // NOTE: purpose "subscription_cancellation" must exist in the

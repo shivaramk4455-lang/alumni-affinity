@@ -74,27 +74,69 @@ export function useMySubscription() {
       // legitimate `null` — otherwise a paying member sees the free-tier upsell.
       if (!user) throw new Error("session unavailable");
 
-      // Query active/authenticated/pending subscription (at most one exists due to idx_subscriptions_one_live)
-      const { data: liveSub, error: liveError } = await supabase
+      // Mirrors private.subscription_is_live() (migration 20261106000000), which
+      // is the definition the send gate actually enforces:
+      //
+      //   * `pending` is the payment-FAILURE state. It used to be selected here,
+      //     so a member whose renewal was declined saw a paid tier card and a
+      //     working Cancel button for access they did not have.
+      //   * a period that has ended is not live, even if the terminal webhook
+      //     never arrived.
+      //   * an abandoned `created` row is not a tier at all (the deployment
+      //     checklist already asserted this, and the code disagreed).
+      //
+      // Returning a list rather than .maybeSingle() also removes a latent throw:
+      // maybeSingle errors when two rows match, which is exactly the state a
+      // double checkout used to produce.
+      const { data: candidates, error: liveError } = await supabase
         .from("subscriptions")
         .select("plan_code, status, requests_used, period_end, cancel_at_period_end")
-        .in("status", ["active", "authenticated", "pending"])
-        .maybeSingle();
+        .in("status", ["active", "authenticated"])
+        .order("created_at", { ascending: false });
       if (liveError) throw liveError;
-      if (liveSub) return liveSub as MySubscription;
 
-      // Fallback: check for newest 'created' checkout if no active subscription exists
-      const { data: createdSub, error: createdError } = await supabase
-        .from("subscriptions")
-        .select("plan_code, status, requests_used, period_end, cancel_at_period_end")
-        .eq("status", "created")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (createdError) throw createdError;
-      return (createdSub ?? null) as MySubscription | null;
+      const live = (candidates ?? [])
+        .map((row) => row as MySubscription)
+        .find((row) => isSubscriptionLive(row.status, row.period_end));
+      return live ?? null;
     },
   });
+}
+
+/**
+ * The single client-side definition of a live subscription, strictly mirroring
+ * database function `private.subscription_is_live()` (migration 20261106000000).
+ *
+ * An entitling status MUST be 'active' or 'authenticated', AND the period_end must
+ * be either null or in the future. Status 'pending' is the payment-failure state
+ * and NEVER entitles; status 'created' is an abandoned checkout and NEVER entitles.
+ */
+export function isSubscriptionLive(
+  status: string,
+  periodEnd: string | null,
+  nowMs = Date.now(),
+): boolean {
+  return (
+    (status === "active" || status === "authenticated") &&
+    (periodEnd === null || new Date(periodEnd).getTime() > nowMs)
+  );
+}
+
+/** Determines whether an incoming webhook timestamp is older than existing record. */
+export function isEventStale(eventCreatedAtSeconds: number, existingUpdatedAtIso: string): boolean {
+  const existingSeconds = Math.floor(new Date(existingUpdatedAtIso).getTime() / 1000);
+  return eventCreatedAtSeconds < existingSeconds;
+}
+
+export const TERMINAL_SUBSCRIPTION_STATES = new Set([
+  "halted",
+  "cancelled",
+  "completed",
+  "expired",
+]);
+
+export function isTerminalSubscriptionState(status: string): boolean {
+  return TERMINAL_SUBSCRIPTION_STATES.has(status);
 }
 
 type CheckoutResponse = {
@@ -134,7 +176,17 @@ export function useStartCheckout() {
       return data;
     },
     onSuccess: async (session) => {
-      await loadRazorpayScript();
+      try {
+        await loadRazorpayScript();
+      } catch {
+        // The script comes from Razorpay's CDN on demand, so an ad-blocker or a
+        // flaky connection rejects it. Previously that rejection escaped as an
+        // unhandled promise rejection *after* the mutation had already reported
+        // success: the member tapped "Choose plan", the spinner stopped, and
+        // nothing happened — no modal, no error, no explanation.
+        toast.error("The payment window could not be loaded. Check your connection and try again.");
+        return;
+      }
       if (!window.Razorpay) {
         toast.error("The payment window could not be loaded. Please try again.");
         return;
@@ -218,7 +270,14 @@ function loadRazorpayScript(): Promise<void> {
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Razorpay script failed to load"));
+    script.onerror = () => {
+      // Drop the cached promise. Memoizing the rejection made "try again"
+      // permanently broken: every later call reused the failed promise, so a
+      // member who retried after a network blip could never reach checkout
+      // again in that tab.
+      scriptPromise = null;
+      reject(new Error("Razorpay script failed to load"));
+    };
     document.body.appendChild(script);
   });
   return scriptPromise;
