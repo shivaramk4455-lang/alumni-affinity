@@ -51,6 +51,31 @@ async function razorpay(path: string, init: RequestInit = {}): Promise<unknown> 
   return text ? JSON.parse(text) : {};
 }
 
+/**
+ * Cancel a Razorpay subscription object that must not survive.
+ *
+ * `cancel_at_cycle_end: 0` cancels immediately rather than at the end of the
+ * billing cycle. This is only ever called for an object created by a checkout
+ * that then lost the race, so it has never been funded — leaving it alive
+ * would mean a second live auto-debit mandate and a second monthly debit.
+ */
+async function cancelRzpSubscription(subscriptionId: string): Promise<void> {
+  try {
+    await razorpay(`/subscriptions/${subscriptionId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ cancel_at_cycle_end: 0 }),
+    });
+  } catch (err) {
+    // Never let a cleanup failure mask the original response. The orphan
+    // drain (razorpay-cancel, hourly) reconciles anything left behind.
+    console.error(
+      "razorpay-checkout: could not cancel the losing subscription",
+      subscriptionId,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -84,11 +109,16 @@ serve(async (req) => {
   // Retired tiers keep entitling their payers but are never sold again.
   if (!plan.sellable) return json({ error: "This tier is no longer offered" }, 403);
 
-  // F-07 & F-10: Check for existing subscriptions and guard duplicate in-flight checkouts.
+  // F-07 & F-10: check for existing subscriptions and guard duplicate in-flight checkouts.
   // 1. Prevent subscribing if already on an active or authenticated tier.
   // 2. Reuse recent (<15m) uncompleted 'created' checkout session for the same plan
   //    to prevent spawning orphan Razorpay subscription objects.
   // 3. Throttle requests made within 10 seconds of each other.
+  //
+  // This is an OPTIMISATION, not the decision. It saves a provider call in the
+  // common case. The authoritative, race-free decision is claim_checkout_slot()
+  // further down, which runs after the provider call because the provider hands
+  // out the subscription id the claim has to record.
   const { data: existingSubs } = await admin
     .from("subscriptions")
     .select("id, status, plan_code, razorpay_subscription_id, created_at")
@@ -186,11 +216,14 @@ serve(async (req) => {
         }),
       })) as { id: string };
 
-      // Persist plan ID so subsequent checkouts reuse this plan instead of creating duplicate plans
+      // Persist plan ID so subsequent checkouts reuse this plan instead of
+      // creating duplicate plans. The IS NULL guard means a concurrent
+      // checkout that already wrote an id is not clobbered.
       await admin
         .from("subscription_plans")
         .update({ razorpay_plan_id: rzpPlan.id })
-        .eq("code", plan.code);
+        .eq("code", plan.code)
+        .is("razorpay_plan_id", null);
 
       subscription = (await razorpay("/subscriptions", {
         method: "POST",
@@ -207,32 +240,81 @@ serve(async (req) => {
     return json({ error: "The payment provider is unavailable. Please try again shortly." }, 502);
   }
 
-  // Mirror the row before the payment. Status stays non-entitling until the
-  // webhook says paid, so a checkout that is abandoned leaves only a
-  // harmless 'created' row.
-  const { error: insertError } = await admin.from("subscriptions").insert({
-    user_id: user.id,
-    plan_code: plan.code,
-    razorpay_subscription_id: String(subscription.id),
-    status: "created",
+  // ---- The atomic decision ------------------------------------------------
+  // The read above and this insert used to be two separate statements with a
+  // provider call in between, so two concurrent checkouts (a double click, two
+  // tabs, a retrying client) both saw an empty table, both created a Razorpay
+  // subscription object, and both inserted a 'created' row.
+  //
+  // The partial unique index cannot catch that: idx_subscriptions_one_live
+  // deliberately excludes 'created' so an abandoned checkout cannot block a new
+  // one. The consequence was two live auto-debit mandates and two monthly
+  // debits for a single paid tier — supersedeOtherOpenRows in the webhook
+  // rewrote the losing LOCAL row but never cancelled the losing mandate.
+  //
+  // claim_checkout_slot() is the single authoritative decision point. It holds
+  // an advisory transaction lock for this member, so concurrent checkouts
+  // serialise, and it returns one verdict we must obey. When we lose the race
+  // the Razorpay subscription we just created is cancelled at the provider, so
+  // the losing mandate never debits.
+  const { data: claim, error: claimError } = await admin.rpc("claim_checkout_slot", {
+    _user: user.id,
+    _plan_code: plan.code,
+    _rzp_subscription_id: String(subscription.id),
   });
-  if (insertError) {
-    // 23505 means a concurrent checkout beat the guard above to the insert. The
-    // member still holds exactly one open row, which is the invariant that
-    // matters, so it is reported as a conflict rather than a server fault.
-    // Either way the raw PostgREST message is not returned to the browser.
-    if (insertError.code === "23505") {
-      return json({ error: "A checkout for this plan is already in progress." }, 409);
-    }
-    console.error("razorpay-checkout: subscription insert failed:", insertError.message);
+
+  if (claimError || !claim || claim.length === 0) {
+    console.error("razorpay-checkout: checkout claim failed:", claimError?.message);
+    await cancelRzpSubscription(String(subscription.id));
     return json({ error: "Could not start checkout. Please try again." }, 500);
   }
 
-  return json({
-    key_id: RAZORPAY_KEY_ID,
-    subscription_id: subscription.id,
-    plan_code: plan.code,
-    amount_paise: plan.amount_paise,
-    currency: plan.currency,
-  });
+  const verdict = String(claim[0].verdict ?? "");
+  const existingSubscriptionId = claim[0].existing_subscription_id as string | null;
+
+  if (verdict === "claimed") {
+    return json({
+      key_id: RAZORPAY_KEY_ID,
+      subscription_id: subscription.id,
+      plan_code: plan.code,
+      amount_paise: plan.amount_paise,
+      currency: plan.currency,
+    });
+  }
+
+  // We did not win. The provider object we just created must not survive, or
+  // it becomes a second live mandate.
+  await cancelRzpSubscription(String(subscription.id));
+
+  if (verdict === "reuse") {
+    // Another checkout for this plan is already in flight. Point the member at
+    // that one rather than opening a second Razorpay modal.
+    return json({
+      key_id: RAZORPAY_KEY_ID,
+      subscription_id: existingSubscriptionId,
+      plan_code: plan.code,
+      amount_paise: plan.amount_paise,
+      currency: plan.currency,
+    });
+  }
+  if (verdict === "already_active") {
+    return json({ error: "You already have an active subscription" }, 409);
+  }
+  if (verdict === "already_pending") {
+    return json({ error: "A payment is still being resolved. Please try again in a moment." }, 409);
+  }
+  if (verdict === "other_plan") {
+    return json(
+      {
+        error:
+          "A checkout for a different tier is already in progress. Please contact the membership desk.",
+      },
+      409,
+    );
+  }
+  if (verdict === "too_soon") {
+    return json({ error: "Please wait a moment before starting another checkout" }, 429);
+  }
+
+  return json({ error: "Could not start checkout. Please try again." }, 409);
 });

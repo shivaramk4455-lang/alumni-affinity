@@ -60,19 +60,81 @@ function legalIdentityGate(): PluginOption {
  * repo, so hosted builds would otherwise bake empty values into the client
  * bundle and blank the screen with "Missing Supabase environment variable(s)".
  * Env values still win when present. NEVER add a service-role/secret key here.
+ *
+ * WHY THESE LITERALS ARE STILL HERE, AND WHAT CHANGED
+ *
+ * The values below are the PRODUCTION project. Falling back to them silently
+ * meant that a build with no environment at all — a CI build, a preview, a
+ * contributor's first `npm run dev` — bound to the production database and
+ * read and wrote real members' data. The loud "missing Supabase environment
+ * variable(s)" path in src/integrations/supabase/client.ts could never be
+ * reached, because the fallback made the variables never missing.
+ *
+ * The fallback is kept (the hosted builder does not inject env vars at build
+ * time, and a bundle with no URL is a blank screen), but it is no longer
+ * silent:
+ *
+ *   * every build now PRINTS which project it is about to talk to;
+ *   * a release build can demand real configuration by setting
+ *     REQUIRE_SUPABASE_CONFIG=1, which fails the build instead of falling
+ *     back — the same gate shape as REQUIRE_LEGAL_IDENTITY below.
  */
-const PUBLIC_SUPABASE_URL =
-  process.env["VITE_SUPABASE_URL"] ||
-  process.env["SUPABASE_URL"] ||
-  "https://beetszutyuihbnzzmokr.supabase.co";
-const PUBLIC_SUPABASE_KEY =
-  process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-  process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-  "sb_publishable_6lPH6KNKcSiWYBfFKjBDxQ_Fmzd29vv";
-const PUBLIC_SUPABASE_PROJECT_ID =
-  process.env["VITE_SUPABASE_PROJECT_ID"] ||
-  process.env["SUPABASE_PROJECT_ID"] ||
-  "beetszutyuihbnzzmokr";
+const PRODUCTION_SUPABASE_URL = "https://beetszutyuihbnzzmokr.supabase.co";
+const PRODUCTION_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_6lPH6KNKcSiWYBfFKjBDxQ_Fmzd29vv";
+const PRODUCTION_SUPABASE_PROJECT_ID = "beetszutyuihbnzzmokr";
+
+const configuredSupabaseUrl = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "";
+const configuredSupabaseKey =
+  process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"] || "";
+const configuredSupabaseProjectId =
+  process.env["VITE_SUPABASE_PROJECT_ID"] || process.env["SUPABASE_PROJECT_ID"] || "";
+
+const usingProductionFallback = !configuredSupabaseUrl || !configuredSupabaseKey;
+
+const PUBLIC_SUPABASE_URL = configuredSupabaseUrl || PRODUCTION_SUPABASE_URL;
+const PUBLIC_SUPABASE_KEY = configuredSupabaseKey || PRODUCTION_SUPABASE_PUBLISHABLE_KEY;
+const PUBLIC_SUPABASE_PROJECT_ID = configuredSupabaseProjectId || PRODUCTION_SUPABASE_PROJECT_ID;
+
+/**
+ * Release gate: a build flagged REQUIRE_SUPABASE_CONFIG=1 must not fall back
+ * to the built-in production project. A build that silently binds to
+ * production is how a preview or a CI artefact ends up pointed at real
+ * members' data.
+ */
+function supabaseConfigGate(): PluginOption {
+  return {
+    name: "supabase-config-gate",
+    apply: "build",
+    buildStart() {
+      if (usingProductionFallback) {
+        console.warn(
+          "[supabase-config] No SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY in the build " +
+            `environment: this bundle is bound to the PRODUCTION project ${PRODUCTION_SUPABASE_PROJECT_ID}. ` +
+            "Set them in the build environment, or set REQUIRE_SUPABASE_CONFIG=1 to fail the build instead.",
+        );
+      }
+
+      if (process.env["REQUIRE_SUPABASE_CONFIG"] !== "1") return;
+
+      const missing: string[] = [];
+      if (!configuredSupabaseUrl) missing.push("SUPABASE_URL / VITE_SUPABASE_URL");
+      if (!configuredSupabaseKey)
+        missing.push("SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_PUBLISHABLE_KEY");
+
+      if (missing.length === 0) return;
+
+      throw new Error(
+        "REQUIRE_SUPABASE_CONFIG=1 — refusing to build.\n\n" +
+          "This build would fall back to the built-in PRODUCTION Supabase project " +
+          `(${PRODUCTION_SUPABASE_PROJECT_ID}). Set the following in the build ` +
+          "environment instead:\n\n" +
+          missing.map((m) => `  - ${m}`).join("\n") +
+          "\n\nThe publishable key is browser-safe; never set a service-role key " +
+          "in a VITE_* variable.",
+      );
+    },
+  };
+}
 
 // Server-side fallbacks (SSR + server functions read process.env).
 process.env["SUPABASE_URL"] ||= PUBLIC_SUPABASE_URL;
@@ -89,7 +151,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [legalIdentityGate()],
+    plugins: [legalIdentityGate(), supabaseConfigGate()],
     define: {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(PUBLIC_SUPABASE_URL),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(PUBLIC_SUPABASE_KEY),

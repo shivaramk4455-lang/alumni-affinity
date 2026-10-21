@@ -53,9 +53,12 @@ function Connections() {
     queryKey: ["interests"],
     queryFn: async () => {
       // Trigger quiet expiry, stale-call sweep and reminders on fresh access.
-      // Both RPCs only ever move rows toward terminal states.
-      void supabase.rpc("expire_stale_interests");
-      void supabase.rpc("sweep_stale_calls");
+      // These are the MEMBER-SCOPED wrappers: the global sweeps are scheduled
+      // jobs now (20261107000000), so a page load cannot trigger a write
+      // across the whole member base. Each wrapper only touches rows the
+      // signed-in member is a party to.
+      void supabase.rpc("expire_my_stale_interests");
+      void supabase.rpc("sweep_my_stale_calls");
       const { data, error } = await supabase
         .from("interests")
         .select("id, sender_id, recipient_id, status, message, expires_at, created_at, updated_at")

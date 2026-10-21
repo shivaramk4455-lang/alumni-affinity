@@ -126,6 +126,9 @@ function Copilots() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recommendations"] });
+      // Every sibling mutation toasts. Without one here the row simply
+      // vanished with no confirmation that anything had happened.
+      toast.success("Suggestion removed.");
     },
     // A failed delete was completely silent, so the row simply stayed put.
     onError: () => toast.error("Could not remove the suggestion. Please try again."),

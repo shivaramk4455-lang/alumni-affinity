@@ -268,6 +268,10 @@ function CallsPage() {
                         size="sm"
                         disabled={dialing !== null}
                         onClick={() => void callAgain(c)}
+                        // Every row's button read "Call again", so a screen
+                        // reader heard the same name N times with no way to
+                        // tell the rows apart. The start time is unique.
+                        aria-label={`Call again — ${new Date(c.started_at).toLocaleString("en-IN")}`}
                       >
                         <Video className="size-4" />
                         {dialing === c.id ? "Starting…" : "Call again"}
@@ -275,7 +279,11 @@ function CallsPage() {
                     )}
                     {c.interestId && (
                       <Button asChild variant="ghost" size="sm">
-                        <Link to="/messages/$interestId" params={{ interestId: c.interestId }}>
+                        <Link
+                          to="/messages/$interestId"
+                          params={{ interestId: c.interestId }}
+                          aria-label={`Open the conversation from ${new Date(c.started_at).toLocaleString("en-IN")}`}
+                        >
                           <MessageSquare className="size-4" /> Message
                         </Link>
                       </Button>

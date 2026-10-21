@@ -30,7 +30,10 @@ export function useDismissedIds(enabled = true) {
       const { data, error } = await supabase
         .from("profile_dismissals")
         .select("dismissed_id, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        // Bounded: RLS scopes this to the member's own dismissals, but the
+        // set grows over a lifetime and this query runs on every directory load.
+        .limit(500);
       if (error) throw error;
       return (data ?? []).map((r) => r.dismissed_id);
     },

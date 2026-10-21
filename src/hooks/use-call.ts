@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { useMyProfile } from "@/hooks/use-my-profile";
-import { createRtcPeer, type RtcPeer, type SignalKind } from "@/lib/rtc-peer";
+import { createRtcPeer, getIceServersAsync, type RtcPeer, type SignalKind } from "@/lib/rtc-peer";
 
 export type CallRow = {
   id: string;
@@ -126,7 +126,7 @@ export function useCall(callId: string | undefined) {
       teardownMedia();
 
       if (current && current.status !== "ended") {
-        await supabase
+        const { error: endError } = await supabase
           .from("calls")
           .update({
             status: "ended",
@@ -134,6 +134,16 @@ export function useCall(callId: string | undefined) {
             decline_reason: reason,
           })
           .eq("id", callId);
+        // The error was never checked. A failed update left the row 'ringing',
+        // and idx_calls_one_live (one live call per conversation) then blocked
+        // every future call in that conversation for good — with no retry path
+        // and nothing in the UI to explain it.
+        if (endError) {
+          console.error("use-call: could not end the call row:", endError.message);
+          toast.error(
+            "The call ended, but we could not update its status. Please contact the membership desk.",
+          );
+        }
         // Whoever is still unknown has a missed call, not a conversation.
         // Server-composed via notify_counterparty (accepted-interest checked).
         if (current.status === "ringing" && u.user) {
@@ -201,7 +211,11 @@ export function useCall(callId: string | undefined) {
 
         // Short-lived TURN credentials first (server-minted, TTL-bound);
         // static bundle config is the fallback when the function is absent.
-        const { getIceServersAsync } = await import("@/lib/rtc-peer");
+        //
+        // Imported statically: the module was also statically imported for
+        // createRtcPeer, so the dynamic import could not move it into its own
+        // chunk — it only added a microtask hop inside the most
+        // latency-sensitive path in the app.
         const peer = createRtcPeer(
           stream,
           remoteStream,

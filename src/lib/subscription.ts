@@ -2,6 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { isSubscriptionLive } from "./subscription-liveness";
+
+// The billing rules live in their own module so they can be unit tested and
+// coverage-thresholded on their own. They are re-exported here because this
+// module is the product's public entry point for them.
+export {
+  isEventStale,
+  isSubscriptionLive,
+  isTerminalSubscriptionState,
+  TERMINAL_SUBSCRIPTION_STATES,
+} from "./subscription-liveness";
 
 /**
  * Paid tiers.
@@ -32,6 +43,11 @@ export type MySubscription = {
   requests_used: number;
   period_end: string | null;
   cancel_at_period_end: boolean;
+  /**
+   * Recorded payment evidence. The database only entitles a subscription row
+   * that has one, so the browser must read the same column to agree with it.
+   */
+  amount_paid_paise: number | null;
 };
 
 export const inr = (paise: number) =>
@@ -90,53 +106,19 @@ export function useMySubscription() {
       // double checkout used to produce.
       const { data: candidates, error: liveError } = await supabase
         .from("subscriptions")
-        .select("plan_code, status, requests_used, period_end, cancel_at_period_end")
+        .select(
+          "plan_code, status, requests_used, period_end, cancel_at_period_end, amount_paid_paise",
+        )
         .in("status", ["active", "authenticated"])
         .order("created_at", { ascending: false });
       if (liveError) throw liveError;
 
       const live = (candidates ?? [])
         .map((row) => row as MySubscription)
-        .find((row) => isSubscriptionLive(row.status, row.period_end));
+        .find((row) => isSubscriptionLive(row.status, row.period_end, row.amount_paid_paise));
       return live ?? null;
     },
   });
-}
-
-/**
- * The single client-side definition of a live subscription, strictly mirroring
- * database function `private.subscription_is_live()` (migration 20261106000000).
- *
- * An entitling status MUST be 'active' or 'authenticated', AND the period_end must
- * be either null or in the future. Status 'pending' is the payment-failure state
- * and NEVER entitles; status 'created' is an abandoned checkout and NEVER entitles.
- */
-export function isSubscriptionLive(
-  status: string,
-  periodEnd: string | null,
-  nowMs = Date.now(),
-): boolean {
-  return (
-    (status === "active" || status === "authenticated") &&
-    (periodEnd === null || new Date(periodEnd).getTime() > nowMs)
-  );
-}
-
-/** Determines whether an incoming webhook timestamp is older than existing record. */
-export function isEventStale(eventCreatedAtSeconds: number, existingUpdatedAtIso: string): boolean {
-  const existingSeconds = Math.floor(new Date(existingUpdatedAtIso).getTime() / 1000);
-  return eventCreatedAtSeconds < existingSeconds;
-}
-
-export const TERMINAL_SUBSCRIPTION_STATES = new Set([
-  "halted",
-  "cancelled",
-  "completed",
-  "expired",
-]);
-
-export function isTerminalSubscriptionState(status: string): boolean {
-  return TERMINAL_SUBSCRIPTION_STATES.has(status);
 }
 
 type CheckoutResponse = {

@@ -29,6 +29,18 @@ export function canonical(path: string): { rel: "canonical"; href: string } {
 }
 
 /**
+ * The `og:url` for a public route.
+ *
+ * Social scrapers fall back to the requested URL when it is absent, which is
+ * usually right — but only when the page was requested at its canonical URL.
+ * Emitting it from the same source as the canonical link keeps the two from
+ * disagreeing.
+ */
+export function ogUrl(path: string): { property: "og:url"; content: string } {
+  return { property: "og:url", content: absoluteUrl(path) };
+}
+
+/**
  * The tags every public page needs for a correct link preview. Spread into a
  * route's meta array; the image is what makes Twitter/WhatsApp/LinkedIn show
  * a card instead of a bare URL.

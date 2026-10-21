@@ -1,11 +1,21 @@
 name: Deploy Supabase Edge Functions
 
+# The Razorpay webhook and the checkout function decide who gets a paid tier.
+# They used to deploy on every push to main, with no dependency on CI: a red
+# typecheck or a failing test still shipped the payment path, because
+# `supabase functions deploy` bundles without typechecking and nothing waited
+# for the CI Gates workflow to finish.
+#
+# The deploy now runs AFTER CI Gates has passed for that exact commit. The
+# trigger is workflow_run rather than push, because a push trigger has no way
+# to wait for another workflow.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI Gates"]
     branches: [main]
-    paths:
-      - "supabase/functions/**"
-      - ".github/workflows/deploy-functions.yml"
+    types: [completed]
+  # A manual deploy is still possible, and it still deploys the current
+  # default-branch commit.
   workflow_dispatch:
 
 # Least privilege: this job authenticates to Supabase with the
@@ -13,6 +23,13 @@ on:
 # sufficient.
 permissions:
   contents: read
+
+# Two overlapping deploys against the same project race each other's function
+# versions. Serialised, and never cancelled: a half-applied deploy is worse
+# than a slightly stale one.
+concurrency:
+  group: deploy-edge-functions
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -24,13 +41,42 @@ jobs:
       PROJECT_ID: beetszutyuihbnzzmokr
 
     steps:
-      - name: Checkout repository
+      - name: Verify CI passed
+        # Only applies to the workflow_run trigger; a manual deploy is the
+        # operator's own decision.
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "::error::CI Gates concluded '${{ github.event.workflow_run.conclusion }}' for ${{ github.event.workflow_run.head_sha }} — refusing to deploy the payment and account-deletion functions."
+            exit 1
+          fi
+
+      - name: Checkout the exact commit CI verified
         uses: actions/checkout@v4
+        with:
+          # The commit CI ran against, not whatever is at the tip of main now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Check whether the edge functions changed
+        id: changed
+        if: github.event_name == 'workflow_run'
+        run: |
+          if git diff --name-only HEAD^ HEAD -- supabase/functions | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Nothing to deploy
+        if: steps.changed.outputs.changed == 'false'
+        run: echo "No edge-function changes in this commit — nothing to deploy."
 
       - name: Verify deploy token is configured
         # db-push.yml already fails loudly when its secret is absent; this
         # workflow did not, so a missing token surfaced as an opaque CLI error
         # (or, worse, a silently skipped deploy) instead of an explicit one.
+        if: steps.changed.outputs.changed != 'false'
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "::error::SUPABASE_ACCESS_TOKEN (or CRI) is not set — refusing to attempt a deploy that would fail opaquely."
@@ -40,16 +86,17 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned, not "latest": this job holds the production access token
+          # and the production database password, so an upstream tag that
+          # changes under it is a supply-chain risk. 2.33.9 is the version this
+          # repository is verified against.
+          version: v2.33.9
 
-      # NOTE: this workflow does NOT typecheck the functions it ships.
-      # `supabase functions deploy` bundles without typechecking, and tsconfig
-      # covers only src/**, so the payment webhook and checkout paths are
-      # deployed unverified. ci.yml now runs `deno check` over supabase/functions
-      # on every PR; once that job has a green history it should become a hard
-      # gate here (a `workflow_run` trigger or a shared reusable workflow).
-      # Deliberately not made blocking in the same change that introduced it,
-      # because a gate that fails on its first run would block a critical deploy.
+      # The functions are typechecked by ci.yml's "Edge function typecheck
+      # (Deno)" job, which this workflow now waits for. `supabase functions
+      # deploy` bundles without typechecking, so that job is the only thing
+      # standing between a type error and the payment path.
       - name: Deploy Edge Functions
+        if: steps.changed.outputs.changed != 'false'
         run: |
           supabase functions deploy --project-ref $PROJECT_ID

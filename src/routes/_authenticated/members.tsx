@@ -251,7 +251,12 @@ function Members() {
     queryKey: ["my-reports"],
     enabled: !!me.data,
     queryFn: async () => {
-      const { data, error } = await supabase.from("reports").select("reported_profile_id");
+      // Bounded: RLS scopes this to the member's own reports, but the set
+      // grows over a lifetime and this query runs on every directory load.
+      const { data, error } = await supabase
+        .from("reports")
+        .select("reported_profile_id")
+        .limit(200);
       if (error) throw error;
       return (data ?? []).map((r) => r.reported_profile_id);
     },
@@ -470,7 +475,11 @@ function Members() {
     profession,
     withPhoto,
     feed,
-    me.data,
+    // The primitive, not the row object. Depending on `me.data` meant that
+    // every invalidation of the profile query produced a new object identity,
+    // which re-ran this effect and re-issued the next-page prefetch even
+    // though no page or filter input had changed.
+    me.data?.verification_status,
     blockedKey,
     canUseVisitorFeed,
     isCopilot,

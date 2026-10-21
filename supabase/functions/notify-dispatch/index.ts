@@ -26,16 +26,13 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const DEFAULT_BATCH = 25;
 const STUCK_AFTER_MINUTES = 15;
 
-const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
+// No CORS headers: this function is called by pg_cron, never from a browser.
+// Advertising it as cross-origin-reachable only invites probing of an
+// endpoint whose entire boundary is a shared secret.
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...CORS },
+    headers: { "content-type": "application/json" },
   });
 }
 
@@ -204,11 +201,14 @@ async function sendWhatsApp(to: string, text: string): Promise<string | null> {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: CORS });
+  if (req.method === "OPTIONS") return json({ error: "Method not allowed" }, 405);
+  // The cron secret is the whole boundary here, so the method matters: a GET
+  // carrying the secret would drain the outbox exactly as a POST does.
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "Server configuration error" }, 500);
   // No caller identity by design (pg_cron invokes this); the shared cron
   // secret is the whole boundary. The publishable key alone must not pass.
-  const cronRejection = cronAuthError(req);
+  const cronRejection = await cronAuthError(req);
   if (cronRejection) return cronRejection;
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -302,11 +302,22 @@ serve(async (req) => {
     const rendered = render(row.template, row.payload, dest);
     if (!rendered) {
       // An unknown template is a deploy-skew bug, not a transient failure.
-      await admin.rpc("finish_notification", {
-        _id: row.id,
-        _ok: false,
-        _error: `no template ${row.template}`,
-      });
+      // finish_notification(_ok:false) re-queues with exponential backoff, so
+      // the row was retried 25 times over several hours before it was finally
+      // parked — a permanent error treated as a transient one. The dispatcher
+      // owns this table, so the row is parked directly and the desk sees it
+      // on the next run instead of hours later.
+      const { error: parkError } = await admin
+        .from("notification_outbox")
+        .update({ status: "failed", last_error: `no template ${row.template}` })
+        .eq("id", row.id)
+        .eq("status", "sending");
+      if (parkError) {
+        console.error(
+          "notify-dispatch: could not park an unknown-template row:",
+          parkError.message,
+        );
+      }
       summary.failed += 1;
       continue;
     }

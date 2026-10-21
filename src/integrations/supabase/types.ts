@@ -1339,46 +1339,61 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          amount_paid_paise: number | null
           cancel_at_period_end: boolean
           created_at: string
+          currency: string | null
           id: string
+          last_event_at: string | null
           period_end: string | null
           period_start: string | null
           plan_code: string
+          razorpay_invoice_id: string | null
           razorpay_order_id: string | null
+          razorpay_payment_id: string | null
           razorpay_subscription_id: string
           requests_used: number
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          amount_paid_paise?: number | null
           cancel_at_period_end?: boolean
           created_at?: string
+          currency?: string | null
           id?: string
+          last_event_at?: string | null
           period_end?: string | null
           period_start?: string | null
           plan_code: string
+          razorpay_invoice_id?: string | null
           razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           razorpay_subscription_id: string
           requests_used?: number
           status?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          amount_paid_paise?: number | null
           cancel_at_period_end?: boolean
           created_at?: string
+          currency?: string | null
           id?: string
+          last_event_at?: string | null
           period_end?: string | null
           period_start?: string | null
           plan_code?: string
+          razorpay_invoice_id?: string | null
           razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           razorpay_subscription_id?: string
           requests_used?: number
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1646,6 +1661,8 @@ export type Database = {
         }[]
       }
       expire_stale_interests: { Args: never; Returns: number }
+      expire_my_stale_interests: { Args: never; Returns: number }
+      current_policy_version: { Args: never; Returns: string }
       finish_notification: {
         Args: { _error?: string; _id: string; _ok: boolean }
         Returns: undefined
@@ -1783,6 +1800,7 @@ export type Database = {
         Returns: undefined
       }
       sweep_stale_calls: { Args: never; Returns: number }
+      sweep_my_stale_calls: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

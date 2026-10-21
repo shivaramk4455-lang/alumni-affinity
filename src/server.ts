@@ -3,7 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError, runWithErrorCapture } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { reportServerError } from "./lib/server-alerts";
-import { withSecurityHeaders } from "./lib/security-headers";
+import { cacheControlFor, withSecurityHeaders } from "./lib/security-headers";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -26,6 +26,7 @@ async function normalizeCatastrophicSsrResponse(
   response: Response,
   context: {
     url: string;
+    requestId?: string | undefined;
     waitUntil?: ((promise: Promise<unknown>) => void) | undefined;
   },
 ): Promise<Response> {
@@ -37,7 +38,7 @@ async function normalizeCatastrophicSsrResponse(
   if (!isH3SwallowedErrorBody(body)) return response;
 
   const error = consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`);
-  console.error(error);
+  console.error(`[${context.requestId ?? "no-request-id"}]`, error);
   reportServerError(error, context);
   return withSecurityHeaders(
     new Response(renderErrorPage(), {
@@ -62,16 +63,23 @@ export default {
     env: unknown,
     ctx: { waitUntil?: ((promise: Promise<unknown>) => void) | undefined },
   ) {
+    // A per-request correlation id. The alert digest aggregates by error
+    // signature, so without an id there is no way to tell one member's 500
+    // from another's, and no way to match a console line to an email.
+    const requestId = crypto.randomUUID();
     const alertContext = {
       url: request.url,
+      requestId,
       waitUntil: ctx?.waitUntil?.bind(ctx),
     };
     try {
       const handler = await getServerEntry();
       const response = await runWithErrorCapture(() => handler.fetch(request, env, ctx));
-      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response, alertContext));
+      const pathname = new URL(request.url).pathname;
+      const normalized = await normalizeCatastrophicSsrResponse(response, alertContext);
+      return withSecurityHeaders(withCacheControl(normalized, pathname));
     } catch (error) {
-      console.error(error);
+      console.error(`[${requestId}]`, error);
       reportServerError(error, alertContext);
       return withSecurityHeaders(
         new Response(renderErrorPage(), {
@@ -82,3 +90,19 @@ export default {
     }
   },
 };
+
+/**
+ * Member-only pages must never be cacheable, and the public pages must not
+ * be served stale after a deploy. Applied here rather than in the header
+ * builder because the policy depends on the request path, which the header
+ * builder does not see.
+ */
+function withCacheControl(response: Response, pathname: string): Response {
+  if (response.headers.has("cache-control")) return response;
+  try {
+    response.headers.set("cache-control", cacheControlFor(pathname));
+  } catch {
+    /* immutable headers — leave the response untouched */
+  }
+  return response;
+}

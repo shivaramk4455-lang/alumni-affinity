@@ -467,17 +467,35 @@ export function useUploadGalleryPhoto() {
             rowError.message?.includes("one_primary");
 
           if (isPrimary && isOnePrimaryViolation) {
-            await supabase.from("profile_photos").insert({
+            const { error: retryError } = await supabase.from("profile_photos").insert({
               user_id: u.user.id,
               path,
               position,
               is_primary: false,
             });
+            // The retry's own error was never checked, so a second failure
+            // still resolved as a success.
+            if (retryError) {
+              throw new Error(formatErrorMessage(retryError));
+            }
             return path;
           }
+
+          // Any other failure is surfaced. Falling through to `return path`
+          // reported a photograph as uploaded while no gallery row existed: it
+          // never appeared in the gallery, was never counted against the cap,
+          // and the member was told it had worked.
+          throw new Error(formatErrorMessage(rowError));
         }
       } catch (err) {
-        console.warn("profile_photos table insert skipped:", err);
+        // The storage object and the primary-portrait sync already succeeded,
+        // so the photograph itself is saved; what is missing is the gallery
+        // row. That is reported rather than swallowed, because a silent
+        // success here is a photograph the member can never see or remove.
+        console.warn("profile_photos row insert failed:", err);
+        throw new Error(
+          "Your photograph was uploaded, but it could not be added to your gallery. Please contact the membership desk.",
+        );
       }
 
       return path;
@@ -548,7 +566,23 @@ export function useDeleteGalleryPhoto() {
       const { data: u, error: userErr } = await supabase.auth.getUser();
       if (userErr || !u.user) throw new Error("Please sign in again to manage photographs.");
 
-      // 1. Delete from profile_photos
+      // 1. Remove the storage object FIRST.
+      //
+      // The row used to be deleted first, so a failed object removal left the
+      // file in the bucket with no row referencing it: invisible to the
+      // member, unreachable through the UI, still consuming storage, and
+      // deleted only by a full account deletion. Removing the object first
+      // means a failure leaves the gallery row intact and the photograph
+      // still visible, so the member can simply retry.
+      const { error: objError } = await supabase.storage
+        .from("profile-photos")
+        .remove([photo.path]);
+
+      if (objError) {
+        throw new Error(formatErrorMessage(objError));
+      }
+
+      // 2. Delete from profile_photos
       const { error: delErr } = await supabase
         .from("profile_photos")
         .delete()
@@ -556,7 +590,7 @@ export function useDeleteGalleryPhoto() {
         .eq("user_id", u.user.id);
       if (delErr) throw new Error(formatErrorMessage(delErr));
 
-      // 2. If deleted photo was primary, clear or reassign profiles.photo_path
+      // 3. If deleted photo was primary, clear or reassign profiles.photo_path
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
         .select("photo_path")
@@ -589,15 +623,6 @@ export function useDeleteGalleryPhoto() {
           .eq("id", u.user.id);
         if (updateProfErr) throw new Error(formatErrorMessage(updateProfErr));
       }
-
-      // 3. Remove from storage
-      const { error: objError } = await supabase.storage
-        .from("profile-photos")
-        .remove([photo.path]);
-
-      if (objError) {
-        throw new Error(formatErrorMessage(objError));
-      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
@@ -627,16 +652,24 @@ export function useMoveGalleryPhoto() {
       const b = photos[to];
       if (!a || !b) return;
 
+      // Scoped to the signed-in member. The update used to be filtered by row
+      // id alone, so the write relied entirely on RLS to keep it inside the
+      // member's own gallery; the client should say what it means.
+      const { data: u, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !u.user) throw new Error("Please sign in again to manage photographs.");
+
       const { error: errA } = await supabase
         .from("profile_photos")
         .update({ position: to })
-        .eq("id", a.id);
+        .eq("id", a.id)
+        .eq("user_id", u.user.id);
       if (errA) throw new Error(formatErrorMessage(errA));
 
       const { error: errB } = await supabase
         .from("profile_photos")
         .update({ position: from })
-        .eq("id", b.id);
+        .eq("id", b.id)
+        .eq("user_id", u.user.id);
       if (errB) throw new Error(formatErrorMessage(errB));
     },
     onSuccess: () => {

@@ -30,6 +30,12 @@ function json(body: unknown, status = 200): Response {
 async function razorpay(path: string, init: RequestInit = {}): Promise<unknown> {
   const res = await fetch(`https://api.razorpay.com/v1${path}`, {
     ...init,
+    // Every outbound provider call carries a deadline. Without one, a stalled
+    // Razorpay socket holds the invocation open until the platform kills it —
+    // and here the provider call happens BEFORE the local write, so a hang
+    // leaves the member's row saying "not cancelled" while the provider has
+    // already cancelled.
+    signal: init.signal ?? AbortSignal.timeout(10_000),
     headers: {
       authorization: `Basic ${btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)}`,
       "content-type": "application/json",
@@ -63,7 +69,7 @@ serve(async (req) => {
   // service-role key, which caller.auth.getUser() would reject.
   // ---------------------------------------------------------------------------
   if (payload?.mode === "reconcile-orphans") {
-    const cronError = cronAuthError(req);
+    const cronError = await cronAuthError(req);
     if (cronError) return cronError;
 
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
@@ -86,7 +92,11 @@ serve(async (req) => {
           method: "POST",
           body: JSON.stringify({ cancel_at_cycle_end: 0 }),
         });
-        await admin
+        // The row update is what records the cancellation, so its failure must
+        // not be swallowed: an unchecked failure left the row 'active' with a
+        // null user_id, which orphaned_subscriptions() selects again on every
+        // run — an endless re-cancel loop against the provider.
+        const { error: updateError } = await admin
           .from("subscriptions")
           .update({
             status: "cancelled",
@@ -94,6 +104,9 @@ serve(async (req) => {
             last_event_at: new Date().toISOString(),
           })
           .eq("id", orphan.id);
+        if (updateError) {
+          throw new Error(`row update failed: ${updateError.message}`);
+        }
         cancelled++;
       } catch (err) {
         // Left in place for the next run: the surviving row IS the retry record,
@@ -164,6 +177,26 @@ serve(async (req) => {
   // Razorpay kept charging at cycle end. Divergence like that is now surfaced
   // instead of swallowed; the razorpay-webhook remains the reconciliation path
   // if the subscription was cancelled out of band.
+  //
+  // A row with NO provider id cannot be cancelled at the provider at all. It
+  // used to skip the provider block entirely and then report "billing will
+  // stop" — a promise nothing could keep, because there was no mandate to
+  // stop. That is now refused rather than falsely confirmed.
+  if (!sub.razorpay_subscription_id) {
+    console.error(
+      "razorpay-cancel: subscription",
+      sub.id,
+      "carries no Razorpay subscription id, so nothing can be cancelled at the provider",
+    );
+    return json(
+      {
+        error:
+          "This subscription cannot be cancelled automatically because it has no payment record. Please contact the membership desk.",
+      },
+      503,
+    );
+  }
+
   if (sub.razorpay_subscription_id) {
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
       return json(

@@ -19,62 +19,87 @@ const WEEK_DAYS = 7;
 // Page size for the opt-in scan. Bounded per page: a runaway member count
 // pages through instead of blowing the function timeout.
 const MAX_MEMBERS = 5000;
+// Page size for the aggregate scans. At or below the PostgREST row cap, so a
+// page is never silently truncated; the scans are keyset-paged anyway, so a
+// lower server-side cap still yields a complete scan.
+const SCAN_PAGE_SIZE = 1000;
 
-const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
+// No CORS headers: this function is called by pg_cron, never from a browser.
+// Advertising it as cross-origin-reachable only invites probing of an
+// endpoint whose entire boundary is a shared secret.
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...CORS },
+    headers: { "content-type": "application/json" },
   });
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: CORS });
+  if (req.method === "OPTIONS") return json({ error: "Method not allowed" }, 405);
+  // The cron secret is the whole boundary here, so the method matters: a GET
+  // carrying the secret would drain the outbox exactly as a POST does.
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "Server configuration error" }, 500);
   // No caller identity by design (pg_cron invokes this); the shared cron
   // secret is the whole boundary. The publishable key alone must not pass.
-  const cronRejection = cronAuthError(req);
+  const cronRejection = await cronAuthError(req);
   if (cronRejection) return cronRejection;
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const since = new Date(Date.now() - WEEK_DAYS * 86_400_000).toISOString();
   const weekId = getIsoWeekString();
 
-  type InterestRecipientRow = { recipient_id: string };
-  type InterestAcceptRow = { sender_id: string; recipient_id: string };
+  type InterestRecipientRow = { id: string; recipient_id: string };
+  type InterestAcceptRow = { id: string; sender_id: string; recipient_id: string };
   type ProfileCityRow = { id: string; city: string | null };
-  type ProfileViewRow = { viewed_id: string };
+  type ProfileViewRow = { id: string; viewed_id: string };
 
   // Paginated aggregate scans past single-query limits:
   // Week aggregates are shared across pages (computed once): per-page
   // recomputation would repeat the same scans and drift mid-run.
   const [interestsRows, acceptsRows, newMembersRows, viewsRows] = await Promise.all([
-    fetchAllRows<InterestRecipientRow>((from, to) =>
+    fetchAllRows<InterestRecipientRow>((afterId) =>
       admin
         .from("interests")
-        .select("recipient_id")
+        .select("id, recipient_id")
         .gte("created_at", since)
         .eq("status", "pending")
-        .range(from, to),
+        .gt("id", afterId ?? "")
+        .order("id")
+        .limit(SCAN_PAGE_SIZE),
     ),
-    fetchAllRows<InterestAcceptRow>((from, to) =>
+    fetchAllRows<InterestAcceptRow>((afterId) =>
       admin
         .from("interests")
-        .select("sender_id, recipient_id")
+        .select("id, sender_id, recipient_id")
         .gte("decided_at", since)
         .eq("status", "accepted")
-        .range(from, to),
+        .gt("id", afterId ?? "")
+        .order("id")
+        .limit(SCAN_PAGE_SIZE),
     ),
-    fetchAllRows<ProfileCityRow>((from, to) =>
-      admin.from("profiles").select("id, city").gte("created_at", since).range(from, to),
+    // Only members who are actually discoverable count as "new members in
+    // your city": an account that never finished onboarding or verification is
+    // not someone a member can be introduced to.
+    fetchAllRows<ProfileCityRow>((afterId) =>
+      admin
+        .from("profiles")
+        .select("id, city")
+        .gte("created_at", since)
+        .eq("onboarded", true)
+        .eq("verification_status", "verified")
+        .gt("id", afterId ?? "")
+        .order("id")
+        .limit(SCAN_PAGE_SIZE),
     ),
-    fetchAllRows<ProfileViewRow>((from, to) =>
-      admin.from("profile_views").select("viewed_id").gte("viewed_at", since).range(from, to),
+    fetchAllRows<ProfileViewRow>((afterId) =>
+      admin
+        .from("profile_views")
+        .select("id, viewed_id")
+        .gte("viewed_at", since)
+        .gt("id", afterId ?? "")
+        .order("id")
+        .limit(SCAN_PAGE_SIZE),
     ),
   ]);
 
@@ -180,23 +205,39 @@ function getIsoWeekString(date = new Date()): string {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
 
-/** Keyset/range pages through all records for an unbounded aggregate scan */
-async function fetchAllRows<T extends Record<string, unknown>>(
-  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>,
-  pageSize = 5000,
+/**
+ * Keyset-pages through every row of an unbounded aggregate scan.
+ *
+ * The previous implementation used OFFSET ranges and treated a short page as
+ * the end of the data. PostgREST caps the rows it returns per request
+ * (max-rows, 1000 on a hosted project), so a request for rows 0..4999 came
+ * back with 1000 rows, the loop stopped after ONE page, and every member's
+ * weekly totals were silently under-counted. The same silent truncation
+ * happened whenever the scan hit a read error, because the loop broke and the
+ * partial aggregate was then emailed to real members as fact.
+ *
+ * Keyset pagination on the primary key has neither problem: the cursor
+ * advances to the last id actually returned, so no row can be skipped even if
+ * the server caps the page size below what was asked for, and the scan only
+ * ends on an empty page.
+ */
+async function fetchAllRows<T extends { id: string }>(
+  fetchPage: (afterId: string | null) => Promise<{ data: T[] | null; error: unknown }>,
+  pageSize = SCAN_PAGE_SIZE,
 ): Promise<T[]> {
   const all: T[] = [];
-  let from = 0;
+  let cursor: string | null = null;
   for (;;) {
-    const { data, error } = await fetchPage(from, from + pageSize - 1);
+    const { data, error } = await fetchPage(cursor);
     if (error) {
+      // Never silently under-count. A partial week is emailed to real members
+      // as fact, so the scan fails loudly instead.
       console.error("Aggregation scan error:", error);
-      break;
+      throw error;
     }
     if (!data || data.length === 0) break;
     all.push(...data);
-    if (data.length < pageSize) break;
-    from += pageSize;
+    cursor = data[data.length - 1]!.id;
   }
   return all;
 }

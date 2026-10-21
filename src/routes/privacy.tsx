@@ -8,6 +8,8 @@ import {
   SITE_NAME,
 } from "@/lib/legal-identity";
 
+import { canonical, ogUrl } from "@/lib/seo";
+
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
@@ -24,8 +26,9 @@ export const Route = createFileRoute("/privacy")({
           "Your data, your rights: the DPDP Act 2023 notice for members of The Merit Circle.",
       },
       { property: "og:type", content: "article" },
+      ogUrl("/privacy"),
     ],
-    links: [{ rel: "canonical", href: "https://themeritcircle.in/privacy" }],
+    links: [canonical("/privacy")],
   }),
   component: Privacy,
 });

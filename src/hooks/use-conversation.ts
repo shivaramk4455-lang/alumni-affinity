@@ -179,12 +179,18 @@ export function useConversation(interestId: string | undefined) {
     if (!conversationId) return;
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    await supabase
+    // The error was never checked, so a failed read receipt was invisible: the
+    // counterpart's "seen" tick simply never appeared, with nothing on either
+    // side to explain it.
+    const { error } = await supabase
       .from("messages")
       .update({ read_at: new Date().toISOString() })
       .eq("conversation_id", conversationId)
       .neq("sender_id", u.user.id)
       .is("read_at", null);
+    if (error) {
+      console.error("use-conversation: could not mark the thread read:", error.message);
+    }
   }, [conversationId]);
 
   return { convo, history, send, sending, sendError, markRead };

@@ -24,8 +24,14 @@ jobs:
     name: Push migrations to production
     runs-on: ubuntu-latest
 
+    # The password is supplied through the environment, never on argv. The
+    # Supabase CLI reads SUPABASE_DB_PASSWORD itself, so there is no reason to
+    # put the production database password on a command line — where it is
+    # visible in /proc/<pid>/cmdline to anything on the runner, captured by
+    # any crash dump, and persisted by the CLI into supabase/.temp/.
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.CRI || secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_ID: beetszutyuihbnzzmokr
 
     steps:
@@ -35,7 +41,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: v2.33.9
 
       - name: Verify access token is configured
         run: |
@@ -48,9 +54,7 @@ jobs:
       # runners (and many corporate networks) have no IPv6 route. Linking records
       # the IPv4 session-pooler endpoint, which db push then uses.
       - name: Link to production project (IPv4 pooler)
-        run: supabase link --project-ref "$PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
-        env:
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "$PROJECT_ID"
 
       # Read-only first: print exactly which migrations the production database
       # already has versus the local chain, so db push decisions are informed.
@@ -60,14 +64,29 @@ jobs:
       - name: Show migration status (local vs production)
         run: supabase migration list
 
+      # A dry run first. This job applies to PRODUCTION, and the production
+      # database's recorded history skips a block of files from 2026-09-28/30
+      # (suite-split UUID renames) that --include-all re-applies in timestamp
+      # order. The dry run prints the exact set that would be applied, so a
+      # human can see it before it happens rather than after.
+      - name: Dry run — show exactly what would be applied
+        run: |
+          echo "::group::Pending migrations against production"
+          supabase db push --include-all --dry-run
+          echo "::endgroup::"
+          echo "Review the list above. If anything unexpected appears, stop here and reconcile the migration history before pushing."
+
       # Production's recorded history skips 14 files from 2026-09-28/30 (suite-split
       # UUID renames that left different filename versions than the ones recorded
-      # on the linked DB). --include-all applies them in timestamp order. Verified
-      # safe BEFORE this runs: every CREATE mirrors a matching DROP IF EXISTS or
-      # uses IF NOT EXISTS / OR REPLACE, every INSERT carries ON CONFLICT, the
-      # demo seed is deleted by 20261010's cleanup on the same run, and the exact
-      # selection is proven clean on a fresh DB by the CI migration-drill job.
+      # on the linked DB). --include-all applies them in timestamp order.
+      #
+      # Two of those files were destructive on this path and have since been made
+      # safe to re-apply: the legacy teardown now refuses to drop a populated
+      # table (it used to remove the live messages, notifications and reports
+      # tables, whose recreating migrations are already recorded and would
+      # therefore never run again), and the duplicate foreign-key file now adds
+      # a key only when it is genuinely absent and no live row would violate it.
+      #
+      # STILL: take a snapshot first, and read the dry-run output above.
       - name: Push migrations
-        run: supabase db push --include-all --password "$SUPABASE_DB_PASSWORD"
-        env:
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push --include-all

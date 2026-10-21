@@ -34,6 +34,8 @@ import {
   isRecognisedAlumniEmail,
 } from "@/lib/profile-options";
 
+import { canonical, ogUrl } from "@/lib/seo";
+
 export const Route = createFileRoute("/apply")({
   head: () => ({
     meta: [
@@ -49,8 +51,9 @@ export const Route = createFileRoute("/apply")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      ogUrl("/apply"),
     ],
-    links: [{ rel: "canonical", href: "https://themeritcircle.in/apply" }],
+    links: [canonical("/apply")],
   }),
   component: ApplyPage,
 });

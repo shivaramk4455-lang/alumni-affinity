@@ -301,6 +301,10 @@ function ConversationPage() {
             </p>
             <Input
               maxLength={300}
+              // The placeholder is not an accessible name: it disappears from
+              // the accessibility tree as soon as the field has content, and
+              // this is a legally relevant report.
+              aria-label="Describe the concern (at least 10 characters)"
               placeholder="Describe the concern (at least 10 characters)"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}

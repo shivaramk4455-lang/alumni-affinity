@@ -27,7 +27,12 @@ export function useAuth() {
         session?.user &&
         (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")
       ) {
-        void supabase.rpc("record_member_activity");
+        // The result was discarded: the PostgREST builder resolves with
+        // { error } rather than rejecting, so a failed activity ping was
+        // completely invisible — and it fires on every token refresh.
+        void supabase.rpc("record_member_activity").then(({ error }) => {
+          if (error) console.error("use-auth: activity ping failed:", error.message);
+        });
       }
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         void queryClient.invalidateQueries({ queryKey: MY_PROFILE_KEY });
@@ -49,7 +54,11 @@ export function useAuth() {
       if (cancelled) return;
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user) void supabase.rpc("record_member_activity");
+      if (session?.user) {
+        void supabase.rpc("record_member_activity").then(({ error }) => {
+          if (error) console.error("use-auth: activity ping failed:", error.message);
+        });
+      }
     });
     return () => {
       cancelled = true;

@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { canonical, ogUrl } from "@/lib/seo";
+
 export const Route = createFileRoute("/standards")({
   head: () => ({
     meta: [
@@ -8,8 +10,9 @@ export const Route = createFileRoute("/standards")({
         name: "description",
         content: "Safety and respectful-conduct standards for members and co-pilots.",
       },
+      ogUrl("/standards"),
     ],
-    links: [{ rel: "canonical", href: "https://themeritcircle.in/standards" }],
+    links: [canonical("/standards")],
   }),
   component: Standards,
 });

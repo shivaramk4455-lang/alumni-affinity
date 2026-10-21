@@ -39,7 +39,9 @@ function ShortlistPage() {
     queryKey: ["saved"],
     enabled: !!me.data,
     queryFn: async () => {
-      const { data, error } = await supabase.from("saved_profiles").select("profile_id");
+      // Bounded: RLS scopes this to the member's own shortlist, but it grows
+      // over a lifetime and this query runs on every shortlist load.
+      const { data, error } = await supabase.from("saved_profiles").select("profile_id").limit(500);
       if (error) throw error;
       return (data ?? []).map((r) => r.profile_id);
     },

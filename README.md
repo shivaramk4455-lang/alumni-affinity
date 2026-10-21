@@ -41,7 +41,7 @@ Required environment: copy `.env.example` to `.env` and fill it in. `SUPABASE_UR
 
 `supabase/migrations/` is the only migration chain — apply it in filename order
 (`supabase db push`, or `supabase db reset` locally). The chain head is
-`20261105000000_copilot_photo_directory_repair`; `DEPLOYMENT.md` carries the
+`20261107001000_private_helper_scope_and_column_grants`; `DEPLOYMENT.md` carries the
 deployment steps (§2) and the launch checklist (§9).
 
 The table below maps the foundations only. The chain has since grown well past
@@ -68,11 +68,18 @@ it, so treat the directory listing — not this table — as the record:
 
 ### Paid tiers (as enforced — not just sold)
 
-| Tier      | Price / month | Introduction allowance    | Discovery pacing |
-| --------- | ------------- | ------------------------- | ---------------- |
-| Free      | —             | 5 outstanding at any time | 14-day expiry    |
-| Concierge | ₹1,499        | 20 per billing month      | as free          |
-| Founder   | ₹3,999        | 60 per billing month      | as free          |
+| Tier      | Price / month | Introduction allowance              | Discovery pacing |
+| --------- | ------------- | ----------------------------------- | ---------------- |
+| Free      | —             | 3–7 outstanding at any time         | 14-day expiry    |
+| Concierge | ₹1,499        | 10–30 per billing month             | as free          |
+| Founder   | ₹3,999        | 15–90 per billing month (grandfathered) | as free        |
+
+The allowance is **reciprocity-scaled**: a member who answers the introductions
+sent to them gets a larger quota than one who does not, within the 50%–150%
+band the database enforces (`public.reciprocity_multiplier`). The free tier's
+outstanding cap is scaled the same way, which is why it is a band and not a
+single number. The table above is the band; the exact numbers live in
+`subscription_plans` and in the multiplier function.
 
 Founder is **grandfathered and no longer sold** (`sellable = false`); it is kept
 so existing payers keep the tier they bought. No plan may promise unlimited
@@ -82,17 +89,20 @@ the numbers in `subscription_plans` must agree.
 Enforcement lives in the database (`interests_allowance` trigger calling
 `public.entitlement()`), never in the browser, and an **unpaid checkout never
 entitles**. The one definition of "counts as paid" is
-`private.subscription_is_live()` (migration `20261106000000`): status
-`active`/`authenticated` **and** an unexpired `period_end`. `pending` is the
+`private.live_subscription()` (migration `20261107000000`), and it has three
+conditions: status `active`/`authenticated`, an unexpired `period_end`, **and a
+recorded payment** (`amount_paid_paise IS NOT NULL`). The third condition is
+what stops a `subscription.activated` event — which fires before any invoice
+has been recorded — from granting a paid tier on its own. `pending` is the
 payment-failure state and never entitles; neither does `created` (an abandoned
 checkout). A "no" from the recipient does not consume the sender's allowance
 twice. Change prices or allowances in `subscription_plans`; no code change is
 needed.
 
 > One product decision was made for you and is marked `SAFE DEFAULT` in
-> `20261010000000_phase2_fix_batch.sql`: the free tier keeps the 5-outstanding
-> pacing quota _and_ paid allowances are monthly. Adjust both there if the
-> membership desk wants different numbers.
+> `20261010000000_phase2_fix_batch.sql`: the free tier keeps the pacing quota
+> _and_ paid allowances are monthly. Adjust both there if the membership desk
+> wants different numbers.
 
 ### Demo directory safety
 
@@ -127,13 +137,17 @@ The product promise is "verified people, candidate-led consent". That is enforce
 - **Introductions are a state machine.** `enforce_interest_transition` owns the legal transitions: a sender may withdraw or reopen, and **only the recipient may accept** — the sender can never write `accepted`.
 - **Private columns are revoked, not hidden.** `contact_phone`, `linkedin_url`, `alumni_email`, `verification_note`, `verification_doc_path`, `is_admin` and the audit columns have no `SELECT` grant for `authenticated`. They are served through `public.my_profile` (your own row, view is hard-scoped to `auth.uid()`), `public.reveal_contact(s)` (only with a mutually accepted introduction) and the `desk_*` functions (which re-check `private.is_admin()`).
 - **Notifications cannot be forged.** Members may only insert cross-member notification kinds with a whitelisted internal destination.
-- **Co-pilot invites are email-bound.** `accept_copilot_invite(code)` is the only way to claim an invitation, and it requires the signed-in email to match; `candidate_id`, `invite_code` and `copilot_email` are immutable afterwards.
+- **Co-pilot invites are email-bound.** `accept_copilot_invite(code)` is the only way to claim an invitation, and it requires the signed-in email to match; `candidate_id`, `invite_code` and `copilot_email` are immutable afterwards. A co-pilot relationship is also created as an *invitation*: a BEFORE INSERT trigger forces `copilot_user_id` to NULL and `status` to `invited`, so a candidate cannot insert an already-active co-pilot (which would have handed an unverified second account the whole verified directory).
 - **Messaging is gated and sealed.** `conversations` rows can only be created by `get_or_create_conversation(interest_id)`, which raises unless the caller is a party to an **accepted** interest — so there is no member-to-member channel outside a mutual introduction. Sending a message additionally re-checks `interests.status = 'accepted'`, so withdrawing closes the thread. Members may only write their own messages and only stamp `read_at` on messages addressed to them; there is no edit or delete, which keeps the desk audit trail intact.
 - **Video calls are peer-to-peer and equally gated.** A `calls` row exists only on the conversation of that same accepted interest, and only those two candidates can read it. Media travels browser-to-browser over WebRTC (STUN only — no vendor sees the session); only SDP/ICE descriptions cross the database through RLS-scoped `call_signals`, which a DB trigger purges the moment the call ends. Call identity is frozen by `guard_call_columns` (ended calls can never reopen); a 45s unanswered ring and any hang-up close the call and write a `call_missed` inbox item.
 - **Compatibility is a private computation, not a stored score.** `partner_preferences` is a single owner-only row (RLS: `auth.uid() = user_id` on read/write) holding the age band, preferred genders, institutions, cities and relocation stances. `src/lib/alignment.ts` scores candidates **client-side** over directory-visible fields only — institution 3, city 2, relocation 2, age band 2, gender 1 — so there is no score table to leak and no server round-trip to influence. An empty preference row means "no constraint" and simply yields no badges, so search keeps the normal recency order.
-- **Deliberate pacing.** At most five _outstanding_ introductions per sender (DB trigger, quota error maps to a human toast). Unanswered interest quietly expires after 14 days (`expire_stale_interests()`, callable by any member, plus a day-7 reminder), reopening re-arms a fresh window and only the recipient can ever accept; contacts and messaging auto-lock on expiry or withdrawal.
+- **Deliberate pacing.** At most five _outstanding_ introductions per sender (DB trigger, quota error maps to a human toast) — scaled by reciprocity to a 3–7 band. Unanswered interest quietly expires after 14 days, reopening re-arms a fresh window and only the recipient can ever accept; contacts and messaging auto-lock on expiry or withdrawal. The sweep is a **scheduled job** (`expire-stale-interests`, every five minutes); a member's page load calls the member-scoped `expire_my_stale_interests()`, which only ever touches rows that member is a party to.
 - **DPDP data governance.** `consent_events` is an append-only ledger (no UPDATE/DELETE for members; a new row records a changed mind) fed by `src/lib/consent.ts` at onboarding, verification uploads and contact saves, readable in Settings. Sabbatical mode (`paused_until`, max one year) removes you from search while preserving everything; everything real deletes on profile cascade, and a `delete-account` edge function (typed confirmation, storage purge first, profile row next, auth user last) exercises the right to erasure.
 - **Every client query lists columns explicitly.** Selecting a revoked column errors instead of leaking. `src/lib/profile-columns.ts` holds the allowed projections — a `.join(", ")` there would widen the type to `string` and silently degrade the result type, so they are plain string literals on purpose.
+- **Writes are column-scoped, not table-scoped.** `GRANT INSERT ON <table>` covers *every* column, so the tables a member writes to grant INSERT per column instead: `interests` only `(sender_id, recipient_id, message)` — with a BEFORE INSERT trigger that stamps `created_at` and `expires_at`, because a back-dated `created_at` moved the row outside the billing window and defeated the paid allowance. `copilots` only `(candidate_id, copilot_email, copilot_name, relation)`. `consent_events` has no member INSERT path at all: `record_consent()` is the single write path, and it stamps the policy version the *database* has in force, so a member cannot back-date their own consent receipt.
+- **One checkout, one mandate.** `claim_checkout_slot()` is the single atomic decision point for a checkout: it holds an advisory transaction lock for the member, so two concurrent checkouts serialise, and it returns one verdict (`claimed`, `reuse`, `already_active`, `already_pending`, `other_plan`, `too_soon`). A checkout that loses the race cancels the Razorpay subscription it created, so a losing mandate never debits.
+- **The private helpers are scoped to the caller.** `private.has_accepted_interest`, `private.has_photo_access`, `private.is_copilot_of`, `private.is_verified` and `private.is_active_copilot` are executable by members (RLS policy expressions are evaluated as the querying user), so each one now answers only when the caller is a party to the question. Without that, `select private.has_accepted_interest('<a>','<b>')` was a read-only oracle over the whole member base — who is verified, who is mutually introduced, and who holds photo consent. A service-role caller has no identity and is unaffected.
+- **The provider's plan id is not public.** `public.subscription_plans` grants SELECT per column, so `razorpay_plan_id` is no longer readable by `anon` or by a member; the service role keeps full access for the checkout function.
 
 SSR responses carry `object-src`, `base-uri`, `frame-ancestors`, HSTS, `nosniff` and a referrer policy from `src/lib/security-headers.ts`. A stricter `script-src` needs nonce plumbing through TanStack Start's script tags.
 

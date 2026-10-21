@@ -11,6 +11,12 @@ import { describeError } from "./error-capture";
 
 type ServerAlertContext = {
   url?: string | undefined;
+  /**
+   * Per-request correlation id. The digest aggregates by error signature, so
+   * without an id there is no way to tell whether one member's 500 and
+   * another's were the same request or two different ones.
+   */
+  requestId?: string | undefined;
   // Cloudflare's ExecutionContext keeps a fire-and-forget promise
   // alive past the response; Node (dev) does not need it.
   waitUntil?: ((promise: Promise<unknown>) => void) | undefined;
@@ -19,6 +25,7 @@ type ServerAlertContext = {
 type ErrorRecord = {
   at: string;
   url?: string | undefined;
+  requestId?: string | undefined;
   detail: string;
 };
 
@@ -69,6 +76,7 @@ export function reportServerError(error: unknown, context: ServerAlertContext = 
     buffer.push({
       at: new Date().toISOString(),
       url: scrubUrl(context.url),
+      requestId: context.requestId,
       detail: describeError(error).slice(0, MAX_DETAIL_CHARS),
     });
     const due = buffer.length >= FLUSH_AFTER_COUNT || Date.now() - lastFlushAt >= FLUSH_AFTER_MS;
@@ -136,7 +144,7 @@ function digest(records: ErrorRecord[]): string {
   return [...groups.values()]
     .map((g) =>
       [
-        `${g.count > 1 ? `×${g.count} ` : ""}${g.first.at}${g.first.url ? ` ${g.first.url}` : ""}`,
+        `${g.count > 1 ? `×${g.count} ` : ""}${g.first.at}${g.first.requestId ? ` [${g.first.requestId}]` : ""}${g.first.url ? ` ${g.first.url}` : ""}`,
         g.example,
       ].join("\n"),
     )

@@ -292,13 +292,25 @@ function MemberProfile() {
         .maybeSingle();
       if (error) throw error;
       void data;
+
       // Server-composed via notify_counterparty (requires the pending row we
       // just created); the personalised opener stays in the interest itself.
+      //
+      // The notification is NOT part of the mutation's success condition. The
+      // interest row is already committed by the time this runs, so throwing
+      // here reported a committed introduction as a failure — the member was
+      // told it had not been sent, and their retry then hit the unique pair
+      // constraint and failed the same way, stranding the introduction with
+      // both parties unable to see it. A failed alert is now logged, and the
+      // member is told the introduction WAS sent.
       const { error: notifyError } = await supabase.rpc("notify_counterparty", {
         _user: id,
         _event: "interest_received",
       });
-      if (notifyError) throw notifyError;
+      if (notifyError) {
+        console.error("members: interest alert failed:", notifyError.message);
+        toast.error("Your introduction was sent, but the notification could not be delivered.");
+      }
     },
     onSuccess: () => {
       setOpenInterest(false);
@@ -336,11 +348,18 @@ function MemberProfile() {
       // Server-composed via notify_counterparty (caller must be an active
       // co-pilot of this candidate); the private family note stays in the
       // recommendation row, never in the inbox copy.
+      //
+      // As with the interest above: the recommendation row is already
+      // committed, so a failed alert must not be reported as a failed
+      // suggestion.
       const { error: notifyError } = await supabase.rpc("notify_counterparty", {
         _user: copilot.candidate_id,
         _event: "suggestion_received",
       });
-      if (notifyError) throw notifyError;
+      if (notifyError) {
+        console.error("members: suggestion alert failed:", notifyError.message);
+        toast.error("Your suggestion was shared, but the notification could not be delivered.");
+      }
     },
     onSuccess: () => {
       setOpenSuggest(false);
@@ -384,7 +403,9 @@ function MemberProfile() {
     queryKey: ["saved"],
     enabled: !!me.data,
     queryFn: async () => {
-      const { data, error } = await supabase.from("saved_profiles").select("profile_id");
+      // Bounded: RLS scopes this to the member's own shortlist, but it grows
+      // over a lifetime.
+      const { data, error } = await supabase.from("saved_profiles").select("profile_id").limit(500);
       if (error) throw error;
       return (data ?? []).map((r) => r.profile_id);
     },

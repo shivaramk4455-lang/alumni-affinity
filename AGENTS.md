@@ -11,4 +11,4 @@
 
 <!-- LOVABLE:END -->
 
-- Public backend URL/publishable key fall back to literals in vite.config.ts — `.env` is gitignored (locked), so hosted builds would otherwise ship empty keys and blank the screen.
+- Public backend URL/publishable key fall back to literals in vite.config.ts — `.env` is gitignored (locked), so hosted builds would otherwise ship empty keys and blank the screen. The fallback is now **loud**: every build prints which project it is bound to, and `REQUIRE_SUPABASE_CONFIG=1` makes a build with no real configuration FAIL instead of quietly falling back to production.

@@ -6,6 +6,8 @@ import {
   NODAL_OFFICER,
 } from "@/lib/legal-identity";
 
+import { canonical, ogUrl } from "@/lib/seo";
+
 export const Route = createFileRoute("/grievance")({
   head: () => ({
     meta: [
@@ -22,8 +24,9 @@ export const Route = createFileRoute("/grievance")({
           "Grievance Officer, Nodal Officer and the appeal mechanism — published as Rule 3(2), 3A and 4 of the IT Rules, 2021 require.",
       },
       { property: "og:type", content: "article" },
+      ogUrl("/grievance"),
     ],
-    links: [{ rel: "canonical", href: "https://themeritcircle.in/grievance" }],
+    links: [canonical("/grievance")],
   }),
   component: Grievance,
 });

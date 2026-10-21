@@ -2,6 +2,13 @@
 // when h3 has already swallowed the throw into a generic 500 Response.
 // Uses AsyncLocalStorage when available so concurrent SSR requests never
 // cross-consume each other's captured errors, with a TTL fallback.
+//
+// The fallback is a FIFO queue, not a single slot. A single slot is
+// last-write-wins, so a request that finished later could consume an error
+// captured by a request that was still running — and a member's 500 would be
+// reported with another member's error and stack. The queue hands each
+// consumer the OLDEST unconsumed error instead, which is the right one
+// whenever requests fail in the order they started.
 
 type CapturedEntry = { error: unknown; at: number };
 type StoreHolder = { current?: CapturedEntry | undefined };
@@ -23,7 +30,21 @@ try {
   requestStore = null;
 }
 
-let lastCapturedError: CapturedEntry | undefined;
+if (!requestStore) {
+  // Visible on purpose: without AsyncLocalStorage the captured error is
+  // correlated by order rather than by request, so a mis-attributed stack is
+  // possible under load. Say so once at boot rather than silently degrading.
+  console.warn(
+    "[error-capture] AsyncLocalStorage is unavailable, so captured SSR errors are correlated by order rather than by request.",
+  );
+}
+
+/**
+ * Errors captured while no request-scoped store was available. Bounded so a
+ * burst of failures cannot grow it without limit.
+ */
+const pendingCaptured: CapturedEntry[] = [];
+const MAX_PENDING = 20;
 const TTL_MS = 5_000;
 
 export function runWithErrorCapture<T>(fn: () => T): T {
@@ -38,8 +59,10 @@ function record(error: unknown) {
   const store = requestStore?.getStore();
   if (store) {
     store.current = entry;
+    return;
   }
-  lastCapturedError = entry;
+  pendingCaptured.push(entry);
+  if (pendingCaptured.length > MAX_PENDING) pendingCaptured.shift();
 }
 
 const CAUSE_DEPTH_LIMIT = 5;
@@ -97,18 +120,19 @@ if (typeof globalThis.addEventListener === "function") {
 }
 
 export function consumeLastCapturedError(): unknown {
+  // Exact match: the request-scoped store holds only this request's error.
   const store = requestStore?.getStore();
   if (store?.current) {
     const { error, at } = store.current;
     store.current = undefined;
     if (Date.now() - at <= TTL_MS) return error;
   }
-  if (!lastCapturedError) return undefined;
-  if (Date.now() - lastCapturedError.at > TTL_MS) {
-    lastCapturedError = undefined;
-    return undefined;
+
+  // Fallback: take the OLDEST unconsumed error, not the newest. A single
+  // last-write-wins slot let a request consume another request's error.
+  while (pendingCaptured.length > 0) {
+    const entry = pendingCaptured.shift()!;
+    if (Date.now() - entry.at <= TTL_MS) return entry.error;
   }
-  const { error } = lastCapturedError;
-  lastCapturedError = undefined;
-  return error;
+  return undefined;
 }

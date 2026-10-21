@@ -24,7 +24,11 @@ const TURN_URLS = (Deno.env.get("TURN_URLS") ?? "")
   .split(",")
   .map((u) => u.trim())
   .filter(Boolean);
-const TTL_SECONDS = 6 * 60 * 60;
+// TURN REST credentials are TTL-bound. The usual practice is 60-300 seconds:
+// long enough for the ICE exchange that needs them, short enough that a
+// leaked credential cannot be reused for hours. Six hours was far longer than
+// the media negotiation needs.
+const TTL_SECONDS = 5 * 60;
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",

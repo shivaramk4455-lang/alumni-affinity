@@ -623,7 +623,12 @@ function Onboarding() {
       });
       void queryClient.invalidateQueries({ queryKey: MY_PROFILE_KEY });
 
-      // Fire-and-forget consent recording in background so transition to dashboard is instantaneous
+      // Consent recording is non-blocking, so the transition to the dashboard
+      // stays instant — but it is NOT silent. recordConsent returns { ok }
+      // precisely so the caller can warn, and this is the primary DPDP
+      // evidence that the member accepted the terms and the privacy notice.
+      // The result used to be discarded, so the ledger could contain no record
+      // of either consent while the member and the app both believed it had.
       if (!me.data?.onboarded) {
         void Promise.all([
           recordConsent(
@@ -636,7 +641,13 @@ function Onboarding() {
             true,
             "Partnership criteria and profile details may be used for matching",
           ),
-        ]);
+        ]).then((results) => {
+          if (results.some((r) => !r.ok)) {
+            toast.error(
+              "Your profile was saved, but we could not record your consent receipt. Please contact the membership desk.",
+            );
+          }
+        });
       }
 
       const isEdit = me.data?.onboarded;

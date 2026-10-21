@@ -82,17 +82,36 @@ serve(async (req) => {
     return json({ error: "A desk member cannot decide their own verification" }, 403);
 
   const decision = body.decision as Decision;
+  // A desk note is copied verbatim into the member's inbox and into the
+  // transactional alert, so it is bounded rather than unbounded.
+  const note = (body.note ?? "").trim().slice(0, 1000) || null;
   const patch: Record<string, unknown> = {
     verification_status: decision,
-    verification_note: body.note?.trim() || null,
+    verification_note: note,
     // Audit trail: who decided, and when (added in 20260927000000).
     verification_decided_at: new Date().toISOString(),
     verification_decided_by: user.id,
     alumni_email_verified: decision === "verified",
   };
 
-  const { error } = await admin.from("profiles").update(patch).eq("id", body.profile_id);
-  if (error) return json({ error: error.message }, 400);
+  // The UPDATE result is inspected so a decision against a profile that does
+  // not exist is reported as such. Previously the update silently matched zero
+  // rows and the desk was told the review had succeeded.
+  const { data: updated, error } = await admin
+    .from("profiles")
+    .update(patch)
+    .eq("id", body.profile_id)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    // The raw PostgREST message can carry row contents, so it is logged, not
+    // returned to the browser.
+    console.error("admin-review: profile update failed:", error.message);
+    return json({ error: "Could not record the decision. Please try again." }, 400);
+  }
+  if (!updated) {
+    return json({ error: "No such profile." }, 404);
+  }
 
   const notice =
     decision === "verified"
@@ -105,28 +124,44 @@ serve(async (req) => {
         ? {
             kind: "verification_rejected",
             title: "Verification not accepted",
-            body: body.note?.trim() || "The membership desk was unable to verify this profile.",
+            body: note || "The membership desk was unable to verify this profile.",
           }
         : {
             kind: "verification_resubmission",
             title: "More information needed",
-            body: body.note?.trim() || "The membership desk needs one more detail before approval.",
+            body: note || "The membership desk needs one more detail before approval.",
           };
 
-  await admin.from("notifications").insert({
+  // The in-app alert and the transactional alert are both checked. Previously
+  // neither result was inspected, so a failure was invisible: the desk saw
+  // { ok: true } while the member received nothing at all.
+  const { error: inboxError } = await admin.from("notifications").insert({
     user_id: body.profile_id,
     ...notice,
     link: "/verification",
   });
+  if (inboxError) {
+    console.error("admin-review: in-app alert failed:", inboxError.message);
+  }
 
-  // Enqueue transactional alert (email/SMS/WhatsApp) via notification_outbox
-  await admin.rpc("enqueue_notification", {
+  const { error: enqueueError } = await admin.rpc("enqueue_notification", {
     _user: body.profile_id,
     _template: notice.kind,
     _payload: {
-      note: body.note?.trim() || "",
+      note: note || "",
     },
   });
+  if (enqueueError) {
+    console.error("admin-review: transactional alert failed:", enqueueError.message);
+  }
 
-  return json({ ok: true });
+  const notified = !inboxError && !enqueueError;
+  if (!notified) {
+    console.error(
+      "admin-review: DESK ACTION REQUIRED — the decision was recorded but the member was not notified",
+      body.profile_id,
+    );
+  }
+
+  return json({ ok: true, notified });
 });

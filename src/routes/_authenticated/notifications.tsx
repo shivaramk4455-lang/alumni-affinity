@@ -21,7 +21,11 @@ export const Route = createFileRoute("/_authenticated/notifications")({
 function Notifications() {
   const qc = useQueryClient();
   const list = useQuery({
-    queryKey: ["notifications"],
+    // Distinct from the header bell's key: they select different columns and
+    // read different page sizes, so one shared key made this inbox render
+    // whichever payload happened to be cached (10 rows instead of 50, and
+    // "mark all read" marking only the cached subset).
+    queryKey: ["notifications", "inbox"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("notifications")

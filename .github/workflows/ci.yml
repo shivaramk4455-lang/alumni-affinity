@@ -51,6 +51,22 @@ jobs:
             echo "::error::drizzle-kit/drizzle-orm are back in package.json."
             fail=1
           fi
+          # The same guard for the bun lockfile. package.json was the only
+          # thing checked, so a `bun install` could reintroduce the tool that
+          # the guard exists to prevent. The pattern matches the resolved
+          # package entries, not the optional-peer references inside db0.
+          if grep -qE '"(drizzle-kit|drizzle-orm)": \[' bun.lock; then
+            echo "::error::drizzle-kit/drizzle-orm are back in bun.lock — a bun install reintroduced them."
+            fail=1
+          fi
+          # Every package must resolve from the public registry. bun.lock
+          # resolved 142 packages from a private Lovable GCS mirror, so a
+          # contributor's `bun install` would pull from infrastructure this
+          # repository does not control.
+          if grep -q 'lovable-core-prod/sandbox-npm-cache' bun.lock; then
+            echo "::error::bun.lock resolves packages from a private Lovable GCS mirror instead of https://registry.npmjs.org."
+            fail=1
+          fi
           exit $fail
 
       - name: Install dependencies
@@ -65,8 +81,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm test
+      - name: Test (coverage thresholds enforced)
+        # The thresholds live in vitest.config.ts. Without them a coverage
+        # number is decoration: a security-critical module could quietly lose
+        # its tests and the build would still be green.
+        run: npm test -- --coverage
 
       - name: Build
         run: npm run build
@@ -127,3 +146,14 @@ jobs:
           deno check \
             supabase/functions/_shared/*.ts \
             supabase/functions/*/index.ts
+
+      - name: Lint edge functions
+        # REPORTED, not yet a hard gate: `deno lint` is new to this repository
+        # and this step has no green history yet. It runs on every PR so the
+        # finding count is visible; promote it to blocking once it reports zero
+        # (delete the `continue-on-error` line). `supabase functions deploy`
+        # bundles without typechecking OR linting, so this job and the lint
+        # step are the only things standing between a lint error and the
+        # payment path.
+        continue-on-error: true
+        run: deno lint supabase/functions/

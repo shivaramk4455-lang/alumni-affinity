@@ -31,7 +31,15 @@ const FRAME_ANCESTORS_DEV = [
   "https://*.lovableproject-dev.com",
 ].join(" ");
 
-function buildCsp(isProd: boolean): string {
+/**
+ * The Content-Security-Policy for an environment.
+ *
+ * Exported so the production policy can be asserted directly. The previous
+ * test read `import.meta.env.PROD`, which is false under Vitest, so the
+ * production assertions it wrapped never ran — the clickjacking defence was
+ * effectively untested.
+ */
+export function buildCsp(isProd: boolean): string {
   const frameAncestors = isProd ? FRAME_ANCESTORS_PROD : FRAME_ANCESTORS_DEV;
   return [
     "default-src 'self'",
@@ -54,8 +62,17 @@ function buildCsp(isProd: boolean): string {
   ].join("; ");
 }
 
-export function securityHeaders(): Record<string, string> {
-  const isProd = import.meta.env["PROD"] === true;
+/**
+ * The response headers.
+ *
+ * `isProd` is a parameter with the real environment as its default, so the
+ * production policy — which is the one that matters — can be asserted
+ * directly. Reading `import.meta.env.PROD` inside the function made the HSTS
+ * branch unreachable in tests, because that flag is false under Vitest.
+ */
+export function securityHeaders(
+  isProd: boolean = import.meta.env["PROD"] === true,
+): Record<string, string> {
   const headers: Record<string, string> = {
     "content-security-policy": buildCsp(isProd),
     "x-content-type-options": "nosniff",
@@ -63,11 +80,60 @@ export function securityHeaders(): Record<string, string> {
     "permissions-policy": "camera=(self), microphone=(self), geolocation=()",
     // OAuth popups need to keep the opener reference.
     "cross-origin-opener-policy": "same-origin-allow-popups",
+    // Defence in depth: the browser must not run our resources cross-origin.
+    "cross-origin-resource-policy": "same-origin",
+    // No plugin content, no cross-domain policy files.
+    "x-permitted-cross-domain-policies": "none",
   };
   if (isProd) {
     headers["strict-transport-security"] = "max-age=31536000; includeSubDomains";
   }
   return headers;
+}
+
+/**
+ * The member-only route prefixes.
+ *
+ * These pages are rendered with `ssr: false`, so no member data is in the
+ * document today — but their responses must never be cacheable anyway. The
+ * moment any part of the authenticated tree is server-rendered, a cached
+ * document becomes a member's page sitting in a shared browser's disk cache.
+ * Getting the header right now means that change cannot introduce a leak.
+ */
+const AUTHENTICATED_PATH_PREFIXES = [
+  "/dashboard",
+  "/members",
+  "/connections",
+  "/messages",
+  "/calls",
+  "/call/",
+  "/shortlist",
+  "/notifications",
+  "/copilots",
+  "/copilot-invite",
+  "/onboarding",
+  "/verification",
+  "/settings",
+  "/admin",
+];
+
+export function isAuthenticatedPath(pathname: string): boolean {
+  return AUTHENTICATED_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix),
+  );
+}
+
+/**
+ * Cache policy per response.
+ *
+ * Member-only pages: `private, no-store`. The public pages are revalidated
+ * every time, so a deploy is picked up immediately but a repeat visit does not
+ * re-download the shell.
+ */
+export function cacheControlFor(pathname: string): string {
+  return isAuthenticatedPath(pathname)
+    ? "private, no-store, max-age=0"
+    : "public, max-age=0, must-revalidate";
 }
 
 /** Adds the headers above without ever throwing on an immutable Response. */

@@ -122,24 +122,38 @@ async function cancelBilling(
   return { cancelled: true, note: "cancelled immediately at the provider" };
 }
 
-/** Remove every object the member owns in the given bucket. */
+/**
+ * Remove every object the member owns in the given bucket.
+ *
+ * A failure here is never silent. The previous implementation broke out of
+ * the loop on either the list error or the remove error without recording
+ * anything, and the caller then reported a clean DPDP erasure — while the
+ * member's photographs and credential document were still in the bucket.
+ */
 async function purgeBucket(
   admin: ReturnType<typeof createClient>,
   bucket: string,
   prefix: string,
-): Promise<number> {
+): Promise<{ removed: number; failed: boolean; error?: string }> {
   let removed = 0;
   // Buckets are per-user folders, so one listing pass is enough; the loop
   // guards against very large folders being paginated.
   for (let pass = 0; pass < 20; pass++) {
     const { data: entries, error } = await admin.storage.from(bucket).list(prefix, { limit: 100 });
-    if (error || !entries?.length) break;
+    if (error) {
+      console.error("delete-account: storage list failed for", bucket, error.message);
+      return { removed, failed: true, error: `list failed: ${error.message}` };
+    }
+    if (!entries?.length) break;
     const paths = entries.map((e) => `${prefix}/${e.name}`);
     const { error: removeError } = await admin.storage.from(bucket).remove(paths);
-    if (removeError) break;
+    if (removeError) {
+      console.error("delete-account: storage remove failed for", bucket, removeError.message);
+      return { removed, failed: true, error: `remove failed: ${removeError.message}` };
+    }
     removed += paths.length;
   }
-  return removed;
+  return { removed, failed: false };
 }
 
 serve(async (req) => {
@@ -209,8 +223,21 @@ serve(async (req) => {
   }
 
   let objects = 0;
+  const purgeFailures: string[] = [];
   for (const bucket of BUCKETS) {
-    objects += await purgeBucket(admin, bucket, user.id);
+    const purge = await purgeBucket(admin, bucket, user.id);
+    objects += purge.removed;
+    if (purge.failed) {
+      purgeFailures.push(`${bucket}: ${purge.error ?? "unknown error"}`);
+    }
+  }
+  if (purgeFailures.length > 0) {
+    // Never report a clean erasure while objects survive. The member is told,
+    // the desk is logged, and the receipt records that the purge was partial.
+    console.error(
+      "delete-account: DESK ACTION REQUIRED — storage purge incomplete:",
+      purgeFailures.join("; "),
+    );
   }
 
   // Snapshot the member's consent purposes BEFORE the profile delete: the
@@ -260,6 +287,7 @@ serve(async (req) => {
     auth_deleted: !authError,
     billing_cancelled: billing.cancelled,
     billing_note: billing.note,
+    storage_purge_failed: purgeFailures.length > 0,
     note: "Member-initiated deletion via settings",
   });
   if (receiptError) {
@@ -274,8 +302,11 @@ serve(async (req) => {
     // A non-null warning is the client's cue to say something needs the desk,
     // instead of showing a clean "everything is gone" message that is not quite
     // true.
-    warning: authError
-      ? "Your data was deleted, but the sign-in record could not be removed. The membership desk has been notified."
-      : null,
+    warning:
+      authError || purgeFailures.length > 0
+        ? authError
+          ? "Your data was deleted, but the sign-in record could not be removed. The membership desk has been notified."
+          : "Your data was deleted, but some files could not be removed from storage. The membership desk has been notified."
+        : null,
   });
 });

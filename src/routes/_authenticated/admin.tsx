@@ -594,6 +594,10 @@ function Admin() {
                 {r.status !== "resolved" && r.status !== "dismissed" && (
                   <div className="mt-4 grid gap-3 border-t border-border pt-4">
                     <Input
+                      // An accessible name, not just a placeholder: this note
+                      // is recorded against a member's report and the
+                      // placeholder vanishes once the desk types.
+                      aria-label="Private resolution note (recorded, not shown to the reported member)"
                       placeholder="Private resolution note (recorded, not shown to the reported member)"
                       value={note[r.id] ?? ""}
                       onChange={(e) => setNote((s) => ({ ...s, [r.id]: e.target.value }))}

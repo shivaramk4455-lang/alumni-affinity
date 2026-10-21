@@ -342,7 +342,10 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const list = useQuery({
-    queryKey: ["notifications"],
+    // A distinct key from the full inbox: the two queries select different
+    // columns and read different page sizes, so sharing one key made React
+    // Query serve whichever projection the last observer happened to fetch.
+    queryKey: ["notifications", "preview"],
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -587,10 +590,17 @@ export function IncomingCallBanner() {
   if (!user || !ringing.data) return null;
 
   async function decline() {
-    await supabase
+    // The error was never checked. A failed update left the row 'ringing', and
+    // idx_calls_one_live (one live call per conversation) then blocked every
+    // future call in that conversation for good.
+    const { error } = await supabase
       .from("calls")
       .update({ status: "ended", ended_at: new Date().toISOString(), decline_reason: "declined" })
       .eq("id", ringing.data!.id);
+    if (error) {
+      console.error("site-chrome: could not decline the call:", error.message);
+      toast.error("We could not decline the call. Please contact the membership desk.");
+    }
     void ringing.refetch();
   }
 
