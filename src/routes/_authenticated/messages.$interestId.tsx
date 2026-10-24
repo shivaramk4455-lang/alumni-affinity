@@ -6,11 +6,11 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  Compass,
   Flag,
   MessageSquare,
   Send,
   ShieldCheck,
-  Sparkles,
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -358,7 +358,7 @@ function ConversationPage() {
           {messages.length === 0 && (
             <div className="mt-4 text-left">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-brass">
-                <Sparkles className="size-3.5" /> Conversation starters:
+                <Compass className="size-3.5" /> Conversation starters:
               </p>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                 {ICEBREAKERS.slice(0, 4).map((b) => (
