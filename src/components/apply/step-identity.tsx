@@ -10,12 +10,14 @@ export interface StepIdentityProps {
 }
 
 export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
+  const currentYear = new Date().getFullYear();
+
   return (
     <ApplyStepContainer
       title="Verify who you are"
       note="Use the details that appear on your government-issued identity document."
     >
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-[1fr_220px]">
         <FormField label="Full legal name">
           <Input
             name="name"
@@ -32,6 +34,9 @@ export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
             name="dob"
             type="date"
             required
+            max={`${currentYear - 21}-12-31`}
+            min={`${currentYear - 75}-01-01`}
+            className="w-full max-w-[220px] cursor-pointer"
             value={draft.dob}
             onChange={(e) => onChange("dob", e.target.value)}
           />
@@ -56,6 +61,7 @@ export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
             required
             maxLength={15}
             placeholder="+91 98765 43210"
+            className="w-full sm:max-w-[220px]"
             value={draft.phone}
             onChange={(e) => onChange("phone", e.target.value)}
           />

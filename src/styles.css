@@ -253,6 +253,12 @@
     letter-spacing: 0;
   }
 
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    margin-left: auto;
+    cursor: pointer;
+  }
+
   ::selection {
     background: var(--color-brass);
     color: var(--color-primary-foreground);
