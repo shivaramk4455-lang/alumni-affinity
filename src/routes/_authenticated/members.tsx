@@ -17,6 +17,7 @@ import {
   DIETS,
   GENDERS,
   INSTITUTIONS,
+  INSTITUTION_GROUPS,
   MANGALIK_OPTIONS,
   MARITAL_STATUSES,
   MOTHER_TONGUES,
@@ -26,6 +27,7 @@ import {
   RESIDENCY_STATUSES,
   formatHeight,
 } from "@/lib/profile-options";
+import { cn } from "@/lib/utils";
 import { alignCandidate, EMPTY_PREFERENCES, type Alignment } from "@/lib/alignment";
 
 export const Route = createFileRoute("/_authenticated/members")({
@@ -839,6 +841,95 @@ function Members() {
       )}
 
       <div className="mt-8 border border-border bg-card p-4 shadow-paper">
+        {/* Quick Alumni Cluster Filters */}
+        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+            Alumni Cluster:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (inst || q === "IIT" || q === "IIM") {
+                setInst("");
+                if (q === "IIT" || q === "IIM") setQ("");
+                resetPage();
+              }
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
+              !inst && q !== "IIT" && q !== "IIM"
+                ? "border-brass bg-brass/10 font-semibold text-brass-strong"
+                : "border-border bg-background text-muted-foreground hover:bg-secondary/40",
+            )}
+          >
+            All Institutions
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setInst("");
+              setQ("IIT");
+              resetPage();
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
+              q === "IIT"
+                ? "border-brass bg-brass/10 font-semibold text-brass-strong"
+                : "border-border bg-background text-muted-foreground hover:bg-secondary/40",
+            )}
+          >
+            All IITs
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setInst("");
+              setQ("IIM");
+              resetPage();
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
+              q === "IIM"
+                ? "border-brass bg-brass/10 font-semibold text-brass-strong"
+                : "border-border bg-background text-muted-foreground hover:bg-secondary/40",
+            )}
+          >
+            All IIMs
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (q === "IIT" || q === "IIM") setQ("");
+              setInst("BITS Pilani");
+              resetPage();
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
+              inst === "BITS Pilani"
+                ? "border-brass bg-brass/10 font-semibold text-brass-strong"
+                : "border-border bg-background text-muted-foreground hover:bg-secondary/40",
+            )}
+          >
+            BITS Pilani
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (q === "IIT" || q === "IIM") setQ("");
+              setInst("ISB (Indian School of Business)");
+              resetPage();
+            }}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
+              inst === "ISB (Indian School of Business)"
+                ? "border-brass bg-brass/10 font-semibold text-brass-strong"
+                : "border-border bg-background text-muted-foreground hover:bg-secondary/40",
+            )}
+          >
+            ISB
+          </button>
+        </div>
+
         {/* Row 1: Search keyword, Feed selection, and Sort order */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="relative sm:col-span-2">
@@ -908,10 +999,10 @@ function Members() {
               resetPage();
             }}
           >
-            <option value="joined">Recently joined</option>
-            <option value="youngest">Youngest first</option>
+            <option value="joined">Sort: Recently joined</option>
+            <option value="youngest">Sort: Youngest first</option>
             <option value="active" disabled={!activityTracking.data}>
-              Recently active (opt-in)
+              Sort: Recently active (opt-in)
             </option>
           </select>
         </div>
@@ -928,8 +1019,14 @@ function Members() {
             }}
           >
             <option value="">All institutions</option>
-            {INSTITUTIONS.map((i) => (
-              <option key={i}>{i}</option>
+            {INSTITUTION_GROUPS.map((group) => (
+              <optgroup key={group.category} label={group.category}>
+                {group.options.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
 

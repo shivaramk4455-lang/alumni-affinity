@@ -67,6 +67,44 @@ export const INSTITUTIONS = [
   "Other premier institute",
 ];
 
+export interface InstitutionGroup {
+  category: string;
+  options: string[];
+}
+
+export const INSTITUTION_GROUPS: readonly InstitutionGroup[] = [
+  {
+    category: "Indian Institutes of Technology (IITs)",
+    options: INSTITUTIONS.filter((i) => i.startsWith("IIT")),
+  },
+  {
+    category: "Indian Institutes of Management (IIMs)",
+    options: INSTITUTIONS.filter((i) => i.startsWith("IIM")),
+  },
+  {
+    category: "Top Management & Business Schools",
+    options: [
+      "ISB (Indian School of Business)",
+      "XLRI Jamshedpur",
+      "FMS Delhi",
+      "Jamnalal Bajaj (JBIMS Mumbai)",
+    ],
+  },
+  {
+    category: "Premier Engineering, Science & Law",
+    options: [
+      "BITS Pilani",
+      "IISc Bengaluru",
+      "NLSIU Bengaluru",
+      "NIFT (National Institute of Fashion Technology)",
+    ],
+  },
+  {
+    category: "Other Premier Institutions",
+    options: ["Other premier institute"],
+  },
+] as const;
+
 export const DEGREES = [
   "B.Tech",
   "B.E.",

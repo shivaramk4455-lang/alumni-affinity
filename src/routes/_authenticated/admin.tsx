@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberPhoto } from "@/components/member-photo";
+import { DocInspectionModal } from "@/components/admin/doc-inspection-modal";
 import { useMyProfile, MY_PROFILE_KEY } from "@/hooks/use-my-profile";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -81,6 +82,7 @@ function Admin() {
   type DeskQueueRow =
     import("@/integrations/supabase/types").Database["public"]["Functions"]["desk_review_queue"]["Returns"][number];
 
+  const [inspectingMember, setInspectingMember] = useState<DeskQueueRow | null>(null);
   const [accumulatedPages, setAccumulatedPages] = useState<Record<number, DeskQueueRow[]>>({});
 
   const pending = useQuery({
@@ -174,6 +176,7 @@ function Admin() {
     },
     onSuccess: () => {
       setConfirming(null);
+      setInspectingMember(null);
       qc.invalidateQueries({ queryKey: ["admin-pending"] });
       qc.invalidateQueries({ queryKey: ["admin-reports"] });
       qc.invalidateQueries({ queryKey: MY_PROFILE_KEY });
@@ -372,9 +375,22 @@ function Admin() {
                   <p className="mt-1 text-sm">
                     Credential:{" "}
                     {p.verification_doc_path ? (
-                      // Without the member's name the desk hears N identical
-                      // "open document" buttons with no idea whose file is whose.
-                      <DocLink path={p.verification_doc_path} name={p.full_name || "this member"} />
+                      <span className="inline-flex items-center gap-2">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-sm font-medium text-brass-strong hover:underline cursor-pointer"
+                          onClick={() => setInspectingMember(p)}
+                          aria-label={`Inspect ${p.full_name || "this member"}'s credential document`}
+                        >
+                          Inspect credential
+                        </Button>
+                        <span className="text-muted-foreground/60">·</span>
+                        <DocLink
+                          path={p.verification_doc_path}
+                          name={p.full_name || "this member"}
+                        />
+                      </span>
                     ) : (
                       "none uploaded"
                     )}
@@ -689,6 +705,36 @@ function Admin() {
           )}
         </div>
       </section>
+
+      {inspectingMember && inspectingMember.verification_doc_path && (
+        <DocInspectionModal
+          memberId={inspectingMember.id}
+          memberName={inspectingMember.full_name || "Member"}
+          docPath={inspectingMember.verification_doc_path}
+          degree={inspectingMember.degree}
+          institution={inspectingMember.institution}
+          gradYear={inspectingMember.grad_year}
+          alumniEmail={inspectingMember.alumni_email}
+          note={note[inspectingMember.id] ?? ""}
+          onNoteChange={(val) => setNote((s) => ({ ...s, [inspectingMember.id]: val }))}
+          onApprove={() =>
+            decide.mutate({
+              id: inspectingMember.id,
+              decision: "verified",
+              noteText: (note[inspectingMember.id] ?? "").trim(),
+            })
+          }
+          onRequestResubmission={() =>
+            decide.mutate({
+              id: inspectingMember.id,
+              decision: "needs_resubmission",
+              noteText: (note[inspectingMember.id] ?? "").trim(),
+            })
+          }
+          isPending={decide.isPending}
+          onClose={() => setInspectingMember(null)}
+        />
+      )}
     </main>
   );
 }

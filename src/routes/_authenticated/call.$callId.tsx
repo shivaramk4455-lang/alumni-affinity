@@ -16,6 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PreCallDeviceCheck } from "@/components/call/pre-call-device-check";
 import { useCall } from "@/hooks/use-call";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,6 +57,8 @@ function CallPage() {
     toggleVideo,
   } = useCall(callId);
 
+  const [precallDone, setPrecallDone] = useState(false);
+
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
@@ -69,10 +72,10 @@ function CallPage() {
   }, [remoteStream]);
 
   useEffect(() => {
-    if (role === "caller" && call?.status === "ringing") {
+    if (role === "caller" && call?.status === "ringing" && precallDone) {
       void begin("caller");
     }
-  }, [role, call?.status, begin]);
+  }, [role, call?.status, precallDone, begin]);
 
   const myId = me.data?.id;
   const otherId = call ? (call.caller_id === myId ? call.callee_id : call.caller_id) : null;
@@ -176,6 +179,27 @@ function CallPage() {
           </Button>
         </div>
       </main>
+    );
+  }
+
+  if (call.status === "ringing" && !precallDone && (role === "caller" || role === "callee")) {
+    return (
+      <PreCallDeviceCheck
+        counterpartName={counterpartName}
+        counterpartInstitution={counterpart.data?.institution}
+        counterpartCity={counterpart.data?.city}
+        isCaller={role === "caller"}
+        onProceed={() => {
+          setPrecallDone(true);
+          if (role === "callee") {
+            void answer();
+          }
+        }}
+        onCancel={() => {
+          void endCall("declined");
+          navigate({ to: "/connections" });
+        }}
+      />
     );
   }
 
@@ -296,6 +320,15 @@ function CallPage() {
                 <p className="max-w-xs text-xs text-slate-300">
                   Please wait while their device is notified. Calls not answered within 45 seconds
                   will close automatically.
+                </p>
+              </>
+            ) : busy || precallDone ? (
+              <>
+                <h3 className="font-serif text-2xl font-semibold">
+                  Connecting to {counterpartName}…
+                </h3>
+                <p className="max-w-xs text-xs text-slate-300">
+                  Establishing secure encrypted peer-to-peer connection…
                 </p>
               </>
             ) : (
