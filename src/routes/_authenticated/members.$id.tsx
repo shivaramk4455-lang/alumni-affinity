@@ -17,7 +17,6 @@ import {
   Phone,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   UsersRound,
 } from "lucide-react";
 
@@ -812,8 +811,8 @@ function MemberProfile() {
 
               {hasTheirHoroscope && (
                 <section className="mt-6 border-t border-border pt-4">
-                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
-                    <Sparkles className="size-4 text-brass" /> Horoscope
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
+                    Horoscope
                   </p>
                   <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
                     {data?.nakshatra && (
@@ -847,7 +846,7 @@ function MemberProfile() {
                                     : "border-border bg-secondary/40 text-muted-foreground"
                               }`}
                             >
-                              <Sparkles className="size-3.5" /> {gunaBand.label}
+                              {gunaBand.label}
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">
@@ -1038,68 +1037,10 @@ function MemberProfile() {
           )}
 
           {!isSelf && (
-            <section className="mt-8 grid gap-4 border-t border-border pt-6">
-              {me.data?.verification_status === "verified" ? (
-                !interest.data ? (
-                  openInterest ? (
-                    <div className="grid gap-3">
-                      <label htmlFor="interest-note" className="text-sm font-semibold">
-                        A short note (optional)
-                      </label>
-                      <Textarea
-                        id="interest-note"
-                        rows={4}
-                        maxLength={600}
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Say something specific about why you are writing."
-                      />
-                      <div className="flex flex-wrap gap-3">
-                        <Button onClick={() => send.mutate()} disabled={send.isPending}>
-                          {send.isPending ? "Sending…" : "Send interest"}
-                        </Button>
-                        <Button variant="ghost" onClick={() => setOpenInterest(false)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      size="lg"
-                      className="justify-self-start"
-                      onClick={() => setOpenInterest(true)}
-                      aria-expanded={openInterest}
-                      aria-controls="interest-note-panel"
-                    >
-                      <Heart /> Express interest
-                    </Button>
-                  )
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {interest.data.status === "pending" &&
-                      interest.data.sender_id === me.data?.id &&
-                      "Your interest is awaiting a reply."}
-                    {interest.data.status === "pending" &&
-                      interest.data.recipient_id === me.data?.id && (
-                        <>
-                          This member has expressed interest in you.{" "}
-                          <Link
-                            to="/connections"
-                            className="font-semibold text-foreground underline underline-offset-4"
-                          >
-                            Reply in introductions
-                          </Link>
-                          .
-                        </>
-                      )}
-                    {interest.data.status === "declined" && "This introduction was declined."}
-                    {interest.data.status === "withdrawn" && "This interest was withdrawn."}
-                    {interest.data.status === "accepted" && "Contact details are shown above."}
-                    {interest.data.status === "blocked" && "This connection has ended."}
-                  </p>
-                )
-              ) : (
-                <div className="rounded border border-border bg-secondary/30 p-4 text-xs text-muted-foreground">
+            <section className="mt-8 border-t border-border pt-6">
+              {/* Co-pilot mode notice */}
+              {me.data?.verification_status !== "verified" && (
+                <div className="mb-4 rounded border border-border bg-secondary/30 p-4 text-xs text-muted-foreground">
                   <p>
                     <strong>Co-pilot browsing mode.</strong> Expressing interest is reserved for
                     verified candidates. You can suggest this profile to your family member below.
@@ -1107,82 +1048,193 @@ function MemberProfile() {
                 </div>
               )}
 
-              {copilotLinks.length > 0 &&
-                (openSuggest ? (
-                  <div
-                    role="group"
-                    aria-label="Suggest this profile to a family co-pilot"
-                    className="grid gap-3 border border-border p-4"
-                  >
-                    <label htmlFor="family-note" className="text-sm font-semibold">
-                      Suggest to your family member
-                    </label>
-                    <Textarea
-                      id="family-note"
-                      rows={3}
-                      maxLength={600}
-                      value={familyNote}
-                      onChange={(e) => setFamilyNote(e.target.value)}
-                      placeholder="Why you think this is worth a look."
-                    />
-                    <div className="flex flex-wrap gap-3">
-                      {copilotLinks.map((c) => (
-                        <Button
-                          key={c.id}
-                          variant="outline"
-                          onClick={() => suggest.mutate(c)}
-                          disabled={suggest.isPending}
-                          // Every row rendered an identical "Share suggestion"
-                          // label, so with two co-pilots a screen-reader user
-                          // heard the same button twice and could not tell
-                          // which family member each one belonged to.
-                          aria-label={`Share this suggestion with ${c.copilot_name || c.copilot_email || "your family member"}`}
+              {/* Status notice when interest already exists */}
+              {interest.data && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  {interest.data.status === "pending" &&
+                    interest.data.sender_id === me.data?.id &&
+                    "Your interest is awaiting a reply."}
+                  {interest.data.status === "pending" &&
+                    interest.data.recipient_id === me.data?.id && (
+                      <>
+                        This member has expressed interest in you.{" "}
+                        <Link
+                          to="/connections"
+                          className="font-semibold text-foreground underline underline-offset-4"
                         >
-                          Share suggestion
-                        </Button>
-                      ))}
-                      <Button variant="ghost" onClick={() => setOpenSuggest(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
+                          Reply in introductions
+                        </Link>
+                        .
+                      </>
+                    )}
+                  {interest.data.status === "declined" && "This introduction was declined."}
+                  {interest.data.status === "withdrawn" && "This interest was withdrawn."}
+                  {interest.data.status === "accepted" && "Contact details are shown above."}
+                  {interest.data.status === "blocked" && "This connection has ended."}
+                </p>
+              )}
+
+              {/* Unified Ergonomic Action Toolbar */}
+              <div className="flex flex-wrap items-center gap-3">
+                {me.data?.verification_status === "verified" && !interest.data && (
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      setOpenInterest((v) => !v);
+                      setOpenSuggest(false);
+                      setOpenReport(false);
+                    }}
+                    aria-expanded={openInterest}
+                    aria-controls="interest-note-panel"
+                  >
+                    <Heart /> Express interest
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size={
+                    !interest.data && me.data?.verification_status === "verified" ? "lg" : "default"
+                  }
+                  disabled={toggleSave.isPending}
+                  onClick={() => toggleSave.mutate(!isSaved)}
+                  aria-pressed={isSaved}
+                >
+                  {isSaved ? (
+                    <>
+                      <BookmarkCheck /> Shortlisted
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark /> Shortlist
+                    </>
+                  )}
+                </Button>
+
+                {copilotLinks.length > 0 && (
                   <Button
                     variant="outline"
-                    className="justify-self-start"
-                    onClick={() => setOpenSuggest(true)}
+                    size={
+                      !interest.data && me.data?.verification_status === "verified"
+                        ? "lg"
+                        : "default"
+                    }
+                    onClick={() => {
+                      setOpenSuggest((v) => !v);
+                      setOpenInterest(false);
+                      setOpenReport(false);
+                    }}
                     aria-expanded={openSuggest}
-                    aria-controls="family-note"
+                    aria-controls="family-note-panel"
                   >
-                    <UsersRound /> Suggest to family member
+                    <UsersRound /> Suggest to family
                   </Button>
-                ))}
-
-              <Button
-                variant="outline"
-                className="justify-self-start"
-                disabled={toggleSave.isPending}
-                onClick={() => toggleSave.mutate(!isSaved)}
-                // Expose the toggle state programmatically, not just via the
-                // icon and text swap.
-                aria-pressed={isSaved}
-              >
-                {isSaved ? (
-                  <>
-                    <BookmarkCheck /> Shortlisted
-                  </>
-                ) : (
-                  <>
-                    <Bookmark /> Shortlist
-                  </>
                 )}
-              </Button>
 
-              {openReport ? (
+                <Button
+                  variant="outline"
+                  size={
+                    !interest.data && me.data?.verification_status === "verified" ? "lg" : "default"
+                  }
+                  disabled={dismiss.isPending}
+                  onClick={() =>
+                    dismiss.mutate(id, {
+                      onSuccess: () => navigate({ to: "/members" }),
+                    })
+                  }
+                  aria-label={`Hide ${data.full_name ?? "this member"} from your search`}
+                >
+                  <EyeOff className="size-4" />
+                  {dismiss.isPending ? "Hiding…" : "Not for me"}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setOpenReport((v) => !v);
+                    setOpenInterest(false);
+                    setOpenSuggest(false);
+                  }}
+                  aria-expanded={openReport}
+                  aria-controls="report-reason-panel"
+                >
+                  <Flag /> Report
+                </Button>
+              </div>
+
+              {/* Action Form Panels */}
+              {openInterest && !interest.data && (
                 <div
+                  id="interest-note-panel"
+                  className="mt-4 grid gap-3 border border-border bg-secondary/15 p-4"
+                >
+                  <label htmlFor="interest-note" className="text-sm font-semibold">
+                    A short note (optional)
+                  </label>
+                  <Textarea
+                    id="interest-note"
+                    rows={4}
+                    maxLength={600}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Say something specific about why you are writing."
+                  />
+                  <div className="flex flex-wrap gap-3">
+                    <Button onClick={() => send.mutate()} disabled={send.isPending}>
+                      {send.isPending ? "Sending…" : "Send interest"}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setOpenInterest(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {openSuggest && copilotLinks.length > 0 && (
+                <div
+                  id="family-note-panel"
+                  role="group"
+                  aria-label="Suggest this profile to a family co-pilot"
+                  className="mt-4 grid gap-3 border border-border bg-secondary/15 p-4"
+                >
+                  <label htmlFor="family-note" className="text-sm font-semibold">
+                    Suggest to your family member
+                  </label>
+                  <Textarea
+                    id="family-note"
+                    rows={3}
+                    maxLength={600}
+                    value={familyNote}
+                    onChange={(e) => setFamilyNote(e.target.value)}
+                    placeholder="Why you think this profile is worth a look."
+                  />
+                  <div className="flex flex-wrap gap-3">
+                    {copilotLinks.map((c) => (
+                      <Button
+                        key={c.id}
+                        variant="outline"
+                        onClick={() => suggest.mutate(c)}
+                        disabled={suggest.isPending}
+                        aria-label={`Share this suggestion with ${c.copilot_name || c.copilot_email || "your family member"}`}
+                      >
+                        Share with {c.copilot_name || c.copilot_email || "family"}
+                      </Button>
+                    ))}
+                    <Button variant="ghost" onClick={() => setOpenSuggest(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {openReport && (
+                <div
+                  id="report-reason-panel"
                   role="group"
                   aria-label="Report this profile"
-                  className="grid gap-3 border border-border p-4"
+                  className="mt-4 grid gap-3 border border-border bg-secondary/15 p-4"
                 >
                   <label htmlFor="report-reason" className="text-sm font-semibold">
                     Report this profile
@@ -1197,8 +1249,6 @@ function MemberProfile() {
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value)}
                     placeholder="A sentence or two about the concern"
-                    // The report reason is required by the mutation (10 chars
-                    // minimum), so surface that before the click fails.
                     aria-required="true"
                     aria-invalid={report.isError ? true : undefined}
                     aria-describedby="report-reason-hint"
@@ -1218,33 +1268,6 @@ function MemberProfile() {
                       Cancel
                     </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={dismiss.isPending}
-                    onClick={() =>
-                      dismiss.mutate(id, {
-                        onSuccess: () => navigate({ to: "/members" }),
-                      })
-                    }
-                    aria-label={`Hide ${data.full_name ?? "this member"} from your search`}
-                  >
-                    <EyeOff className="size-4" />
-                    {dismiss.isPending ? "Hiding…" : "Not for me"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground"
-                    onClick={() => setOpenReport(true)}
-                    aria-expanded={openReport}
-                    aria-controls="report-reason"
-                  >
-                    <Flag /> Report profile
-                  </Button>
                 </div>
               )}
             </section>

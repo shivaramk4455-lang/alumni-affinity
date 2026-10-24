@@ -3,11 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Camera,
   Check,
-  ChevronRight,
   Clock3,
-  EyeOff,
   FileCheck2,
-  LockKeyhole,
+  MessageSquare,
   ShieldCheck,
   UserRoundCheck,
   UsersRound,
@@ -104,13 +102,6 @@ function DashboardPage() {
       </section>
 
       <div className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-12">
-        <div className="mb-7 flex items-center gap-3 border-l-2 border-brass bg-background px-5 py-4 text-sm">
-          <LockKeyhole className="size-4 shrink-0 text-brass" />
-          <span>
-            Only you can approve interests or reveal photographs. Co-pilots can suggest profiles and
-            add private notes.
-          </span>
-        </div>
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <div className="space-y-6">
             <section className="border border-border bg-card p-5 shadow-paper md:p-7">
@@ -206,194 +197,127 @@ function DashboardPage() {
               )}
             </section>
 
-            <section className="border border-border bg-card p-5 shadow-paper md:p-7">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-brass">
-                    Verification
-                  </p>
-                  <h2 className="mt-2 font-serif text-2xl font-semibold">{status.label}</h2>
+            {p?.verification_status === "verified" ? (
+              <section className="border border-border bg-card p-5 shadow-paper md:p-7">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.15em] text-brass">
+                      Introductions & Activity
+                    </p>
+                    <h2 className="mt-1 font-serif text-2xl font-semibold">
+                      {received > 0
+                        ? `${received} pending introduction${received === 1 ? "" : "s"}`
+                        : "Introductions overview"}
+                    </h2>
+                  </div>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/connections">View introductions</Link>
+                  </Button>
                 </div>
-                <span className="shrink-0 border border-brass bg-brass/10 px-2.5 py-1 text-xs font-semibold text-brass-strong">
-                  {stepsDone} of 3 complete
-                </span>
-              </div>
-              <div className="mt-7 h-1.5 overflow-hidden bg-muted">
-                <div
-                  className="h-full bg-brass"
-                  style={{ width: `${Math.round((stepsDone / 3) * 100)}%` }}
-                />
-              </div>
-              <div className="mt-7 grid gap-3">
-                <Status
-                  icon={<UserRoundCheck />}
-                  title="Identity"
-                  detail={
-                    p?.full_name
-                      ? `${p.full_name} · profile ${p.onboarded ? "complete" : "in progress"}`
-                      : "Complete onboarding to begin"
-                  }
-                  done={!!p?.onboarded}
-                />
-                <Status
-                  icon={<FileCheck2 />}
-                  title="Institution"
-                  detail={
-                    p?.alumni_email
-                      ? `${p.alumni_email}${p.alumni_email_verified ? " · confirmed" : ""}`
-                      : p?.verification_doc_path
-                        ? "Credential uploaded · awaiting desk"
-                        : "Add an alumni email or credential"
-                  }
-                  done={!!(p?.alumni_email_verified || p?.verification_status === "verified")}
-                />
-                <Status
-                  icon={<Clock3 />}
-                  title="Desk review"
-                  detail={
-                    p?.verification_status === "verified"
-                      ? "Complete"
-                      : p?.verification_status === "pending_review"
-                        ? "Usually within 24 hours"
-                        : "Not yet submitted"
-                  }
-                  done={p?.verification_status === "verified"}
-                />
-              </div>
-              {p?.verification_status !== "verified" && (
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div className="border border-border bg-secondary/25 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                      Awaiting response
+                    </p>
+                    <p className="mt-2 font-serif text-3xl font-semibold">
+                      {interests.isPending ? <Skeleton className="h-8 w-16" /> : received}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {received === 0
+                        ? "No pending introductions"
+                        : "Introductions received from verified members"}
+                    </p>
+                  </div>
+
+                  <div className="border border-border bg-secondary/25 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                      Active connections
+                    </p>
+                    <p className="mt-2 font-serif text-3xl font-semibold">
+                      {interests.isPending ? <Skeleton className="h-8 w-16" /> : accepted}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Mutual introductions with unlocked contact details
+                    </p>
+                  </div>
+                </div>
+
+                {activeCopilot && (
+                  <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <UsersRound className="size-4 text-brass" />
+                      Family co-pilot:{" "}
+                      <strong className="text-foreground">
+                        {activeCopilot.copilot_name || activeCopilot.copilot_email}
+                      </strong>
+                    </span>
+                    <Link to="/copilots" className="font-semibold text-brass hover:underline">
+                      Manage co-pilot
+                    </Link>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <section className="border border-border bg-card p-5 shadow-paper md:p-7">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-[0.15em] text-brass">
+                      Verification
+                    </p>
+                    <h2 className="mt-2 font-serif text-2xl font-semibold">{status.label}</h2>
+                  </div>
+                  <span className="shrink-0 border border-brass bg-brass/10 px-2.5 py-1 text-xs font-semibold text-brass-strong">
+                    {stepsDone} of 3 complete
+                  </span>
+                </div>
+                <div className="mt-7 h-1.5 overflow-hidden bg-muted">
+                  <div
+                    className="h-full bg-brass"
+                    style={{ width: `${Math.round((stepsDone / 3) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-7 grid gap-3">
+                  <Status
+                    icon={<UserRoundCheck />}
+                    title="Identity"
+                    detail={
+                      p?.full_name
+                        ? `${p.full_name} · profile ${p.onboarded ? "complete" : "in progress"}`
+                        : "Complete onboarding to begin"
+                    }
+                    done={!!p?.onboarded}
+                  />
+                  <Status
+                    icon={<FileCheck2 />}
+                    title="Institution"
+                    detail={
+                      p?.alumni_email
+                        ? `${p.alumni_email}${p.alumni_email_verified ? " · confirmed" : ""}`
+                        : p?.verification_doc_path
+                          ? "Credential uploaded · awaiting desk"
+                          : "Add an alumni email or credential"
+                    }
+                    done={!!(p?.alumni_email_verified || p?.verification_status === "verified")}
+                  />
+                  <Status
+                    icon={<Clock3 />}
+                    title="Desk review"
+                    detail={
+                      p?.verification_status === "verified"
+                        ? "Complete"
+                        : p?.verification_status === "pending_review"
+                          ? "Usually within 24 hours"
+                          : "Not yet submitted"
+                    }
+                    done={p?.verification_status === "verified"}
+                  />
+                </div>
                 <Button asChild className="mt-6">
                   <Link to="/verification">Continue verification</Link>
                 </Button>
-              )}
-            </section>
-
-            <section className="border border-border bg-card p-5 shadow-paper md:p-7">
-              <h2 className="font-serif text-2xl font-semibold">Your controls</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Privacy settings travel with your profile everywhere.
-              </p>
-              <div className="mt-6 divide-y divide-border border-y border-border">
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                  <span className="text-brass [&_svg]:size-5">
-                    <UserRoundCheck />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">Profile details & attributes</p>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      {p?.onboarded
-                        ? `${p.institution || "Alumni"} · ${p.city || "City"} · Edit bio, values, height and background.`
-                        : "Complete your member profile to start discovery."}
-                    </p>
-                  </div>
-                  <Link to="/onboarding" aria-label="Edit your profile details">
-                    <ChevronRight
-                      className="size-4 shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </div>
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                  <span className="text-brass [&_svg]:size-5">
-                    <Camera />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">Photograph gallery</p>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      {p?.photo_path
-                        ? "Manage portraits (up to 6) and primary picture."
-                        : "Upload photographs to strengthen your profile."}
-                    </p>
-                  </div>
-                  <Link to="/verification" hash="photos" aria-label="Manage your photographs">
-                    <ChevronRight
-                      className="size-4 shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </div>
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                  <span className="text-brass [&_svg]:size-5">
-                    <EyeOff />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">
-                      {p?.is_visible === false ? "Ghost mode is on" : "Visible in discovery"}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      {p?.is_visible === false
-                        ? "You do not appear in general discovery."
-                        : "Verified members can find you in search."}
-                    </p>
-                  </div>
-                  <Link to="/settings" aria-label="Open visibility and privacy settings">
-                    <ChevronRight
-                      className="size-4 shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </div>
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                  <span className="text-brass [&_svg]:size-5">
-                    <ShieldCheck />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">
-                      {interests.isPending ? (
-                        <Skeleton className="h-4 w-44" />
-                      ) : interests.isError ? (
-                        "Introductions could not be loaded"
-                      ) : received ? (
-                        `${received} introduction${received === 1 ? "" : "s"} awaiting you`
-                      ) : (
-                        "No pending introductions"
-                      )}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      {interests.isError
-                        ? "This is not an empty inbox — a connection problem on our side."
-                        : accepted
-                          ? `${accepted} accepted · contact details unlocked.`
-                          : "Only fully verified members may send interest."}
-                    </p>
-                  </div>
-                  <Link to="/connections" aria-label="Review your introductions">
-                    <ChevronRight
-                      className="size-4 shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </div>
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                  <span className="text-brass [&_svg]:size-5">
-                    <UsersRound />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">
-                      {copilots.isPending ? (
-                        <Skeleton className="h-4 w-36" />
-                      ) : copilots.isError ? (
-                        "Co-pilots could not be loaded"
-                      ) : mine.length ? (
-                        `${mine.length} co-pilot${mine.length === 1 ? "" : "s"} invited`
-                      ) : (
-                        "No co-pilots yet"
-                      )}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      {activeCopilot
-                        ? `${activeCopilot.copilot_name || activeCopilot.copilot_email} · view and suggest access.`
-                        : "Many members invite one parent."}
-                    </p>
-                  </div>
-                  <Link to="/copilots" aria-label="Manage co-pilot access">
-                    <ChevronRight
-                      className="size-4 shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </div>
-              </div>
-            </section>
+              </section>
+            )}
           </div>
 
           <aside className="space-y-6">

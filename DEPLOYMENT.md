@@ -218,22 +218,22 @@ Run in this order; each step is verifiable on its own.
 9. **Smoke tests**: signup → onboarding → verification submit → admin approve →
    search → interest → accept → contact reveal → message → call → block → logout.
 10. **Cron**: `select * from cron.job;` shows eight jobs —
-     `notify-dispatch` (`*/5 * * * *`), `weekly-digest` (`30 6 * * 1`,
-     Mondays 06:30 UTC = 12:00 IST), `prune-webhook-events` (`0 3 * * *`),
-     `purge-verification-docs` (`47 3 * * *`), `expire-lapsed-subscriptions`
-     (`7 * * * *`), `reconcile-orphaned-subscriptions` (`23 * * * *`),
-     `expire-stale-interests` (`*/5 * * * *`) and `sweep-stale-calls`
-     (`*/5 * * * *`); manually `POST`
-     `notify-dispatch` with the `X-Cron-Secret` header and confirm
-     `{"ok":true,...}`.
+    `notify-dispatch` (`*/5 * * * *`), `weekly-digest` (`30 6 * * 1`,
+    Mondays 06:30 UTC = 12:00 IST), `prune-webhook-events` (`0 3 * * *`),
+    `purge-verification-docs` (`47 3 * * *`), `expire-lapsed-subscriptions`
+    (`7 * * * *`), `reconcile-orphaned-subscriptions` (`23 * * * *`),
+    `expire-stale-interests` (`*/5 * * * *`) and `sweep-stale-calls`
+    (`*/5 * * * *`); manually `POST`
+    `notify-dispatch` with the `X-Cron-Secret` header and confirm
+    `{"ok":true,...}`.
 
-     Every job that calls an edge function needs BOTH headers: the gateway
-     JWT (`Authorization: Bearer <service_role_key>`, read from Vault) and the
-     function's own `X-Cron-Secret`. A job with only the secret is rejected
-     with a 401 by the Edge Gateway before the function body runs, and
-     `net.http_post` swallows the failure — the job looks healthy while doing
-     nothing. `reconcile-orphaned-subscriptions` is the one that matters most:
-     without it, a member who deletes their account keeps being debited.
+    Every job that calls an edge function needs BOTH headers: the gateway
+    JWT (`Authorization: Bearer <service_role_key>`, read from Vault) and the
+    function's own `X-Cron-Secret`. A job with only the secret is rejected
+    with a 401 by the Edge Gateway before the function body runs, and
+    `net.http_post` swallows the failure — the job looks healthy while doing
+    nothing. `reconcile-orphaned-subscriptions` is the one that matters most:
+    without it, a member who deletes their account keeps being debited.
 
 ## 10. Rollback Plan
 

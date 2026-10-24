@@ -9,7 +9,6 @@ import {
   LockKeyhole,
   MapPin,
   ShieldCheck,
-  Sparkles,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -123,29 +122,37 @@ function Index() {
             <p className="font-serif text-2xl leading-9 text-foreground">
               “A smaller circle, held to a higher standard.”
             </p>
-            <dl className="mt-8 grid grid-cols-2 gap-x-5 gap-y-7 border-t border-border pt-7">
+            <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-6 border-t border-border pt-6 text-sm">
               <div>
-                <dt className="font-serif text-3xl font-semibold">
-                  100<span className="text-[0.7em] align-baseline">%</span>
+                <dt className="font-serif text-base font-semibold text-foreground">
+                  Verified credentials
                 </dt>
-                <dd className="mt-1 text-xs text-muted-foreground">
-                  identity & degree checked before access
+                <dd className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Government ID & degree confirmed prior to directory entry
                 </dd>
               </div>
               <div>
-                <dt className="font-serif text-3xl font-semibold">1:1</dt>
-                <dd className="mt-1 text-xs text-muted-foreground">human application review</dd>
-              </div>
-              <div>
-                <dt className="font-serif text-3xl font-semibold">Zero</dt>
-                <dd className="mt-1 text-xs text-muted-foreground">
-                  public directory or search indexing
+                <dt className="font-serif text-base font-semibold text-foreground">
+                  Individual review
+                </dt>
+                <dd className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Manual membership desk evaluation for every application
                 </dd>
               </div>
               <div>
-                <dt className="font-serif text-3xl font-semibold">You</dt>
-                <dd className="mt-1 text-xs text-muted-foreground">
-                  direct candidate consent on every connection
+                <dt className="font-serif text-base font-semibold text-foreground">
+                  Complete discretion
+                </dt>
+                <dd className="mt-1 text-xs leading-5 text-muted-foreground">
+                  No public index, no open search, and ghost mode by default
+                </dd>
+              </div>
+              <div>
+                <dt className="font-serif text-base font-semibold text-foreground">
+                  Candidate consent
+                </dt>
+                <dd className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Introductions, photos, and contact sharing require your approval
                 </dd>
               </div>
             </dl>
@@ -255,9 +262,8 @@ function Index() {
                 locks appear inside a verified member dossier.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 self-start border border-brass/40 bg-secondary/60 px-3.5 py-2 text-xs font-semibold text-foreground lg:self-auto">
-              <Sparkles className="size-3.5 text-brass" aria-hidden="true" />
-              Illustrative composite archetypes · Zero real member data shown
+            <div className="self-start border border-border bg-secondary/60 px-3.5 py-2 text-xs font-medium text-muted-foreground lg:self-auto">
+              Illustrative composite archetypes · Real member profiles are strictly private
             </div>
           </div>
 
@@ -315,50 +321,17 @@ function Index() {
             ))}
           </div>
 
-          <div className="mt-12 grid border-y border-border md:grid-cols-3 md:divide-x md:divide-y-0 divide-y divide-border">
-            <Principle
-              n="01"
-              icon={<ShieldCheck />}
-              title="Verified membership"
-              text="Every application is reviewed before access to the private member directory is granted."
-            />
-            <Principle
-              n="02"
-              icon={<EyeOff />}
-              title="Private discovery"
-              text="Profiles are visible only to verified members, with visibility controls in your hands."
-            />
-            <Principle
-              n="03"
-              icon={<LockKeyhole />}
-              title="Mutual introduction"
-              text="Personal details are shared only when both people choose to connect."
-            />
-          </div>
-          <div className="mt-10 flex flex-col gap-6 border border-brass/40 bg-secondary/45 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-9">
-            <div className="max-w-2xl">
-              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-brass">
-                <ShieldCheck className="size-4" aria-hidden="true" /> The privacy guarantee
-              </p>
-              <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                No member profile, photograph, or institution record is publicly listed or indexed.
-                Real profiles are reserved for verified members, and details are shared only through
-                mutual, consent-led introductions.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center">
-              <Button asChild>
-                <Link to="/apply">
-                  Request Membership <ArrowRight />
-                </Link>
-              </Button>
-              <Link
-                to="/standards"
-                className="text-sm font-semibold text-foreground underline-offset-4 hover:underline"
-              >
-                Eligibility Standards
-              </Link>
-            </div>
+          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
+            <p className="text-xs text-muted-foreground">
+              Full dossier records, photographs, and contact information are strictly gated to
+              verified members upon mutual consent.
+            </p>
+            <Link
+              to="/standards"
+              className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-foreground underline-offset-4 hover:underline"
+            >
+              Review eligibility standards →
+            </Link>
           </div>
         </div>
       </section>

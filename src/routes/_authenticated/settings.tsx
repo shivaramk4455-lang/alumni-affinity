@@ -2,21 +2,7 @@ import { createFileRoute, Link, useNavigate, useBlocker } from "@tanstack/react-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  Bell,
-  Crown,
-  Eye,
-  Lock,
-  LogOut,
-  Pause,
-  ScrollText,
-  ShieldAlert,
-  SlidersHorizontal,
-  Sparkles,
-  Trash2,
-  TriangleAlert,
-  UserRound,
-} from "lucide-react";
+import { Bell, Eye, LogOut, Pause, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,44 +12,34 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { MY_PROFILE_KEY, useMyProfile } from "@/hooks/use-my-profile";
-import { EMPTY_PREFERENCES, hasAnyPreferences } from "@/lib/alignment";
 import {
-  CASTES,
-  DIETS,
-  GENDERS,
-  HEIGHT_OPTIONS,
-  INSTITUTIONS,
   MANGALIK_OPTIONS,
-  MARITAL_STATUSES,
   NAKSHATRAS,
   NAKSHATRA_PADAS,
   PHOTO_VISIBILITY,
   PROFILE_CREATED_BY,
   RASHIS,
-  RELIGIONS,
-  RELOCATION,
 } from "@/lib/profile-options";
 import { starRashi } from "@/lib/guna-milan";
-import { CONSENT_LABELS, useConsentLog, recordConsent, type ConsentPurpose } from "@/lib/consent";
-import { useContactAccessLog, useProfileNames, useVisitorLog } from "@/lib/access-log";
+import { recordConsent } from "@/lib/consent";
+import { useProfileNames } from "@/lib/access-log";
 import { PhotoGalleryManager } from "@/components/photo-gallery";
 import { useDecidePhotoRequest, useIncomingPhotoRequests } from "@/lib/photo-requests";
 import { profileCompleteness } from "@/lib/profile-completeness";
 import { useDismissedIds, useRestoreProfile } from "@/lib/dismissals";
 
 import {
-  inr,
-  useCancelSubscription,
-  useMySubscription,
-  usePlans,
-  useStartCheckout,
-} from "@/lib/subscription";
-import {
   DEFAULT_PREFERENCES,
   useNotificationPreferences,
   useSaveNotificationPreferences,
   type NotificationPreferences,
 } from "@/lib/notification-prefs";
+
+import { BillingSection } from "@/components/settings/billing-section";
+import { PartnerPreferencesSection } from "@/components/settings/partner-preferences-section";
+import { AccessAuditLogsSection } from "@/components/settings/access-audit-logs-section";
+import { ConsentLedgerSection } from "@/components/settings/consent-ledger-section";
+import { AccountDangerZone } from "@/components/settings/account-danger-zone";
 
 /** One switch per channel, in the order they read most naturally. */
 const CHANNEL_ROWS: {
@@ -107,9 +83,6 @@ const CHANNEL_ROWS: {
   },
 ];
 
-/** Must match the confirmation string the delete-account function expects. */
-const DELETE_CONFIRMATION = "DELETE MY ACCOUNT";
-
 /**
  * The member's action still succeeded, but the DPDP consent receipt did not
  * land. Blocking the action would be worse than the missing row, so we warn
@@ -140,97 +113,19 @@ function Settings() {
   const [phone, setPhone] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [seeded, setSeeded] = useState(false);
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
-  // "Clear all" wipes every stored criterion, so it takes a second click.
-  const [clearOpen, setClearOpen] = useState(false);
 
-  // Sabbatical (restrict processing) and account deletion (right to erasure).
+  // Sabbatical (restrict processing).
   const [pauseUntil, setPauseUntil] = useState("");
   const [pauseReason, setPauseReason] = useState("");
   const [pauseSeeded, setPauseSeeded] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
 
-  // Partner preferences. The row is owner-writable, but the criteria are
-  // directory-visible to verified members (migration 20261023) — they power
-  // the "Looking for in a partner" section, the same as Desired Partner
-  // Profile on Shaadi/BharatMatrimony. Only shield_employer stays private
-  // (never selected for another member's view).
-  const [prefSeeded, setPrefSeeded] = useState(false);
-  const [minAge, setMinAge] = useState("");
-  const [maxAge, setMaxAge] = useState("");
-  const [minHeight, setMinHeight] = useState("");
-  const [maxHeight, setMaxHeight] = useState("");
-  const [prefGenders, setPrefGenders] = useState<string[]>([]);
-  const [prefMaritalStatuses, setPrefMaritalStatuses] = useState<string[]>([]);
-  const [prefDiets, setPrefDiets] = useState<string[]>([]);
-  const [prefReligions, setPrefReligions] = useState<string[]>([]);
-  const [prefCaste, setPrefCaste] = useState("");
-  const [prefManglik, setPrefManglik] = useState("");
-  const [prefInstitutions, setPrefInstitutions] = useState<string[]>([]);
-  const [prefCities, setPrefCities] = useState("");
-  const [prefRelocations, setPrefRelocations] = useState<string[]>([]);
-  const [prefShieldEmployer, setPrefShieldEmployer] = useState(false);
+  // Preferences dirty tracker for the unsaved changes blocker.
+  const [prefDirty, setPrefDirty] = useState(false);
 
   const me = useMyProfile();
   const p = me.data;
   // Same weighted score as the dashboard, so the two never disagree.
   const completeness = profileCompleteness(p);
-
-  const prefs = useQuery({
-    queryKey: ["partner-preferences"],
-    enabled: !!me.data,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("partner_preferences")
-        .select(
-          "min_age, max_age, min_height_cm, max_height_cm, genders, marital_statuses, diets, religions, caste_preference, manglik_preference, institutions, cities, relocations, shield_employer",
-        )
-        .maybeSingle();
-      if (error) {
-        console.warn("Could not load partner preferences:", error.message);
-        return { ...EMPTY_PREFERENCES };
-      }
-      if (!data) return { ...EMPTY_PREFERENCES };
-      return {
-        min_age: data.min_age,
-        max_age: data.max_age,
-        min_height_cm: data.min_height_cm,
-        max_height_cm: data.max_height_cm,
-        genders: data.genders ?? [],
-        marital_statuses: data.marital_statuses ?? [],
-        diets: data.diets ?? [],
-        religions: data.religions ?? [],
-        caste_preference: data.caste_preference ?? null,
-        manglik_preference: data.manglik_preference ?? null,
-        institutions: data.institutions ?? [],
-        cities: data.cities ?? [],
-        relocations: data.relocations ?? [],
-        shield_employer: data.shield_employer ?? false,
-      };
-    },
-  });
-
-  useEffect(() => {
-    if (prefs.data && !prefSeeded) {
-      setPrefSeeded(true);
-      setMinAge(prefs.data.min_age?.toString() ?? "");
-      setMaxAge(prefs.data.max_age?.toString() ?? "");
-      setMinHeight(prefs.data.min_height_cm?.toString() ?? "");
-      setMaxHeight(prefs.data.max_height_cm?.toString() ?? "");
-      setPrefGenders(prefs.data.genders);
-      setPrefMaritalStatuses(prefs.data.marital_statuses ?? []);
-      setPrefDiets(prefs.data.diets ?? []);
-      setPrefReligions(prefs.data.religions ?? []);
-      setPrefCaste(prefs.data.caste_preference ?? "");
-      setPrefManglik(prefs.data.manglik_preference ?? "");
-      setPrefInstitutions(prefs.data.institutions);
-      setPrefCities(prefs.data.cities.join(", "));
-      setPrefRelocations(prefs.data.relocations);
-      setPrefShieldEmployer(prefs.data.shield_employer);
-    }
-  }, [prefs.data, prefSeeded]);
 
   useEffect(() => {
     if (me.data && !seeded) {
@@ -249,33 +144,18 @@ function Settings() {
     }
   }, [me.data, pauseSeeded]);
 
-  const consentLog = useConsentLog();
-
   /**
-   * Unsaved-changes guard. Contact coordinates, the sabbatical fields and all
+   * Unsaved-changes guard. Contact coordinates, the sabbatical fields and
    * partner preferences live in local state until an explicit Save, and
    * this page carries links that navigate away mid-form — so a stray click
    * used to discard real edits with no warning.
    */
   const dirty =
+    prefDirty ||
     phone !== (p?.contact_phone ?? "") ||
     linkedin !== (p?.linkedin_url ?? "") ||
     pauseUntil !== (p?.paused_until?.slice(0, 10) ?? "") ||
-    pauseReason !== (p?.paused_reason ?? "") ||
-    minAge !== (prefs.data?.min_age?.toString() ?? "") ||
-    maxAge !== (prefs.data?.max_age?.toString() ?? "") ||
-    minHeight !== (prefs.data?.min_height_cm?.toString() ?? "") ||
-    maxHeight !== (prefs.data?.max_height_cm?.toString() ?? "") ||
-    prefGenders.join() !== (prefs.data?.genders ?? []).join() ||
-    prefMaritalStatuses.join() !== (prefs.data?.marital_statuses ?? []).join() ||
-    prefDiets.join() !== (prefs.data?.diets ?? []).join() ||
-    prefReligions.join() !== (prefs.data?.religions ?? []).join() ||
-    prefCaste !== (prefs.data?.caste_preference ?? "") ||
-    prefManglik !== (prefs.data?.manglik_preference ?? "") ||
-    prefInstitutions.join() !== (prefs.data?.institutions ?? []).join() ||
-    prefCities !== (prefs.data?.cities ?? []).join(", ") ||
-    prefRelocations.join() !== (prefs.data?.relocations ?? []).join() ||
-    prefShieldEmployer !== (prefs.data?.shield_employer ?? false);
+    pauseReason !== (p?.paused_reason ?? "");
 
   // `enableBeforeUnload` covers tab close/reload; `shouldBlockFn` covers
   // in-app navigation. Either alone would leave a gap.
@@ -285,87 +165,19 @@ function Settings() {
     enableBeforeUnload: () => dirty,
   });
 
-  // Access audit surfaces (visitor log is opt-in; the reveal log is always
-  // available to the member whose coordinates were opened).
-  const visitorLog = useVisitorLog(p?.show_profile_views === true);
-  const activityTracking = useQuery({
-    queryKey: ["activity-tracking", p?.id],
-    enabled: !!p?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("member_activity")
-        .select("enabled")
-        .maybeSingle();
-      if (error) throw error;
-      return data?.enabled ?? false;
-    },
-  });
-  const saveActivityTracking = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      const { error } = await supabase.rpc("set_member_activity_tracking", {
-        _enabled: enabled,
-        _policy_version: "2026-09",
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["activity-tracking"] });
-      void qc.invalidateQueries({ queryKey: ["directory-match-signals"] });
-      void qc.invalidateQueries({ queryKey: ["members"] });
-      void qc.invalidateQueries({ queryKey: ["consent-events"] });
-      toast.success("Activity sharing preference saved.");
-    },
-    onError: () => toast.error("Could not update activity sharing."),
-  });
-  const contactLog = useContactAccessLog(p?.id);
-  const names = useProfileNames([
-    ...(visitorLog.data ?? []).map((v) => v.viewer_id),
-    ...(contactLog.data ?? []).map((r) => r.viewer_id),
-  ]);
-  /**
-   * First name + institution only: the audit log never needs a full record.
-   * A failed name read must read differently from a name we simply do not have,
-   * so a transient outage is not mistaken for an anonymous stranger.
-   */
-  const who = (id: string): string => {
-    const row = names.data?.find((n) => n.id === id);
-    if (!row) return names.isError ? "Identity unavailable" : "A member";
-    const first = row.full_name?.split(" ")[0] || "Member";
-    return row.institution ? `${first} · ${row.institution}` : first;
-  };
-  const saveViewPref = useMutation({
-    mutationFn: async (next: boolean) => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("not-signed-in");
-      const { error } = await supabase
-        .from("profiles")
-        .update({ show_profile_views: next })
-        .eq("id", u.user.id);
-      if (error) throw error;
-      // View tracking itself is unaffected — this records the member's choice
-      // about having the log shown back to them. The ledger result flows back to
-      // onSuccess so a missing receipt is warned about, not swallowed.
-      return recordConsent(
-        "profile_views_display",
-        next,
-        next ? "Visitor log display enabled" : "Visitor log display disabled",
-      );
-    },
-    onSuccess: (consent) => {
-      qc.invalidateQueries({ queryKey: MY_PROFILE_KEY });
-      qc.invalidateQueries({ queryKey: ["consent-events"] });
-      if (consent.ok) toast.success("Visibility preference saved.");
-      else toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
-    },
-    onError: () => toast.error("Could not update the visitor log setting."),
-  });
-
   const notifPrefs = useNotificationPreferences();
   const saveNotifPrefs = useSaveNotificationPreferences();
 
   // Photograph consent: incoming requests for the owner to allow or decline.
   const photoRequests = useIncomingPhotoRequests();
   const decidePhoto = useDecidePhotoRequest();
+  const requesterNames = useProfileNames(photoRequests.data?.map((r) => r.requester_id) ?? []);
+  const whoRequester = (id: string): string => {
+    const row = requesterNames.data?.find((n) => n.id === id);
+    if (!row) return requesterNames.isError ? "Identity unavailable" : "A member";
+    const first = row.full_name?.split(" ")[0] || "Member";
+    return row.institution ? `${first} · ${row.institution}` : first;
+  };
 
   // "Not for me" profiles, so a private dismissal has one place to be undone.
   const dismissedIds = useDismissedIds();
@@ -382,11 +194,6 @@ function Settings() {
       return data ?? [];
     },
   });
-
-  const plans = usePlans();
-  const subscription = useMySubscription();
-  const checkout = useStartCheckout();
-  const cancelSub = useCancelSubscription();
 
   const savePause = useMutation({
     mutationFn: async ({ until, reason }: { until: string | null; reason: string | null }) => {
@@ -410,27 +217,6 @@ function Settings() {
       else toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
     },
     onError: () => toast.error("Could not save your pause. Please try again."),
-  });
-
-  const requestDeletion = useMutation({
-    mutationFn: async () => {
-      // Server-side: purges both storage buckets, then the profile row (which
-      // cascades), then the auth user. A client can never do this alone.
-      const { data, error } = await supabase.functions.invoke("delete-account", {
-        body: { confirm: deleteConfirm },
-      });
-      if (error) throw error;
-      const payload = data as { error?: string } | null;
-      if (payload?.error) throw new Error(payload.error);
-    },
-    onSuccess: async () => {
-      await qc.cancelQueries();
-      qc.clear();
-      await supabase.auth.signOut();
-      toast.success("Your account and uploaded documents have been deleted.");
-      navigate({ to: "/", replace: true });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not delete the account."),
   });
 
   const save = useMutation({
@@ -460,148 +246,6 @@ function Settings() {
       toast.success("Settings saved.");
     },
     onError: () => toast.error("Could not save. Please try again."),
-  });
-
-  const savePrefs = useMutation({
-    mutationFn: async (patch: {
-      min_age: number | null;
-      max_age: number | null;
-      min_height_cm: number | null;
-      max_height_cm: number | null;
-      genders: string[];
-      marital_statuses: string[];
-      diets: string[];
-      religions: string[];
-      caste_preference: string | null;
-      manglik_preference: string | null;
-      institutions: string[];
-      cities: string[];
-      relocations: string[];
-      shield_employer: boolean;
-    }) => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("not-signed-in");
-      const { error } = await supabase
-        .from("partner_preferences")
-        .upsert({ user_id: u.user.id, ...patch }, { onConflict: "user_id" });
-      if (error) throw error;
-      const hasCriteria = hasAnyPreferences(patch);
-      return recordConsent(
-        "partnership_criteria",
-        hasCriteria,
-        hasCriteria
-          ? "Partner preferences updated in Settings"
-          : "Partner preferences cleared in Settings",
-      );
-    },
-    onSuccess: (consent) => {
-      qc.invalidateQueries({ queryKey: ["partner-preferences"] });
-      qc.invalidateQueries({ queryKey: ["directory-match-signals"] });
-      qc.invalidateQueries({ queryKey: ["members"] });
-      qc.invalidateQueries({ queryKey: ["consent-events"] });
-      if (consent.ok) toast.success("Partner preferences saved.");
-      else toast.warning(CONSENT_RECEIPT_WARNING, { duration: 8000 });
-    },
-    onError: () => toast.error("Could not save your preferences. Please try again."),
-  });
-
-  function savePreferences() {
-    const lo = minAge.trim() === "" ? null : Number(minAge);
-    const hi = maxAge.trim() === "" ? null : Number(maxAge);
-    if (lo !== null && (!Number.isInteger(lo) || lo < 21 || lo > 80)) {
-      toast.error("Minimum age must be between 21 and 80.");
-      return;
-    }
-    if (hi !== null && (!Number.isInteger(hi) || hi < 21 || hi > 80)) {
-      toast.error("Maximum age must be between 21 and 80.");
-      return;
-    }
-    if (lo !== null && hi !== null && lo > hi) {
-      toast.error("Minimum age cannot be greater than maximum age.");
-      return;
-    }
-    const minH = minHeight.trim() === "" ? null : Number(minHeight);
-    const maxH = maxHeight.trim() === "" ? null : Number(maxHeight);
-    if (minH !== null && maxH !== null && minH > maxH) {
-      toast.error("Minimum height cannot be greater than maximum height.");
-      return;
-    }
-    const cities = [
-      ...new Set(
-        prefCities
-          .split(",")
-          .map((c) => c.trim())
-          .filter((c) => c.length > 0),
-      ),
-    ].slice(0, 20);
-    savePrefs.mutate({
-      min_age: lo,
-      max_age: hi,
-      min_height_cm: minH,
-      max_height_cm: maxH,
-      genders: prefGenders.slice(0, 5),
-      marital_statuses: prefMaritalStatuses.slice(0, 5),
-      diets: prefDiets.slice(0, 5),
-      religions: prefReligions.slice(0, 15),
-      caste_preference: prefCaste.trim() || null,
-      manglik_preference: prefManglik.trim() || null,
-      institutions: prefInstitutions.slice(0, 20),
-      cities,
-      relocations: prefRelocations.slice(0, 5),
-      shield_employer: prefShieldEmployer,
-    });
-  }
-
-  function clearPreferences() {
-    setMinAge("");
-    setMaxAge("");
-    setMinHeight("");
-    setMaxHeight("");
-    setPrefGenders([]);
-    setPrefMaritalStatuses([]);
-    setPrefDiets([]);
-    setPrefReligions([]);
-    setPrefCaste("");
-    setPrefManglik("");
-    setPrefInstitutions([]);
-    setPrefCities("");
-    setPrefRelocations([]);
-    savePrefs.mutate({
-      min_age: null,
-      max_age: null,
-      min_height_cm: null,
-      max_height_cm: null,
-      genders: [],
-      marital_statuses: [],
-      diets: [],
-      religions: [],
-      caste_preference: null,
-      manglik_preference: null,
-      institutions: [],
-      cities: [],
-      relocations: [],
-      // The shield is a privacy toggle rather than a matching criterion, so
-      // "clear all" deliberately leaves it exactly as the member set it.
-      shield_employer: prefShieldEmployer,
-    });
-  }
-
-  const withdraw = useMutation({
-    mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("not-signed-in");
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_visible: false })
-        .eq("id", u.user.id);
-      if (error) throw error;
-    },
-    onSuccess: async () => {
-      qc.invalidateQueries({ queryKey: MY_PROFILE_KEY });
-      toast.success("Your profile is withdrawn from discovery.");
-      setWithdrawOpen(false);
-    },
-    onError: () => toast.error("Could not withdraw. Please try again."),
   });
 
   async function signOut() {
@@ -657,8 +301,6 @@ function Settings() {
               {p?.institution ? `${p.institution} · ` : ""}
               {p?.city || "Profile setup"}
             </p>
-            {/* Weighted, same scorer as the dashboard. A count-based bar reaches
-                100% on a photoless profile, which would be a false all-clear. */}
             <p className="mt-2 text-xs text-muted-foreground">
               Profile {completeness.percent}% complete
               {completeness.missing.length > 0 &&
@@ -740,9 +382,7 @@ function Settings() {
         </div>
 
         <div className="mt-8 border-t border-border pt-6">
-          <h2 className="flex items-center gap-2 font-serif text-xl font-semibold">
-            <Sparkles className="size-5 text-brass" /> Horoscope
-          </h2>
+          <h3 className="font-serif text-xl font-semibold">Horoscope</h3>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Optional. Your birth star lets us show a Guna Milan (Ashtakoota) compatibility score
             with other members who have shared theirs.
@@ -847,6 +487,7 @@ function Settings() {
           </div>
         </div>
       </section>
+
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -916,7 +557,7 @@ function Settings() {
                   className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
                 >
                   <span className="min-w-0">
-                    <span className="block font-medium">{who(r.requester_id)}</span>
+                    <span className="block font-medium">{whoRequester(r.requester_id)}</span>
                     <span className="text-xs text-muted-foreground">
                       Asked{" "}
                       {new Date(r.created_at).toLocaleString("en-IN", {
@@ -979,25 +620,25 @@ function Settings() {
           </p>
         ) : (
           <ul className="mt-5 divide-y divide-border border border-border">
-            {(dismissedPeople.data ?? []).map((p) => {
-              const restoring = restoreProfile.isPending && restoreProfile.variables === p.id;
+            {(dismissedPeople.data ?? []).map((person) => {
+              const restoring = restoreProfile.isPending && restoreProfile.variables === person.id;
               return (
                 <li
-                  key={p.id}
+                  key={person.id}
                   className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
                 >
                   <span className="min-w-0">
-                    <span className="block font-medium">{p.full_name}</span>
+                    <span className="block font-medium">{person.full_name}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {[p.profession, p.city].filter(Boolean).join(" · ") || "Member"}
+                      {[person.profession, person.city].filter(Boolean).join(" · ") || "Member"}
                     </span>
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={restoreProfile.isPending}
-                    onClick={() => restoreProfile.mutate(p.id)}
-                    aria-label={`Show ${p.full_name} in your search again`}
+                    onClick={() => restoreProfile.mutate(person.id)}
+                    aria-label={`Show ${person.full_name} in your search again`}
                   >
                     {restoring ? "Restoring…" : "Show again"}
                   </Button>
@@ -1005,7 +646,7 @@ function Settings() {
               );
             })}
             {dismissedIds.data?.some(
-              (id) => !(dismissedPeople.data ?? []).some((p) => p.id === id),
+              (id) => !(dismissedPeople.data ?? []).some((person) => person.id === id),
             ) && (
               <li className="p-4 text-xs text-muted-foreground">
                 Some hidden profiles could not be named, so they are not listed. Their dismissal
@@ -1065,9 +706,6 @@ function Settings() {
                 linkedin_url: linkedin.trim() || null,
               },
               {
-                // Consent is recorded only once the write succeeds, so the
-                // ledger never claims a disclosure that did not happen. A
-                // missing receipt is warned about, never a rollback of the save.
                 onSuccess: async () => {
                   const consent = await recordConsent(
                     "contact_disclosure",
@@ -1083,6 +721,7 @@ function Settings() {
           Save contact details
         </Button>
       </section>
+
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
           <Pause className="size-5 text-brass" /> Sabbatical pause
@@ -1163,359 +802,8 @@ function Settings() {
         </div>
       </section>
 
-      <section className="mt-6 border border-border bg-card p-6 md:p-8">
-        <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-          <SlidersHorizontal className="size-5 text-brass" /> Partner preferences
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          What you are looking for in a partner. When your profile is visible in the directory,
-          verified members see these stated criteria in the “Looking for in a partner” section on
-          your profile, and they power mutual preference badges across search. Your Employer Shield
-          setting below remains strictly private and is never shown to other members.
-        </p>
-
-        {/*
-          Guard the whole editor. When this query fails, `prefs.data` is
-          undefined, every field below renders as its blank default, and
-          "Save preferences" would then write those blanks over the member's
-          real stored row — silently erasing their criteria on a transient
-          network error. Hiding the editor is the only safe option: we cannot
-          distinguish "no preferences" from "preferences we failed to load".
-        */}
-        {prefs.isError ? (
-          <p
-            role="alert"
-            className="mt-6 border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
-          >
-            Your partner preferences could not be loaded, so they are hidden rather than shown as
-            empty — saving now would erase them.{" "}
-            <button
-              type="button"
-              className="font-semibold underline underline-offset-2"
-              onClick={() => void prefs.refetch()}
-              disabled={prefs.isFetching}
-            >
-              {prefs.isFetching ? "Retrying…" : "Retry"}
-            </button>
-          </p>
-        ) : prefs.isLoading ? (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2" aria-busy="true">
-            <span className="sr-only">Loading your partner preferences…</span>
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-24 w-full sm:col-span-2" />
-          </div>
-        ) : (
-          <>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="pref-min-age">Minimum age</Label>
-                <Input
-                  id="pref-min-age"
-                  inputMode="numeric"
-                  placeholder="21"
-                  value={minAge}
-                  onChange={(e) => setMinAge(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pref-max-age">Maximum age</Label>
-                <Input
-                  id="pref-max-age"
-                  inputMode="numeric"
-                  placeholder="40"
-                  value={maxAge}
-                  onChange={(e) => setMaxAge(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="pref-min-height">Minimum height</Label>
-                <select
-                  id="pref-min-height"
-                  className={selectCls}
-                  value={minHeight}
-                  onChange={(e) => setMinHeight(e.target.value)}
-                >
-                  <option value="">Any height</option>
-                  {HEIGHT_OPTIONS.map((h) => (
-                    <option key={h.cm} value={String(h.cm)}>
-                      {h.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pref-max-height">Maximum height</Label>
-                <select
-                  id="pref-max-height"
-                  className={selectCls}
-                  value={maxHeight}
-                  onChange={(e) => setMaxHeight(e.target.value)}
-                >
-                  <option value="">Any height</option>
-                  {HEIGHT_OPTIONS.map((h) => (
-                    <option key={h.cm} value={String(h.cm)}>
-                      {h.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">Preferred marital status</legend>
-              <div className="mt-3 flex flex-wrap gap-4">
-                {MARITAL_STATUSES.map((m) => (
-                  <label key={m} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-6 accent-[var(--brass)]"
-                      checked={prefMaritalStatuses.includes(m)}
-                      onChange={(e) =>
-                        setPrefMaritalStatuses((prev) =>
-                          e.target.checked ? [...prev, m] : prev.filter((x) => x !== m),
-                        )
-                      }
-                    />
-                    {m}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">Preferred dietary habit</legend>
-              <div className="mt-3 flex flex-wrap gap-4">
-                {DIETS.map((d) => (
-                  <label key={d} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-6 accent-[var(--brass)]"
-                      checked={prefDiets.includes(d)}
-                      onChange={(e) =>
-                        setPrefDiets((prev) =>
-                          e.target.checked ? [...prev, d] : prev.filter((x) => x !== d),
-                        )
-                      }
-                    />
-                    {d}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">Preferred religion</legend>
-              <div className="mt-3 flex flex-wrap gap-4">
-                {RELIGIONS.map((r) => (
-                  <label key={r} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-6 accent-[var(--brass)]"
-                      checked={prefReligions.includes(r)}
-                      onChange={(e) =>
-                        setPrefReligions((prev) =>
-                          e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
-                        )
-                      }
-                    />
-                    {r}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="pref-caste">Preferred community / caste</Label>
-                <select
-                  id="pref-caste"
-                  className={selectCls}
-                  value={prefCaste}
-                  onChange={(e) => setPrefCaste(e.target.value)}
-                >
-                  <option value="">Any community / no constraint</option>
-                  {CASTES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pref-manglik">Preferred Manglik status</Label>
-                <select
-                  id="pref-manglik"
-                  className={selectCls}
-                  value={prefManglik}
-                  onChange={(e) => setPrefManglik(e.target.value)}
-                >
-                  <option value="">Any / no constraint</option>
-                  {MANGALIK_OPTIONS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">Preferred gender</legend>
-              <div className="mt-3 flex flex-wrap gap-4">
-                {GENDERS.map((g) => (
-                  <label key={g} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-6 accent-[var(--brass)]"
-                      checked={prefGenders.includes(g)}
-                      onChange={(e) =>
-                        setPrefGenders((prev) =>
-                          e.target.checked ? [...prev, g] : prev.filter((x) => x !== g),
-                        )
-                      }
-                    />
-                    {g}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mt-6">
-              <legend className="text-sm font-semibold">Preferred relocation stance</legend>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {RELOCATION.map((r) => (
-                  <label key={r} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-6 accent-[var(--brass)]"
-                      checked={prefRelocations.includes(r)}
-                      onChange={(e) =>
-                        setPrefRelocations((prev) =>
-                          e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
-                        )
-                      }
-                    />
-                    {r}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <div className="mt-6 grid gap-2">
-              <Label htmlFor="pref-institutions">Preferred institutions (select any)</Label>
-              <select
-                id="pref-institutions"
-                multiple
-                size={6}
-                className="w-full border border-input bg-background px-3 py-2 text-sm"
-                value={prefInstitutions}
-                onChange={(e) =>
-                  setPrefInstitutions(Array.from(e.target.selectedOptions).map((o) => o.value))
-                }
-              >
-                {INSTITUTIONS.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs font-normal leading-5 text-muted-foreground">
-                Hold ⌘/Ctrl to select more than one. Leave unselected to keep the whole directory
-                open.
-              </span>
-            </div>
-
-            <div className="mt-6 grid gap-2">
-              <Label htmlFor="pref-cities">Preferred cities</Label>
-              <Input
-                id="pref-cities"
-                placeholder="Mumbai, Bengaluru, London"
-                value={prefCities}
-                onChange={(e) => setPrefCities(e.target.value)}
-              />
-              <span className="text-xs font-normal leading-5 text-muted-foreground">
-                Comma separated. Matched against the member&rsquo;s current city.
-              </span>
-            </div>
-
-            <div className="mt-6 border-t border-border pt-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="flex items-center gap-2 text-sm font-semibold">
-                    <ShieldAlert className="size-4 text-brass" /> Employer shield
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Hide profiles of members who currently work at the same organisation as you.
-                    Applied server-side, so it also applies to counts and pagination.
-                  </p>
-                  {!p?.employer && (
-                    <p className="mt-2 text-xs text-destructive">
-                      Add your organisation under onboarding before this can take effect.
-                    </p>
-                  )}
-                </div>
-                <Switch
-                  checked={prefShieldEmployer}
-                  disabled={!p?.employer}
-                  onCheckedChange={setPrefShieldEmployer}
-                  aria-label="Employer shield"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Button
-                onClick={savePreferences}
-                disabled={savePrefs.isPending}
-                aria-busy={savePrefs.isPending}
-              >
-                {savePrefs.isPending ? "Saving…" : "Save preferences"}
-              </Button>
-              {clearOpen ? (
-                <div
-                  role="group"
-                  aria-label="Confirm clearing partner preferences"
-                  className="flex basis-full flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3"
-                >
-                  <p className="text-sm leading-6 text-destructive">
-                    Clear every partner preference? Your age range, institutions, cities and
-                    relocation choices will all be reset.
-                  </p>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={savePrefs.isPending}
-                    onClick={() => {
-                      clearPreferences();
-                      setClearOpen(false);
-                    }}
-                  >
-                    {savePrefs.isPending ? "Clearing…" : "Yes, clear all"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setClearOpen(false)}>
-                    Keep them
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="ghost"
-                  onClick={() => setClearOpen(true)}
-                  disabled={savePrefs.isPending}
-                >
-                  Clear all
-                </Button>
-              )}
-              {prefs.data && !hasAnyPreferences(prefs.data) && (
-                <span className="text-sm text-muted-foreground">No criteria set yet.</span>
-              )}
-            </div>
-          </>
-        )}
-      </section>
+      {/* Extracted modular section: Partner Preferences */}
+      <PartnerPreferencesSection employer={p?.employer} onDirtyChange={setPrefDirty} />
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="font-serif text-2xl font-semibold">Session</h2>
@@ -1526,297 +814,12 @@ function Settings() {
           <LogOut /> Sign out
         </Button>
       </section>
-      <section className="mt-6 border border-border bg-card p-6 md:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-              <Eye className="size-5 text-brass" /> Access audit log
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Every profile view and every opening of your contact coordinates is recorded. Viewing
-              is logged whether or not you choose to see it — the toggle only controls what is shown
-              back to you.
-            </p>
-            {names.isError && (
-              <p role="alert" className="mt-2 text-xs text-destructive">
-                Some visitor names could not be loaded, so those rows read “Identity unavailable”.{" "}
-                <button
-                  type="button"
-                  className="font-semibold underline underline-offset-2"
-                  onClick={() => void names.refetch()}
-                  disabled={names.isFetching}
-                >
-                  {names.isFetching ? "Retrying…" : "Retry"}
-                </button>
-              </p>
-            )}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-start gap-3 text-sm font-medium">
-              <Switch
-                checked={p?.show_profile_views === true}
-                disabled={saveViewPref.isPending}
-                onCheckedChange={(v) => saveViewPref.mutate(v)}
-                aria-label="Show who viewed my profile"
-              />
-              <span>
-                Show visitors
-                <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                  When on, verified members who opted to show visitor history can appear here.
-                </span>
-              </span>
-            </label>
-            <label className="flex items-start gap-3 text-sm font-medium">
-              <Switch
-                checked={activityTracking.data === true}
-                disabled={activityTracking.isLoading || saveActivityTracking.isPending}
-                onCheckedChange={(enabled) => saveActivityTracking.mutate(enabled)}
-                aria-label="Share coarse recent activity"
-              />
-              <span>
-                Share coarse recent activity
-                <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                  Optional. Verified members may see “active recently” or “active this week”, never
-                  an exact time.
-                </span>
-              </span>
-            </label>
-          </div>
-        </div>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
-              Profile visitors
-            </p>
-            <div className="mt-3 divide-y divide-border border border-border">
-              {visitorLog.isLoading ? (
-                <p className="p-3 text-xs text-muted-foreground">Loading…</p>
-              ) : visitorLog.isError ? (
-                <p role="alert" className="p-3 text-xs text-destructive">
-                  Your visitor log could not be loaded. This is not the same as an empty log.{" "}
-                  <button
-                    type="button"
-                    className="font-semibold underline underline-offset-2"
-                    onClick={() => void visitorLog.refetch()}
-                    disabled={visitorLog.isFetching}
-                  >
-                    {visitorLog.isFetching ? "Retrying…" : "Retry"}
-                  </button>
-                </p>
-              ) : !visitorLog.data?.length ? (
-                <p className="p-3 text-xs text-muted-foreground">
-                  {p?.show_profile_views
-                    ? "No visits recorded yet."
-                    : "Turn on “Show visitors” to see this log."}
-                </p>
-              ) : (
-                visitorLog.data.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between gap-3 p-3 text-xs">
-                    <span className="min-w-0 truncate font-medium text-foreground">
-                      {who(v.viewer_id)}
-                    </span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {new Date(v.viewed_at).toLocaleString("en-IN", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+      {/* Extracted modular section: Access Audit Logs */}
+      <AccessAuditLogsSection profile={p} />
 
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
-              Contact coordinates opened
-            </p>
-            <div className="mt-3 divide-y divide-border border border-border">
-              {contactLog.isLoading ? (
-                <p className="p-3 text-xs text-muted-foreground">Loading…</p>
-              ) : contactLog.isError ? (
-                <p role="alert" className="p-3 text-xs text-destructive">
-                  This log could not be loaded. This is not the same as nobody having looked.{" "}
-                  <button
-                    type="button"
-                    className="font-semibold underline underline-offset-2"
-                    onClick={() => void contactLog.refetch()}
-                    disabled={contactLog.isFetching}
-                  >
-                    {contactLog.isFetching ? "Retrying…" : "Retry"}
-                  </button>
-                </p>
-              ) : !contactLog.data?.length ? (
-                <p className="p-3 text-xs text-muted-foreground">
-                  Nobody has opened your contact details yet.
-                </p>
-              ) : (
-                contactLog.data.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex flex-col gap-1 p-3 text-xs sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <span className="min-w-0 truncate font-medium text-foreground">
-                      {who(r.viewer_id)}
-                    </span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {r.access_count} × · last{" "}
-                      {new Date(r.last_revealed_at).toLocaleString("en-IN", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 border border-border bg-card p-6 md:p-8">
-        <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-          <Crown className="size-5 text-brass" /> Membership tier
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Introductions, messaging and one-to-one video calls are free and always will be. Paid
-          membership buys the desk's time — curated shortlists and priority human replies — not a
-          metered quota of introductions.
-        </p>
-
-        {subscription.isError ? (
-          <p
-            role="alert"
-            className="mt-6 border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6 text-destructive"
-          >
-            Your membership could not be loaded, so your current tier is hidden rather than shown as
-            the complimentary tier — we will not offer a member an upgrade they already hold.{" "}
-            <button
-              type="button"
-              className="font-semibold underline underline-offset-2"
-              onClick={() => void subscription.refetch()}
-              disabled={subscription.isFetching}
-            >
-              {subscription.isFetching ? "Retrying…" : "Retry"}
-            </button>
-          </p>
-        ) : subscription.isLoading ? (
-          <div className="mt-6" aria-busy="true">
-            <span className="sr-only">Loading your membership…</span>
-            <Skeleton className="h-24 w-full" />
-          </div>
-        ) : subscription.data ? (
-          <div className="mt-6 border border-border">
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
-                <p className="text-sm font-semibold">
-                  {plans.data?.find((pl) => pl.code === subscription.data?.plan_code)?.label ??
-                    subscription.data.plan_code}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {subscription.data.requests_used > 0
-                    ? `${subscription.data.requests_used} introduction${
-                        subscription.data.requests_used === 1 ? "" : "s"
-                      } sent this month.`
-                    : "No introductions sent this month."}
-                  {subscription.data.period_end
-                    ? ` ${subscription.data.cancel_at_period_end ? "Expires" : "Renews"} ${new Date(
-                        subscription.data.period_end,
-                      ).toLocaleDateString("en-IN", {
-                        dateStyle: "medium",
-                      })}.`
-                    : ""}
-                </p>
-              </div>
-              <span className="rounded-full border border-border px-3 py-1 text-xs capitalize text-muted-foreground">
-                {subscription.data.cancel_at_period_end
-                  ? "Cancelling at period end"
-                  : subscription.data.status}
-              </span>
-            </div>
-            {subscription.data.cancel_at_period_end ? (
-              <div className="border-t border-border bg-secondary/30 p-4 text-xs text-muted-foreground">
-                Cancellation scheduled. Your tier benefits remain active until the end of your
-                current billing period.
-              </div>
-            ) : (
-              <div className="border-t border-border p-4">
-                {cancelConfirmOpen ? (
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold text-destructive">
-                      Cancel recurring membership?
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Your priority benefits will continue until the end of your billing cycle. You
-                      will not be billed again, and your membership will smoothly revert to the
-                      complimentary tier.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={cancelSub.isPending}
-                        onClick={() => cancelSub.mutate()}
-                      >
-                        {cancelSub.isPending ? "Cancelling…" : "Confirm cancellation"}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setCancelConfirmOpen(false)}>
-                        Keep subscription
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-destructive/30 text-destructive hover:bg-destructive/10"
-                    onClick={() => setCancelConfirmOpen(true)}
-                  >
-                    Cancel recurring subscription
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {plans.data?.map((plan) => (
-              <div key={plan.code} className="flex flex-col border border-border p-5">
-                <p className="font-serif text-xl font-semibold">{plan.label}</p>
-                <p className="mt-1 text-2xl font-semibold">{inr(plan.amount_paise)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">per month</p>
-                <ul className="mt-3 flex-1 space-y-1.5 text-sm text-muted-foreground">
-                  <li>
-                    {plan.intro_requests == null
-                      ? "Introduction allowance set by the desk"
-                      : `${plan.intro_requests} introduction requests each month`}
-                  </li>
-                  <li>
-                    Reach is earned too: answering introductions you receive can raise your
-                    effective allowance up to 1.5×; letting them lapse lowers it.
-                  </li>
-                  <li>Unlimited one-to-one video calls</li>
-                  {plan.service_note && <li>{plan.service_note}</li>}
-                </ul>
-                {plan.sellable ? (
-                  <Button
-                    className="mt-5"
-                    disabled={checkout.isPending}
-                    onClick={() => checkout.mutate(plan.code)}
-                  >
-                    {checkout.isPending ? "Opening checkout…" : `Choose ${plan.label}`}
-                  </Button>
-                ) : (
-                  <p className="mt-5 border border-dashed border-border px-3 py-2 text-center text-xs text-muted-foreground">
-                    No longer sold — existing members keep this tier.
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Extracted modular section: Membership Tier & Billing */}
+      <BillingSection />
 
       <section className="mt-6 border border-border bg-card p-6 md:p-8">
         <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
@@ -1881,170 +884,11 @@ function Settings() {
         )}
       </section>
 
-      <section className="mt-6 border border-border bg-card p-6 md:p-8">
-        <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-          <ScrollText className="size-5 text-brass" /> Consent & privacy ledger
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Under the Digital Personal Data Protection Act 2023, every consent you grant or revoke
-          forms an immutable receipt. This record is private to you and the grievance desk.
-        </p>
+      {/* Extracted modular section: DPDP Consent & Privacy Ledger */}
+      <ConsentLedgerSection />
 
-        <div className="mt-6 divide-y divide-border border border-border">
-          {consentLog.isLoading ? (
-            <div className="grid gap-2 p-4" aria-busy="true">
-              <span className="sr-only">Loading consent trail…</span>
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-1/3" />
-            </div>
-          ) : consentLog.isError ? (
-            // Distinct from empty: a failed read is not proof that no consent
-            // was ever recorded, and telling the member otherwise could lead
-            // them to re-consent and create duplicate receipts.
-            <p role="alert" className="p-4 text-sm leading-6 text-destructive">
-              Your consent trail could not be loaded — this is not the same as having no entries.{" "}
-              <button
-                type="button"
-                className="font-semibold underline underline-offset-2"
-                onClick={() => void consentLog.refetch()}
-                disabled={consentLog.isFetching}
-              >
-                {consentLog.isFetching ? "Retrying…" : "Retry"}
-              </button>
-            </p>
-          ) : !consentLog.data?.length ? (
-            <p className="p-4 text-sm text-muted-foreground">
-              No ledger entries yet. Actions like saving preferences or contact details write here.
-            </p>
-          ) : (
-            consentLog.data.map((c) => (
-              <div
-                key={c.id}
-                className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">
-                    {CONSENT_LABELS[c.purpose as ConsentPurpose] || c.purpose}
-                  </p>
-                  {c.note && (
-                    <p className="break-words text-sm leading-5 text-muted-foreground">{c.note}</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                  <span
-                    className={`font-semibold ${c.granted ? "text-success" : "text-destructive"}`}
-                  >
-                    {c.granted ? "Granted" : "Revoked"}
-                  </span>
-                  <span>v{c.policy_version}</span>
-                  <span className="shrink-0">
-                    {new Date(c.recorded_at).toLocaleDateString("en-IN", {
-                      dateStyle: "medium",
-                    })}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="mt-6 border border-destructive/40 bg-card p-6 md:p-8">
-        <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold text-destructive">
-          <Trash2 className="size-5" /> Delete account & erase all data
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Exercise your right to erasure (DPDP Act s.12). This permanently purges your profile,
-          uploaded credentials, photographs, messages, introductions, and login credentials. This
-          action is irreversible.
-        </p>
-
-        {deleteOpen ? (
-          <div
-            role="group"
-            aria-label="Confirm permanent account deletion"
-            className="mt-5 space-y-4 rounded-md border border-destructive/30 bg-destructive/5 p-4"
-          >
-            <p className="text-sm font-semibold uppercase tracking-wider text-destructive">
-              Permanent Deletion Confirmation
-            </p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              To confirm, type <strong className="text-foreground">{DELETE_CONFIRMATION}</strong>{" "}
-              below:
-            </p>
-            <Input
-              id="delete-confirm"
-              // The most destructive control in the app cannot rely on its
-              // placeholder as a name — placeholders vanish on focus and are
-              // not exposed as an accessible name.
-              aria-label={`Type ${DELETE_CONFIRMATION} to confirm permanent deletion`}
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              value={deleteConfirm}
-              onChange={(e) => setDeleteConfirm(e.target.value)}
-              placeholder={DELETE_CONFIRMATION}
-              className="max-w-sm border-destructive/40 bg-background text-sm"
-            />
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="destructive"
-                disabled={deleteConfirm !== DELETE_CONFIRMATION || requestDeletion.isPending}
-                onClick={() => requestDeletion.mutate()}
-              >
-                {requestDeletion.isPending ? "Erasing all data…" : "Permanently delete account"}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setDeleteOpen(false);
-                  setDeleteConfirm("");
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            className="mt-5 border-destructive/40 text-destructive hover:bg-destructive/10"
-            onClick={() => setDeleteOpen(true)}
-          >
-            Request complete erasure
-          </Button>
-        )}
-      </section>
-
-      <section className="mt-6 border border-destructive/40 bg-card p-6 md:p-8">
-        <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-          <TriangleAlert className="size-5 text-destructive" /> Withdraw membership
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Withdrawing hides your profile from discovery immediately. Your account, verifications and
-          introductions are retained so you can return. Contact the grievance desk for full
-          deletion.
-        </p>
-        {withdrawOpen ? (
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button
-              variant="destructive"
-              onClick={() => withdraw.mutate()}
-              disabled={withdraw.isPending}
-            >
-              Confirm withdrawal
-            </Button>
-            <Button variant="ghost" onClick={() => setWithdrawOpen(false)}>
-              Keep my profile
-            </Button>
-          </div>
-        ) : (
-          <Button variant="outline" className="mt-5" onClick={() => setWithdrawOpen(true)}>
-            Withdraw from discovery
-          </Button>
-        )}
-      </section>
+      {/* Extracted modular section: Account Deletion & Withdrawal */}
+      <AccountDangerZone />
     </main>
   );
 }

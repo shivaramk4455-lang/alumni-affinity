@@ -1,7 +1,15 @@
 import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GraduationCap, MapPin, Search, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import {
+  GraduationCap,
+  MapPin,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -213,6 +221,63 @@ function Members() {
   const [sort, setSort] = useState<"joined" | "youngest" | "active">("joined");
   const [page, setPage] = useState(0);
   const debouncedQ = useDebouncedValue(q);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  const advancedCount = [
+    profession,
+    reloc,
+    diet,
+    maritalStatus,
+    residency,
+    tongue,
+    religion,
+    rashi,
+    manglik,
+    minHeight,
+  ].filter(Boolean).length;
+
+  const isFiltered = Boolean(
+    q ||
+    city ||
+    profession ||
+    withPhoto ||
+    inst ||
+    reloc ||
+    gender ||
+    ageBand ||
+    diet ||
+    maritalStatus ||
+    residency ||
+    tongue ||
+    religion ||
+    rashi ||
+    manglik ||
+    minHeight ||
+    feed !== "all" ||
+    sort !== "joined",
+  );
+
+  function clearAllFilters() {
+    setQ("");
+    setCity("");
+    setProfession("");
+    setWithPhoto(false);
+    setInst("");
+    setReloc("");
+    setGender("");
+    setAgeBand("");
+    setDiet("");
+    setMaritalStatus("");
+    setResidency("");
+    setTongue("");
+    setReligion("");
+    setRashi("");
+    setManglik("");
+    setMinHeight("");
+    setFeed("all");
+    setSort("joined");
+    resetPage();
+  }
 
   const me = useMyProfile();
   const queryClient = useQueryClient();
@@ -614,68 +679,133 @@ function Members() {
         </aside>
       )}
 
-      <div className="mt-8 grid gap-3 border border-border bg-card p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        <select
-          aria-label="Discovery feed"
-          className={selectCls}
-          value={feed}
-          onChange={(event) => {
-            setFeed(event.target.value as typeof feed);
-            resetPage();
-          }}
-        >
-          <option value="all">All verified members</option>
-          <option
-            value="mutual"
-            disabled={isCopilot && me.data?.verification_status !== "verified"}
-          >
-            Mutual matches
-          </option>
-          <option
-            value="looking_for_you"
-            disabled={isCopilot && me.data?.verification_status !== "verified"}
-          >
-            Looking for you
-          </option>
-          <option value="new">Recently joined (last 30 days)</option>
-          <option
-            value="shortlisted"
-            disabled={isCopilot && me.data?.verification_status !== "verified"}
-          >
-            Shortlisted by you
-          </option>
-          <option
-            value="viewed_by_you"
-            disabled={isCopilot && me.data?.verification_status !== "verified"}
-          >
-            Viewed by you
-          </option>
-          <option
-            value="viewed_you"
-            disabled={
-              !canUseVisitorFeed || (isCopilot && me.data?.verification_status !== "verified")
-            }
-          >
-            Viewed you (opt-in)
-          </option>
-        </select>
-        <label className="relative sm:col-span-2">
-          <span className="sr-only">Search</span>
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Name, city, profession, degree"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
+      <div className="mt-8 border border-border bg-card p-4 shadow-paper">
+        {/* Row 1: Search keyword, Feed selection, and Sort order */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="relative sm:col-span-2">
+            <span className="sr-only">Search</span>
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search by name, city, profession, degree"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                resetPage();
+              }}
+              maxLength={60}
+            />
+          </label>
+          <select
+            aria-label="Discovery feed"
+            className={selectCls}
+            value={feed}
+            onChange={(event) => {
+              setFeed(event.target.value as typeof feed);
               resetPage();
             }}
-            maxLength={60}
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          City
+          >
+            <option value="all">All verified members</option>
+            <option
+              value="mutual"
+              disabled={isCopilot && me.data?.verification_status !== "verified"}
+            >
+              Mutual matches
+            </option>
+            <option
+              value="looking_for_you"
+              disabled={isCopilot && me.data?.verification_status !== "verified"}
+            >
+              Looking for you
+            </option>
+            <option value="new">Recently joined (last 30 days)</option>
+            <option
+              value="shortlisted"
+              disabled={isCopilot && me.data?.verification_status !== "verified"}
+            >
+              Shortlisted by you
+            </option>
+            <option
+              value="viewed_by_you"
+              disabled={isCopilot && me.data?.verification_status !== "verified"}
+            >
+              Viewed by you
+            </option>
+            <option
+              value="viewed_you"
+              disabled={
+                !canUseVisitorFeed || (isCopilot && me.data?.verification_status !== "verified")
+              }
+            >
+              Viewed you (opt-in)
+            </option>
+          </select>
+          <select
+            aria-label="Sort"
+            className={selectCls}
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value as typeof sort);
+              resetPage();
+            }}
+          >
+            <option value="joined">Recently joined</option>
+            <option value="youngest">Youngest first</option>
+            <option value="active" disabled={!activityTracking.data}>
+              Recently active (opt-in)
+            </option>
+          </select>
+        </div>
+
+        {/* Row 2: Core discovery filters and progressive disclosure toggle */}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 items-center">
+          <select
+            aria-label="Institution"
+            className={selectCls}
+            value={inst}
+            onChange={(e) => {
+              setInst(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">All institutions</option>
+            {INSTITUTIONS.map((i) => (
+              <option key={i}>{i}</option>
+            ))}
+          </select>
+
+          <select
+            aria-label="Age"
+            className={selectCls}
+            value={ageBand}
+            onChange={(e) => {
+              setAgeBand(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">Any age</option>
+            <option value="20s">20s</option>
+            <option value="30s">30s</option>
+            <option value="40plus">40+</option>
+          </select>
+
+          <select
+            aria-label="Gender"
+            className={selectCls}
+            value={gender}
+            onChange={(e) => {
+              setGender(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">All genders</option>
+            {GENDERS.map((i) => (
+              <option key={i}>{i}</option>
+            ))}
+          </select>
+
           <Input
+            placeholder="Filter by city"
             value={city}
             maxLength={80}
             onChange={(event) => {
@@ -683,221 +813,200 @@ function Members() {
               resetPage();
             }}
           />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          Profession
-          <Input
-            value={profession}
-            maxLength={80}
-            onChange={(event) => {
-              setProfession(event.target.value);
-              resetPage();
-            }}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input
-            type="checkbox"
-            className="size-6 accent-[var(--brass)]"
-            checked={withPhoto}
-            onChange={(event) => {
-              setWithPhoto(event.target.checked);
-              resetPage();
-            }}
-          />
-          Has a discoverable photo
-        </label>
-        <select
-          aria-label="Institution"
-          className={selectCls}
-          value={inst}
-          onChange={(e) => {
-            setInst(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">All institutions</option>
-          {INSTITUTIONS.map((i) => (
-            <option key={i}>{i}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Relocation"
-          className={selectCls}
-          value={reloc}
-          onChange={(e) => {
-            setReloc(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any relocation</option>
-          {RELOCATION.map((i) => (
-            <option key={i}>{i}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Gender"
-          className={selectCls}
-          value={gender}
-          onChange={(e) => {
-            setGender(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">All genders</option>
-          {GENDERS.map((i) => (
-            <option key={i}>{i}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Age"
-          className={selectCls}
-          value={ageBand}
-          onChange={(e) => {
-            setAgeBand(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any age</option>
-          <option value="20s">20s</option>
-          <option value="30s">30s</option>
-          <option value="40plus">40+</option>
-        </select>
-        <select
-          aria-label="Diet"
-          className={selectCls}
-          value={diet}
-          onChange={(e) => {
-            setDiet(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">All diets</option>
-          {DIETS.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Marital status"
-          className={selectCls}
-          value={maritalStatus}
-          onChange={(e) => {
-            setMaritalStatus(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">All marital statuses</option>
-          {MARITAL_STATUSES.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Residency"
-          className={selectCls}
-          value={residency}
-          onChange={(e) => {
-            setResidency(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any residency</option>
-          {RESIDENCY_STATUSES.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Mother tongue"
-          className={selectCls}
-          value={tongue}
-          onChange={(e) => {
-            setTongue(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any mother tongue</option>
-          {MOTHER_TONGUES.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Religion"
-          className={selectCls}
-          value={religion}
-          onChange={(e) => {
-            setReligion(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any religion</option>
-          {RELIGIONS.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Moon sign (Rashi)"
-          className={selectCls}
-          value={rashi}
-          onChange={(e) => {
-            setRashi(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any rashi</option>
-          {RASHIS.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Manglik"
-          className={selectCls}
-          value={manglik}
-          onChange={(e) => {
-            setManglik(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any manglik status</option>
-          {MANGALIK_OPTIONS.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Minimum height"
-          className={selectCls}
-          value={minHeight}
-          onChange={(e) => {
-            setMinHeight(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">Any height</option>
-          {[150, 155, 160, 165, 170, 175, 180, 185].map((h) => (
-            <option key={h} value={h}>
-              {formatHeight(h)} +
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Sort"
-          className={selectCls}
-          value={sort}
-          onChange={(event) => {
-            setSort(event.target.value as typeof sort);
-            resetPage();
-          }}
-        >
-          <option value="joined">Recently joined</option>
-          <option value="youngest">Youngest first</option>
-          <option value="active" disabled={!activityTracking.data}>
-            Recently active (opt-in)
-          </option>
-        </select>
+
+          <div className="flex items-center justify-between gap-2 sm:col-span-2 md:col-span-4 lg:col-span-1">
+            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--brass)]"
+                checked={withPhoto}
+                onChange={(event) => {
+                  setWithPhoto(event.target.checked);
+                  resetPage();
+                }}
+              />
+              With photo
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMoreFilters((v) => !v)}
+              className="text-xs font-semibold gap-1.5 h-9 px-2.5"
+              aria-expanded={showMoreFilters}
+            >
+              <SlidersHorizontal className="size-3.5" />
+              {showMoreFilters ? "Fewer" : "More"}
+              {advancedCount > 0 && (
+                <span className="size-4 rounded-full bg-brass text-brass-foreground text-[10px] font-bold grid place-items-center">
+                  {advancedCount}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Collapsible secondary filters */}
+        {showMoreFilters && (
+          <div className="mt-4 border-t border-border/70 pt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <Input
+              placeholder="Profession keyword"
+              value={profession}
+              maxLength={80}
+              onChange={(event) => {
+                setProfession(event.target.value);
+                resetPage();
+              }}
+            />
+            <select
+              aria-label="Relocation"
+              className={selectCls}
+              value={reloc}
+              onChange={(e) => {
+                setReloc(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any relocation</option>
+              {RELOCATION.map((i) => (
+                <option key={i}>{i}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Diet"
+              className={selectCls}
+              value={diet}
+              onChange={(e) => {
+                setDiet(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">All diets</option>
+              {DIETS.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Marital status"
+              className={selectCls}
+              value={maritalStatus}
+              onChange={(e) => {
+                setMaritalStatus(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">All marital statuses</option>
+              {MARITAL_STATUSES.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Residency"
+              className={selectCls}
+              value={residency}
+              onChange={(e) => {
+                setResidency(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any residency</option>
+              {RESIDENCY_STATUSES.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Mother tongue"
+              className={selectCls}
+              value={tongue}
+              onChange={(e) => {
+                setTongue(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any mother tongue</option>
+              {MOTHER_TONGUES.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Religion"
+              className={selectCls}
+              value={religion}
+              onChange={(e) => {
+                setReligion(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any religion</option>
+              {RELIGIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Minimum height"
+              className={selectCls}
+              value={minHeight}
+              onChange={(e) => {
+                setMinHeight(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any height</option>
+              {[150, 155, 160, 165, 170, 175, 180, 185].map((h) => (
+                <option key={h} value={h}>
+                  {formatHeight(h)} +
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Moon sign (Rashi)"
+              className={selectCls}
+              value={rashi}
+              onChange={(e) => {
+                setRashi(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any rashi</option>
+              {RASHIS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Manglik"
+              className={selectCls}
+              value={manglik}
+              onChange={(e) => {
+                setManglik(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">Any manglik status</option>
+              {MANGALIK_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {isFiltered && (
+          <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2.5 text-xs text-muted-foreground">
+            <span>Filtering applied</span>
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-brass-strong font-semibold hover:underline"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
       </div>
 
       <p className="mt-3 text-xs text-muted-foreground">
