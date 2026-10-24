@@ -35,6 +35,12 @@
     - `access-audit-logs-section.tsx`: Profile visitors, contact reveals, coarse activity tracking switch.
     - `consent-ledger-section.tsx`: Immutable DPDP Act s.12 consent receipt history.
     - `account-danger-zone.tsx`: Profile withdrawal & permanent data erasure cascade.
+  - In `onboarding.tsx`, the 4-step wizard is decomposed under `src/components/onboarding/`:
+    - `form-field.tsx`: Accessible form field with automatic `useId` and ARIA binding.
+    - `step-about-you.tsx`: Step 0 — Personal, cultural, residency, community and horoscope details.
+    - `step-education.tsx`: Step 1 — Premier institution, degree, custom degree, and graduation year.
+    - `step-career.tsx`: Step 2 — Profession, organisation, and relocation preferences.
+    - `step-values.tsx`: Step 3 — Partner criteria preview, values statement, bio, and directory visibility.
 
 ## 4. Verification Quality Gates
 
