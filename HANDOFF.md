@@ -26,11 +26,22 @@
   - Zero decorative `<Sparkles />` icons on astrological or matching features.
   - Concise, action-oriented button labels without helper fluff.
 - **Progressive Disclosure & Component Architecture**:
-  - In `members.tsx`, core search and primary filters stay visible; secondary filters (horoscope, diet, residency, etc.) remain in collapsible "More filters".
+  - In `members.tsx`, core search and primary filters stay visible; secondary filters (horoscope, diet, residency, etc.) remain in collapsible "More filters". Active filter chips enable one-click dismissal. Empty state includes instant recovery actions ("Clear all filters", "Browse all verified members"). Member card presentation is modularized under `src/components/directory/`:
+    - `member-card.tsx`: Verified candidate card, photo thumbnail degradation, alignment badges, and education/location triad.
   - In `members.$id.tsx`, all candidate actions (Interest, Shortlist, Suggest, Hide, Report) are unified into a single ergonomic action bar, and profile sections are decomposed under `src/components/profile/`:
     - `detail-row.tsx`: Reusable accessible key-value metadata row.
+    - `candidate-action-panels.tsx`: Modular panels for `InterestNotePanel`, `FamilySuggestPanel`, and `ReportProfilePanel`.
     - `horoscope-guna-card.tsx`: Astrological details & 36-point Guna Milan Ashtakoota compatibility breakdown.
     - `looking-for-card.tsx`: Stated partner preferences, mutual preference matching badges, and values statement.
+  - In `apply.tsx`, the 5-step membership application wizard is decomposed under `src/components/apply/`:
+    - `types.ts`: `ApplyDraft` interface, localStorage draft persistence keys, and step definitions.
+    - `form-field.tsx`: Accessible `FormField`, `FieldError` with `role="alert"`, and `ApplyStepContainer`.
+    - `step-identity.tsx`: Step 0 — Full legal name, date of birth, email, and mobile number.
+    - `step-education.tsx`: Step 1 — Institution, degree & grad year, institutional email fast-track.
+    - `step-trajectory.tsx`: Step 2 — Profession, custom profession, city, relocation, chapter, and values statement.
+    - `step-visibility.tsx`: Step 3 — Photo timing disclosure, Ghost mode toggle, Photos after interest toggle.
+    - `step-copilot.tsx`: Step 4 — Family co-pilot invitation, adult attestation checkbox, legal terms reminder.
+    - `src/lib/apply-validation.ts`: Extracted validation logic with full unit tests in `src/lib/apply-validation.test.ts` covering the 21+ adult gate, email validation, and attestation.
   - In `dashboard.tsx`, verified users see actionable introductions directly; repetitive links duplicating top-level navigation are avoided.
   - In `settings.tsx`, heavy domain sections are modularized under `src/components/settings/`:
     - `billing-section.tsx`: Subscription tier status, allowances, Razorpay checkout & self-service cancellation.

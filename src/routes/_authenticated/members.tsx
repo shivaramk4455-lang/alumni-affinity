@@ -1,25 +1,18 @@
 import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  GraduationCap,
-  MapPin,
-  Search,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserRound,
-  UsersRound,
-} from "lucide-react";
+import { Search, SlidersHorizontal, UsersRound, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MemberCard } from "@/components/directory/member-card";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDismissedIds } from "@/lib/dismissals";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { BASE_SEARCH_COLUMNS, SEARCH_COLUMNS, type SearchResultRow } from "@/lib/profile-columns";
+import { SEARCH_COLUMNS, type SearchResultRow } from "@/lib/profile-columns";
 import {
   DIETS,
   GENDERS,
@@ -278,6 +271,172 @@ function Members() {
     setSort("joined");
     resetPage();
   }
+
+  const activeFilters = useMemo(() => {
+    const list: { key: string; label: string; onRemove: () => void }[] = [];
+    if (debouncedQ)
+      list.push({
+        key: "q",
+        label: `Search: "${debouncedQ}"`,
+        onRemove: () => {
+          setQ("");
+          resetPage();
+        },
+      });
+    if (city)
+      list.push({
+        key: "city",
+        label: `City: ${city}`,
+        onRemove: () => {
+          setCity("");
+          resetPage();
+        },
+      });
+    if (inst)
+      list.push({
+        key: "inst",
+        label: inst,
+        onRemove: () => {
+          setInst("");
+          resetPage();
+        },
+      });
+    if (gender)
+      list.push({
+        key: "gender",
+        label: gender,
+        onRemove: () => {
+          setGender("");
+          resetPage();
+        },
+      });
+    if (ageBand)
+      list.push({
+        key: "ageBand",
+        label: `Age: ${ageBand === "40plus" ? "40+" : ageBand}`,
+        onRemove: () => {
+          setAgeBand("");
+          resetPage();
+        },
+      });
+    if (profession)
+      list.push({
+        key: "profession",
+        label: `Profession: ${profession}`,
+        onRemove: () => {
+          setProfession("");
+          resetPage();
+        },
+      });
+    if (withPhoto)
+      list.push({
+        key: "withPhoto",
+        label: "With photo only",
+        onRemove: () => {
+          setWithPhoto(false);
+          resetPage();
+        },
+      });
+    if (reloc)
+      list.push({
+        key: "reloc",
+        label: `Reloc: ${reloc}`,
+        onRemove: () => {
+          setReloc("");
+          resetPage();
+        },
+      });
+    if (diet)
+      list.push({
+        key: "diet",
+        label: `Diet: ${diet}`,
+        onRemove: () => {
+          setDiet("");
+          resetPage();
+        },
+      });
+    if (maritalStatus)
+      list.push({
+        key: "maritalStatus",
+        label: maritalStatus,
+        onRemove: () => {
+          setMaritalStatus("");
+          resetPage();
+        },
+      });
+    if (residency)
+      list.push({
+        key: "residency",
+        label: residency,
+        onRemove: () => {
+          setResidency("");
+          resetPage();
+        },
+      });
+    if (tongue)
+      list.push({
+        key: "tongue",
+        label: tongue,
+        onRemove: () => {
+          setTongue("");
+          resetPage();
+        },
+      });
+    if (religion)
+      list.push({
+        key: "religion",
+        label: religion,
+        onRemove: () => {
+          setReligion("");
+          resetPage();
+        },
+      });
+    if (rashi)
+      list.push({
+        key: "rashi",
+        label: `Rashi: ${rashi}`,
+        onRemove: () => {
+          setRashi("");
+          resetPage();
+        },
+      });
+    if (manglik)
+      list.push({
+        key: "manglik",
+        label: `Manglik: ${manglik}`,
+        onRemove: () => {
+          setManglik("");
+          resetPage();
+        },
+      });
+    if (minHeight)
+      list.push({
+        key: "minHeight",
+        label: `${formatHeight(Number(minHeight))}+`,
+        onRemove: () => {
+          setMinHeight("");
+          resetPage();
+        },
+      });
+    return list;
+  }, [
+    debouncedQ,
+    city,
+    inst,
+    gender,
+    ageBand,
+    profession,
+    withPhoto,
+    reloc,
+    diet,
+    maritalStatus,
+    residency,
+    tongue,
+    religion,
+    rashi,
+    manglik,
+    minHeight,
+  ]);
 
   const me = useMyProfile();
   const queryClient = useQueryClient();
@@ -995,15 +1154,31 @@ function Members() {
           </div>
         )}
 
-        {isFiltered && (
-          <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2.5 text-xs text-muted-foreground">
-            <span>Filtering applied</span>
+        {activeFilters.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/40 pt-2.5">
+            <span className="text-xs text-muted-foreground mr-1">Active filters:</span>
+            {activeFilters.map((f) => (
+              <span
+                key={f.key}
+                className="inline-flex items-center gap-1 border border-border bg-secondary/50 px-2 py-0.5 text-xs text-foreground"
+              >
+                <span>{f.label}</span>
+                <button
+                  type="button"
+                  onClick={f.onRemove}
+                  className="text-muted-foreground hover:text-foreground focus-visible:outline-none"
+                  aria-label={`Remove filter ${f.label}`}
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
             <button
               type="button"
               onClick={clearAllFilters}
-              className="text-brass-strong font-semibold hover:underline"
+              className="ml-auto text-xs font-semibold text-brass-strong hover:underline"
             >
-              Clear all filters
+              Clear all
             </button>
           </div>
         )}
@@ -1066,101 +1241,47 @@ function Members() {
                   ? "No mutual matches yet"
                   : feed === "viewed_you"
                     ? "No opted-in profile visits yet"
-                    : "No members match yet"}
+                    : "No members match your criteria"}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               {feed === "shortlisted"
                 ? "Shortlists are private and visible only to you."
-                : "Try broader filters or review your partner preferences."}
+                : feed === "mutual"
+                  ? "Mutual matches require both members to meet each other's stated preferences."
+                  : feed === "viewed_you"
+                    ? "Members who visited your profile will appear here once visitors opt in."
+                    : "Try broadening your filters or resetting search parameters."}
             </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {isFiltered && (
+                <Button variant="default" size="sm" onClick={clearAllFilters}>
+                  Clear all filters
+                </Button>
+              )}
+              {feed !== "all" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFeed("all");
+                    resetPage();
+                  }}
+                >
+                  Browse all verified members
+                </Button>
+              )}
+              {feed === "mutual" && (
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/settings">Update partner preferences</Link>
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {withAlignment.map(({ p, a }) => (
-                <li key={p.id}>
-                  <Link
-                    to="/members/$id"
-                    params={{ id: p.id }}
-                    className="block h-full border border-border bg-card p-6 transition-colors hover:border-brass hover:shadow-paper"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      {/*
-                        A small avatar rather than a full-bleed hero: most
-                        members set photo visibility to accepted-only or hidden,
-                        so a large frame would mostly show "photograph withheld".
-                      */}
-                      <div className="min-w-0">
-                        <h2 className="font-serif text-xl font-semibold">
-                          {p.full_name.split(" ")[0] || "Member"}
-                          {p.birth_year ? `, ${year - p.birth_year}` : ""}
-                        </h2>
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                          {p.profession}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-2">
-                        {/* `aria-label` on a role-less <svg> is ignored, so the
-                            card's only trust signal was exposed to nobody. */}
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
-                          <ShieldCheck className="size-4" /> Verified
-                        </span>
-                        <AvatarPhoto
-                          path={p.photo_path}
-                          name={p.full_name}
-                          visibility={p.photo_visibility}
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-2">
-                        <GraduationCap className="size-3.5" />
-                        {p.degree}, {p.institution} ’{String(p.grad_year ?? "").slice(-2)}
-                      </span>
-                      <span className="flex items-center gap-2">
-                        <MapPin className="size-3.5" />
-                        {p.city} · {p.relocation}
-                      </span>
-                      {(p.height_cm || p.diet || p.marital_status || p.religion || p.caste) && (
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          {[
-                            formatHeight(p.height_cm),
-                            p.diet,
-                            p.marital_status && p.marital_status !== "Never married"
-                              ? p.marital_status
-                              : null,
-                            p.religion,
-                            p.caste,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      )}
-                    </div>
-                    {a.badges.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-1.5">
-                        {a.badges.slice(0, 3).map((b) => (
-                          <span
-                            key={b.label}
-                            // The detail was reachable only via a hover title,
-                            // which keyboard and touch users cannot open.
-                            aria-label={`${b.label}: ${b.detail}`}
-                            className="border border-brass/50 bg-brass/5 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.08em] text-brass-strong"
-                          >
-                            {b.label}
-                          </span>
-                        ))}
-                        {/* Silently dropping badge 4+ left the member unable to
-                            tell truncation apart from a weak match. */}
-                        {a.badges.length > 3 && (
-                          <span className="px-1 py-0.5 text-xs font-semibold text-muted-foreground">
-                            +{a.badges.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </Link>
-                </li>
+                <MemberCard key={p.id} member={p} alignment={a} />
               ))}
             </ul>
             <div className="mt-8 flex items-center justify-center gap-4">
@@ -1189,73 +1310,5 @@ function Members() {
         )}
       </div>
     </main>
-  );
-}
-
-/**
- * Small round thumbnail for a search card.
- *
- * Deliberately not `MemberPhoto`: that component renders a large "photograph
- * withheld" panel when the signed URL cannot be read, and most members keep
- * photo visibility at accepted-only or hidden. Fetching one signed URL per
- * card is also why this checks `photo_visibility` first and degrades to
- * initials, rather than issuing a request storage RLS would refuse.
- */
-function AvatarPhoto({
-  path,
-  name,
-  visibility,
-}: {
-  path?: string | null;
-  name: string;
-  visibility?: string | null;
-}) {
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-
-  // "hidden" can never resolve, and accepted-only resolves only once an
-  // introduction exists — which the desk has already filtered us away from.
-  const withheld = !path || visibility === "hidden" || visibility === "accepted_only";
-
-  const { data } = useQuery({
-    queryKey: ["search-photo", path],
-    enabled: !!path && !withheld,
-    staleTime: 4 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase.storage
-        .from("profile-photos")
-        .createSignedUrl(path!, 300);
-      if (error) return null;
-      return data.signedUrl;
-    },
-  });
-
-  if (withheld || !data) {
-    return (
-      <span
-        aria-hidden="true"
-        title={path ? "Photograph withheld until an introduction is accepted" : undefined}
-        className="grid size-14 shrink-0 place-items-center rounded-full border border-border bg-secondary/60 text-xs font-semibold text-muted-foreground"
-      >
-        {initials || <UserRound className="size-5" />}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={data}
-      // Decorative: the member's name is already the card's heading, so an
-      // alt here would just repeat it on every card.
-      alt=""
-      loading="lazy"
-      decoding="async"
-      draggable={false}
-      className="size-14 shrink-0 rounded-full border border-border object-cover"
-    />
   );
 }

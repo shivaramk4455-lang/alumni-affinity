@@ -20,9 +20,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { MemberPhoto } from "@/components/member-photo";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { recordProfileView } from "@/lib/access-log";
@@ -41,6 +39,12 @@ import { useMyPhotoRequest, useRequestPhoto } from "@/lib/photo-requests";
 import { useDismissProfile } from "@/lib/dismissals";
 import { HoroscopeGunaCard } from "@/components/profile/horoscope-guna-card";
 import { LookingForCard } from "@/components/profile/looking-for-card";
+import { DetailRow } from "@/components/profile/detail-row";
+import {
+  InterestNotePanel,
+  FamilySuggestPanel,
+  ReportProfilePanel,
+} from "@/components/profile/candidate-action-panels";
 
 export const Route = createFileRoute("/_authenticated/members/$id")({
   head: () => ({
@@ -767,20 +771,20 @@ function MemberProfile() {
                 <p className="mt-1.5 text-sm sm:text-base text-muted-foreground">{subtitle}</p>
               )}
               <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 border-t border-border/60 pt-5 text-sm">
-                <Row k="Education" v={educationDisplay} />
-                <Row k="City" v={data.city} />
-                <Row k="Age" v={age !== null ? `${age} yrs` : null} />
-                <Row k="Relocation" v={data.relocation} />
-                {data.height_cm && <Row k="Height" v={formatHeight(data.height_cm)} />}
-                {data.marital_status && <Row k="Marital status" v={data.marital_status} />}
-                {data.diet && <Row k="Diet" v={data.diet} />}
-                {data.mother_tongue && <Row k="Mother tongue" v={data.mother_tongue} />}
-                {data.religion && <Row k="Religion" v={data.religion} />}
-                {data.caste && <Row k="Caste / Community" v={data.caste} />}
-                {data.gotra && <Row k="Gotra" v={data.gotra} />}
-                {data.residency_status && <Row k="Residency" v={data.residency_status} />}
+                <DetailRow k="Education" v={educationDisplay} />
+                <DetailRow k="City" v={data.city} />
+                <DetailRow k="Age" v={age !== null ? `${age} yrs` : null} />
+                <DetailRow k="Relocation" v={data.relocation} />
+                {data.height_cm && <DetailRow k="Height" v={formatHeight(data.height_cm)} />}
+                {data.marital_status && <DetailRow k="Marital status" v={data.marital_status} />}
+                {data.diet && <DetailRow k="Diet" v={data.diet} />}
+                {data.mother_tongue && <DetailRow k="Mother tongue" v={data.mother_tongue} />}
+                {data.religion && <DetailRow k="Religion" v={data.religion} />}
+                {data.caste && <DetailRow k="Caste / Community" v={data.caste} />}
+                {data.gotra && <DetailRow k="Gotra" v={data.gotra} />}
+                {data.residency_status && <DetailRow k="Residency" v={data.residency_status} />}
                 {data.created_by && (
-                  <Row
+                  <DetailRow
                     k="Profile created by"
                     v={data.created_by === "Self" ? "Self (Candidate)" : data.created_by}
                   />
@@ -1008,123 +1012,40 @@ function MemberProfile() {
 
               {/* Action Form Panels */}
               {openInterest && !interest.data && (
-                <div
-                  id="interest-note-panel"
-                  className="mt-4 grid gap-3 border border-border bg-secondary/15 p-4"
-                >
-                  <label htmlFor="interest-note" className="text-sm font-semibold">
-                    A short note (optional)
-                  </label>
-                  <Textarea
-                    id="interest-note"
-                    rows={4}
-                    maxLength={600}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Say something specific about why you are writing."
-                  />
-                  <div className="flex flex-wrap gap-3">
-                    <Button onClick={() => send.mutate()} disabled={send.isPending}>
-                      {send.isPending ? "Sending…" : "Send interest"}
-                    </Button>
-                    <Button variant="ghost" onClick={() => setOpenInterest(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                <InterestNotePanel
+                  note={note}
+                  onNoteChange={setNote}
+                  onSubmit={() => send.mutate()}
+                  onCancel={() => setOpenInterest(false)}
+                  isPending={send.isPending}
+                />
               )}
 
               {openSuggest && copilotLinks.length > 0 && (
-                <div
-                  id="family-note-panel"
-                  role="group"
-                  aria-label="Suggest this profile to a family co-pilot"
-                  className="mt-4 grid gap-3 border border-border bg-secondary/15 p-4"
-                >
-                  <label htmlFor="family-note" className="text-sm font-semibold">
-                    Suggest to your family member
-                  </label>
-                  <Textarea
-                    id="family-note"
-                    rows={3}
-                    maxLength={600}
-                    value={familyNote}
-                    onChange={(e) => setFamilyNote(e.target.value)}
-                    placeholder="Why you think this profile is worth a look."
-                  />
-                  <div className="flex flex-wrap gap-3">
-                    {copilotLinks.map((c) => (
-                      <Button
-                        key={c.id}
-                        variant="outline"
-                        onClick={() => suggest.mutate(c)}
-                        disabled={suggest.isPending}
-                        aria-label={`Share this suggestion with ${c.copilot_name || c.copilot_email || "your family member"}`}
-                      >
-                        Share with {c.copilot_name || c.copilot_email || "family"}
-                      </Button>
-                    ))}
-                    <Button variant="ghost" onClick={() => setOpenSuggest(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                <FamilySuggestPanel
+                  familyNote={familyNote}
+                  onFamilyNoteChange={setFamilyNote}
+                  copilotLinks={copilotLinks}
+                  onSuggest={(c) => suggest.mutate(c)}
+                  onCancel={() => setOpenSuggest(false)}
+                  isPending={suggest.isPending}
+                />
               )}
 
               {openReport && (
-                <div
-                  id="report-reason-panel"
-                  role="group"
-                  aria-label="Report this profile"
-                  className="mt-4 grid gap-3 border border-border bg-secondary/15 p-4"
-                >
-                  <label htmlFor="report-reason" className="text-sm font-semibold">
-                    Report this profile
-                  </label>
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Tell the membership desk what felt wrong. Reports are private, and the profile
-                    is hidden from your search immediately.
-                  </p>
-                  <Input
-                    id="report-reason"
-                    maxLength={300}
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    placeholder="A sentence or two about the concern"
-                    aria-required="true"
-                    aria-invalid={report.isError ? true : undefined}
-                    aria-describedby="report-reason-hint"
-                  />
-                  <p id="report-reason-hint" className="sr-only">
-                    At least ten characters.
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      variant="destructive"
-                      onClick={() => report.mutate()}
-                      disabled={report.isPending}
-                    >
-                      {report.isPending ? "Submitting…" : "Submit report"}
-                    </Button>
-                    <Button variant="ghost" onClick={() => setOpenReport(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                <ReportProfilePanel
+                  reportReason={reportReason}
+                  onReportReasonChange={setReportReason}
+                  onSubmit={() => report.mutate()}
+                  onCancel={() => setOpenReport(false)}
+                  isPending={report.isPending}
+                  isError={report.isError}
+                />
               )}
             </section>
           )}
         </article>
       )}
     </main>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string | null }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{k}</dt>
-      <dd className="mt-1 font-medium text-foreground break-words">{v || "—"}</dd>
-    </div>
   );
 }
