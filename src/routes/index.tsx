@@ -271,7 +271,7 @@ function Index() {
             {ILLUSTRATIVE_ARCHETYPES.map((item) => (
               <article
                 key={item.cohort}
-                className="flex flex-col justify-between border border-border bg-card p-6 transition-colors hover:border-brass/60"
+                className="flex flex-col justify-between border border-border bg-card p-6 transition-all duration-200 hover:border-brass/70 hover:shadow-paper"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
@@ -283,20 +283,23 @@ function Index() {
                     </span>
                   </div>
 
-                  <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-brass">
+                  <p className="mt-5 min-h-[1.25rem] text-xs font-bold uppercase tracking-[0.14em] text-brass">
                     {item.cohort}
                   </p>
-                  <h3 className="mt-1.5 font-serif text-xl font-semibold leading-snug text-foreground">
-                    {item.role}
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">{item.degree}</p>
 
-                  <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                  <div className="mt-1.5 min-h-[5.25rem]">
+                    <h3 className="font-serif text-xl font-semibold leading-snug text-foreground">
+                      {item.role}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.degree}</p>
+                  </div>
+
+                  <p className="mt-3 flex min-h-[1.5rem] items-center gap-1.5 text-xs font-medium text-foreground/80">
                     <MapPin className="size-3.5 shrink-0 text-brass" aria-hidden="true" />
-                    {item.location}
+                    <span>{item.location}</span>
                   </p>
 
-                  <div className="mt-4 flex flex-wrap gap-1.5">
+                  <div className="mt-4 flex min-h-[4.25rem] flex-wrap content-start gap-1.5">
                     {item.tags.map((tag) => (
                       <span
                         key={tag}
@@ -309,7 +312,7 @@ function Index() {
                 </div>
 
                 <div className="mt-6 border-t border-border pt-3.5">
-                  <p className="flex items-start gap-2 text-[11px] leading-4 text-muted-foreground">
+                  <p className="flex min-h-[2.5rem] items-start gap-2 text-[11px] leading-4 text-muted-foreground">
                     <LockKeyhole
                       className="mt-0.5 size-3.5 shrink-0 text-brass"
                       aria-hidden="true"
