@@ -16,7 +16,6 @@ import {
   MessageSquare,
   Phone,
   ShieldCheck,
-  SlidersHorizontal,
   UsersRound,
 } from "lucide-react";
 
@@ -40,6 +39,8 @@ import { PhotoSlideshow } from "@/components/photo-gallery";
 import { useMemberGallery } from "@/lib/gallery";
 import { useMyPhotoRequest, useRequestPhoto } from "@/lib/photo-requests";
 import { useDismissProfile } from "@/lib/dismissals";
+import { HoroscopeGunaCard } from "@/components/profile/horoscope-guna-card";
+import { LookingForCard } from "@/components/profile/looking-for-card";
 
 export const Route = createFileRoute("/_authenticated/members/$id")({
   head: () => ({
@@ -809,183 +810,24 @@ function MemberProfile() {
                 </div>
               )}
 
-              {hasTheirHoroscope && (
-                <section className="mt-6 border-t border-border pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
-                    Horoscope
-                  </p>
-                  <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
-                    {data?.nakshatra && (
-                      <Row
-                        k="Birth star (Nakshatra)"
-                        v={
-                          data.nakshatra_pada
-                            ? `${data.nakshatra} · Pada ${data.nakshatra_pada}`
-                            : data.nakshatra
-                        }
-                      />
-                    )}
-                    {data?.rashi && <Row k="Moon sign (Rashi)" v={data.rashi} />}
-                    {data?.manglik && <Row k="Manglik" v={data.manglik} />}
-                    {data?.birth_time && <Row k="Time of birth" v={data.birth_time} />}
-                    {data?.birth_place && <Row k="Place of birth" v={data.birth_place} />}
-                  </dl>
-
-                  {!isSelf && (
-                    <div className="mt-4 border border-brass/40 bg-brass/5 p-4">
-                      {guna && gunaBand ? (
-                        <>
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="font-serif text-lg font-semibold">Guna Milan</p>
-                            <span
-                              className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs font-semibold ${
-                                gunaBand.tone === "excellent" || gunaBand.tone === "good"
-                                  ? "border-success/40 bg-success/10 text-success"
-                                  : gunaBand.tone === "fair"
-                                    ? "border-brass/50 bg-brass/10 text-brass-strong"
-                                    : "border-border bg-secondary/40 text-muted-foreground"
-                              }`}
-                            >
-                              {gunaBand.label}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            <span className="font-serif text-2xl font-semibold text-foreground">
-                              {guna.total}
-                            </span>
-                            <span className="text-muted-foreground"> / {guna.max} Ashtakoota</span>
-                          </p>
-                          <ul className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs">
-                            {guna.kootas.map((k) => (
-                              <li key={k.name} className="flex items-center justify-between gap-2">
-                                <span className="text-muted-foreground">{k.name}</span>
-                                <span className="font-semibold tabular-nums">
-                                  {k.score}/{k.max}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                          {guna.manglikDosha === "present" && (
-                            <p className="mt-3 text-xs leading-5 text-destructive">
-                              One of you is Manglik. Families often look for remedies or a Manglik
-                              partner — please discuss this with the desk.
-                            </p>
-                          )}
-                          {guna.manglikDosha === "cancelled" && (
-                            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                              Both of you are Manglik, so the dosha is traditionally considered
-                              cancelled.
-                            </p>
-                          )}
-                          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                            Ashtakoota is guidance, not a verdict — only visible to you, and best
-                            read alongside a jyotishi.
-                          </p>
-                        </>
-                      ) : !myHoroscope.nakshatra ? (
-                        <p className="text-sm leading-6 text-muted-foreground">
-                          Add your own birth star in{" "}
-                          <Link
-                            to="/onboarding"
-                            className="font-semibold text-brass underline underline-offset-2"
-                          >
-                            your profile
-                          </Link>{" "}
-                          to see a Guna Milan compatibility score with this member.
-                        </p>
-                      ) : null}
-                    </div>
-                  )}
-                </section>
-              )}
+              <HoroscopeGunaCard
+                data={data}
+                isSelf={isSelf}
+                guna={guna}
+                gunaBand={gunaBand}
+                myNakshatra={myHoroscope.nakshatra}
+              />
             </div>
           </div>
 
-          {(hasCandidatePrefs || data.values_statement) && (
-            <section className="mt-8 border-t border-border pt-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-                  <SlidersHorizontal className="size-5 text-brass" /> Looking for in a partner
-                </h2>
-                {mutualMatch && !isSelf && (
-                  <span className="inline-flex items-center gap-1.5 border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-                    <Check className="size-3.5" /> Mutual preference match
-                  </span>
-                )}
-                {viewerMatchesCandidate && !mutualMatch && !isSelf && (
-                  <span className="inline-flex items-center gap-1.5 border border-brass/50 bg-brass/5 px-2.5 py-1 text-xs font-semibold text-brass-strong">
-                    <Check className="size-3.5" /> You fit what they’re looking for
-                  </span>
-                )}
-              </div>
-
-              {hasCandidatePrefs && cp && (
-                <dl className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
-                  {(cp.min_age !== null || cp.max_age !== null) && (
-                    <Row
-                      k="Age range"
-                      v={
-                        cp.min_age && cp.max_age
-                          ? `${cp.min_age} – ${cp.max_age} years`
-                          : cp.min_age
-                            ? `${cp.min_age}+ years`
-                            : `Up to ${cp.max_age} years`
-                      }
-                    />
-                  )}
-                  {(cp.min_height_cm !== null || cp.max_height_cm !== null) && (
-                    <Row
-                      k="Height range"
-                      v={
-                        cp.min_height_cm && cp.max_height_cm
-                          ? `${formatHeight(cp.min_height_cm)} – ${formatHeight(cp.max_height_cm)}`
-                          : cp.min_height_cm
-                            ? `Min ${formatHeight(cp.min_height_cm)}`
-                            : `Up to ${formatHeight(cp.max_height_cm)}`
-                      }
-                    />
-                  )}
-                  {cp.marital_statuses && cp.marital_statuses.length > 0 && (
-                    <Row k="Marital status" v={cp.marital_statuses.join(", ")} />
-                  )}
-                  {cp.diets && cp.diets.length > 0 && (
-                    <Row k="Dietary habit" v={cp.diets.join(", ")} />
-                  )}
-                  {cp.genders && cp.genders.length > 0 && (
-                    <Row k="Preferred gender" v={cp.genders.join(", ")} />
-                  )}
-                  {cp.institutions && cp.institutions.length > 0 && (
-                    <Row k="Education / Institutions" v={cp.institutions.join(", ")} />
-                  )}
-                  {cp.cities && cp.cities.length > 0 && (
-                    <Row k="Preferred cities" v={cp.cities.join(", ")} />
-                  )}
-                  {cp.relocations && cp.relocations.length > 0 && (
-                    <Row k="Relocation preference" v={cp.relocations.join(", ")} />
-                  )}
-                  {cp.religions && cp.religions.length > 0 && (
-                    <Row k="Preferred religion" v={cp.religions.join(", ")} />
-                  )}
-                  {cp.caste_preference && <Row k="Community / Caste" v={cp.caste_preference} />}
-                  {(cp as { manglik_preference?: string | null }).manglik_preference && (
-                    <Row
-                      k="Manglik preference"
-                      v={(cp as { manglik_preference?: string | null }).manglik_preference ?? null}
-                    />
-                  )}
-                </dl>
-              )}
-
-              {data.values_statement && (
-                <div className="mt-5 border-l-2 border-brass/60 bg-secondary/30 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">
-                    In their own words
-                  </p>
-                  <p className="mt-2 text-sm leading-7">{data.values_statement}</p>
-                </div>
-              )}
-            </section>
-          )}
+          <LookingForCard
+            cp={cp}
+            hasCandidatePrefs={hasCandidatePrefs}
+            valuesStatement={data.values_statement}
+            mutualMatch={mutualMatch}
+            viewerMatchesCandidate={viewerMatchesCandidate}
+            isSelf={isSelf}
+          />
           {data.bio && (
             <section className="mt-8">
               <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-brass-strong">

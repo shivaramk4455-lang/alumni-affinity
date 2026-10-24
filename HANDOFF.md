@@ -27,7 +27,10 @@
   - Concise, action-oriented button labels without helper fluff.
 - **Progressive Disclosure & Component Architecture**:
   - In `members.tsx`, core search and primary filters stay visible; secondary filters (horoscope, diet, residency, etc.) remain in collapsible "More filters".
-  - In `members.$id.tsx`, all candidate actions (Interest, Shortlist, Suggest, Hide, Report) are unified into a single ergonomic action bar.
+  - In `members.$id.tsx`, all candidate actions (Interest, Shortlist, Suggest, Hide, Report) are unified into a single ergonomic action bar, and profile sections are decomposed under `src/components/profile/`:
+    - `detail-row.tsx`: Reusable accessible key-value metadata row.
+    - `horoscope-guna-card.tsx`: Astrological details & 36-point Guna Milan Ashtakoota compatibility breakdown.
+    - `looking-for-card.tsx`: Stated partner preferences, mutual preference matching badges, and values statement.
   - In `dashboard.tsx`, verified users see actionable introductions directly; repetitive links duplicating top-level navigation are avoided.
   - In `settings.tsx`, heavy domain sections are modularized under `src/components/settings/`:
     - `billing-section.tsx`: Subscription tier status, allowances, Razorpay checkout & self-service cancellation.
