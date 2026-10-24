@@ -6,6 +6,7 @@ import { Bell, Eye, LogOut, Pause, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -672,15 +673,7 @@ function Settings() {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="contact-phone">Phone</Label>
-            <Input
-              id="contact-phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-            />
+            <PhoneInput id="contact-phone" value={phone} onChange={setPhone} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="contact-linkedin">LinkedIn</Label>

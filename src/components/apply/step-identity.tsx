@@ -1,5 +1,6 @@
 import { FileCheck2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { FormField, FieldError, ApplyStepContainer } from "./form-field";
 import type { ApplyDraft } from "./types";
 
@@ -17,7 +18,7 @@ export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
       title="Verify who you are"
       note="Use the details that appear on your government-issued identity document."
     >
-      <div className="grid gap-5 sm:grid-cols-[1fr_220px]">
+      <div className="grid gap-5 sm:grid-cols-2">
         <FormField label="Full legal name">
           <Input
             name="name"
@@ -36,7 +37,7 @@ export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
             required
             max={`${currentYear - 21}-12-31`}
             min={`${currentYear - 75}-01-01`}
-            className="w-full max-w-[220px] cursor-pointer"
+            className="w-full cursor-pointer"
             value={draft.dob}
             onChange={(e) => onChange("dob", e.target.value)}
           />
@@ -55,15 +56,13 @@ export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
           {errors["email"] && <FieldError text={errors["email"]} />}
         </FormField>
         <FormField label="Mobile number">
-          <Input
+          <PhoneInput
+            id="apply-phone"
             name="phone"
-            type="tel"
             required
-            maxLength={15}
-            placeholder="+91 98765 43210"
-            className="w-full sm:max-w-[220px]"
             value={draft.phone}
-            onChange={(e) => onChange("phone", e.target.value)}
+            onChange={(val) => onChange("phone", val)}
+            aria-invalid={Boolean(errors["phone"])}
           />
           {errors["phone"] && <FieldError text={errors["phone"]} />}
         </FormField>

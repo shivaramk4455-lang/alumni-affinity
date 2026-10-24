@@ -6,6 +6,7 @@ import { BadgeCheck, Clock3, Eye, FileCheck2, Mail, Upload } from "lucide-react"
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { PhotoGalleryManager } from "@/components/photo-gallery";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -416,14 +417,7 @@ function Verification() {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-semibold">
             Phone
-            <Input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-            />
+            <PhoneInput id="verification-phone" value={phone} onChange={setPhone} />
           </label>
           <label className="grid gap-2 text-sm font-semibold">
             LinkedIn
