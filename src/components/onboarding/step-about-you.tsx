@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { DobPicker } from "@/components/ui/dob-picker";
 import { FormField } from "./form-field";
 import type { Form, SetFormField } from "./types";
 import {
@@ -109,39 +110,20 @@ export function StepAboutYou({
               : "Membership is 21+"
           }
         >
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Input
-              type="date"
-              className="cursor-pointer"
-              max={`${year - 21}-12-31`}
-              min={`${year - 70}-01-01`}
-              value={dob}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDob(val);
-                if (val) {
-                  const yr = val.slice(0, 4);
-                  set("birth_year", yr);
-                }
-              }}
-            />
-            <select
-              className={selectCls}
-              value={f.birth_year}
-              onChange={(e) => {
-                const yr = e.target.value;
+          <DobPicker
+            id="onboarding-dob"
+            value={dob}
+            onChange={(val) => {
+              setDob(val);
+              if (val) {
+                const yr = val.slice(0, 4);
                 set("birth_year", yr);
-                if (yr) setDob(`${yr}-01-01`);
-              }}
-            >
-              <option value="">Select birth year</option>
-              {birthYears.map((yr) => (
-                <option key={yr} value={String(yr)}>
-                  {yr} ({year - yr} yrs)
-                </option>
-              ))}
-            </select>
-          </div>
+              } else {
+                set("birth_year", "");
+              }
+            }}
+            aria-invalid={Boolean(errors["birth_year"])}
+          />
         </FormField>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">

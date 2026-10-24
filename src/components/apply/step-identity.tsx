@@ -1,6 +1,7 @@
 import { FileCheck2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { DobPicker } from "@/components/ui/dob-picker";
 import { FormField, FieldError, ApplyStepContainer } from "./form-field";
 import type { ApplyDraft } from "./types";
 
@@ -11,8 +12,6 @@ export interface StepIdentityProps {
 }
 
 export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
-  const currentYear = new Date().getFullYear();
-
   return (
     <ApplyStepContainer
       title="Verify who you are"
@@ -31,15 +30,13 @@ export function StepIdentity({ draft, onChange, errors }: StepIdentityProps) {
           {errors["name"] && <FieldError text={errors["name"]} />}
         </FormField>
         <FormField label="Date of birth">
-          <Input
+          <DobPicker
+            id="apply-dob"
             name="dob"
-            type="date"
             required
-            max={`${currentYear - 21}-12-31`}
-            min={`${currentYear - 75}-01-01`}
-            className="w-full cursor-pointer"
             value={draft.dob}
-            onChange={(e) => onChange("dob", e.target.value)}
+            onChange={(val) => onChange("dob", val)}
+            aria-invalid={Boolean(errors["dob"])}
           />
           {errors["dob"] && <FieldError text={errors["dob"]} />}
         </FormField>
