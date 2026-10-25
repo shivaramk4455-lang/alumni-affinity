@@ -10,9 +10,11 @@ export interface ApplyDraft {
   gradYear: string;
   alumniEmail: string;
   profession: string;
+  country: string;
+  state: string;
   city: string;
   relocation: string;
-  chapter: string;
+  chapter?: string;
   values: string;
   ghost: boolean;
   photosAfterInterest: boolean;
@@ -33,9 +35,10 @@ export const emptyApplyDraft: ApplyDraft = {
   gradYear: "",
   alumniEmail: "",
   profession: "",
+  country: "India",
+  state: "",
   city: "",
   relocation: "",
-  chapter: "",
   values: "",
   ghost: true,
   photosAfterInterest: true,

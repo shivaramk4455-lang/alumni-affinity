@@ -80,6 +80,52 @@ describe("apply-validation", () => {
     expect(filledErrors["gradYear"]).toBeUndefined();
   });
 
+  it("enforces required fields for life & profession step", () => {
+    const requiredFieldValues = {
+      country: "",
+      state: "",
+      city: "",
+      profession: "",
+      relocation: "",
+      values: "",
+    };
+    const errors = validateApplyStep(2, emptyApplyDraft, requiredFieldValues, refDate);
+    expect(errors["country"]).toBe("Please complete this field.");
+    expect(errors["state"]).toBe("Please complete this field.");
+    expect(errors["city"]).toBe("Please complete this field.");
+    expect(errors["profession"]).toBe("Please complete this field.");
+    expect(errors["relocation"]).toBe("Please complete this field.");
+    expect(errors["values"]).toBe("Please complete this field.");
+
+    const filledErrors = validateApplyStep(
+      2,
+      {
+        ...emptyApplyDraft,
+        country: "India",
+        state: "Karnataka",
+        city: "Bengaluru",
+        profession: "Software Engineering",
+        relocation: "Open to relocate within India",
+        values: "Building a grounded, high-trust life together.",
+      },
+      {
+        country: "India",
+        state: "Karnataka",
+        city: "Bengaluru",
+        profession: "Software Engineering",
+        relocation: "Open to relocate within India",
+        values: "Building a grounded, high-trust life together.",
+      },
+      refDate,
+    );
+    expect(filledErrors["country"]).toBeUndefined();
+    expect(filledErrors["state"]).toBeUndefined();
+    expect(filledErrors["city"]).toBeUndefined();
+    expect(filledErrors["profession"]).toBeUndefined();
+    expect(filledErrors["relocation"]).toBeUndefined();
+    expect(filledErrors["values"]).toBeUndefined();
+  });
+
   it("validates co-pilot email when invite is enabled on step 4", () => {
     const invalidCopilotDraft = {
       ...emptyApplyDraft,

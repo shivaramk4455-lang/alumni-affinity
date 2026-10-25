@@ -231,6 +231,9 @@ function Onboarding() {
             selectedState?: string;
             dob?: string;
             gradYear?: string;
+            country?: string;
+            state?: string;
+            values?: string;
           };
           setF((prev) => ({
             ...prev,
@@ -247,12 +250,12 @@ function Onboarding() {
                 : prev.grad_year,
             profession: draft.profession ?? prev.profession,
             relocation: draft.relocation ?? prev.relocation,
-            values_statement: draft.values_statement ?? prev.values_statement,
+            values_statement: draft.values_statement ?? draft.values ?? prev.values_statement,
             created_by: draft.created_by ?? prev.created_by,
             marital_status: draft.marital_status ?? prev.marital_status,
             diet: draft.diet ?? prev.diet,
             mother_tongue: draft.mother_tongue ?? prev.mother_tongue,
-            residency_status: draft.residency_status ?? prev.residency_status,
+            residency_status: draft.country ?? draft.residency_status ?? prev.residency_status,
             religion: draft.religion ?? prev.religion,
             caste: draft.caste ?? prev.caste,
             gotra: draft.gotra ?? prev.gotra,
@@ -270,7 +273,8 @@ function Onboarding() {
           }));
           if (draft.birth_year) setDob(`${draft.birth_year}-01-01`);
           const draftCity = draft.city;
-          if (draft.selectedState) setSelectedState(draft.selectedState);
+          if (draft.state) setSelectedState(draft.state);
+          else if (draft.selectedState) setSelectedState(draft.selectedState);
           else if (draftCity) setSelectedState(detectStateFromCity(draftCity));
 
           if (draft.degree && !DEGREES.includes(draft.degree as (typeof DEGREES)[number])) {
