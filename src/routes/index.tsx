@@ -7,7 +7,6 @@ import {
   Fingerprint,
   GraduationCap,
   LockKeyhole,
-  MapPin,
   ShieldCheck,
   UserRound,
   UsersRound,
@@ -17,45 +16,6 @@ import type { ReactNode } from "react";
 import { SITE_TAGLINE } from "@/lib/legal-identity";
 import { Button } from "@/components/ui/button";
 import { canonical, ORGANIZATION_JSON_LD } from "@/lib/seo";
-
-const ILLUSTRATIVE_ARCHETYPES = [
-  {
-    monogram: "A·R",
-    cohort: "IIT Bombay ’19",
-    degree: "B.Tech & M.Tech, Electrical Engineering",
-    role: "Principal Systems Architect",
-    location: "Bengaluru · Open to relocation",
-    tags: ["Classical Carnatic", "Vegetarian", "Family co-pilot active"],
-    visibilityNote: "Employer & photograph unlocked upon mutual introduction",
-  },
-  {
-    monogram: "M·S",
-    cohort: "IIM Ahmedabad ’21",
-    degree: "PGP in Management · SRCC ’19",
-    role: "Vice President, Private Equity",
-    location: "Mumbai",
-    tags: ["Marathoner", "Non-smoker", "Candidate-led"],
-    visibilityNote: "Batch & surname shielded to fellow firm alumni",
-  },
-  {
-    monogram: "K·V",
-    cohort: "AIIMS New Delhi ’18",
-    degree: "MBBS, MD (Internal Medicine)",
-    role: "Senior Clinical Fellow",
-    location: "London · Returning to India ’27",
-    tags: ["Reader & flautist", "Teetotaller", "Horoscope optional"],
-    visibilityNote: "Photographs blurred until explicit gallery grant",
-  },
-  {
-    monogram: "R·N",
-    cohort: "BITS Pilani ’20 · Stanford ’22",
-    degree: "M.S. Computer Science",
-    role: "Staff Machine Learning Engineer",
-    location: "San Francisco · Bengaluru roots",
-    tags: ["Mountaineering", "Egalitarian values", "Parent co-pilot invited"],
-    visibilityNote: "Direct messaging opens only after candidate acceptance",
-  },
-] as const;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -93,7 +53,7 @@ function Index() {
               For people who built their own lives—and wish to choose their own partner.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground">
-              Thoughtful matchmaking for IIT, IIM and leading-institution alumni. Candidates lead
+              A private matrimonial circle for graduates of premier institutions. Candidates lead
               every introduction; families participate by invitation.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -243,91 +203,100 @@ function Index() {
         </div>
       </section>
 
-      <section
-        id="inside-the-circle"
-        className="border-b border-border px-5 py-16 md:px-8 md:py-24"
-      >
+      <section id="how-it-works" className="border-b border-border px-5 py-16 md:px-8 md:py-24">
         <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-2xl">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
-                Inside the Circle — Illustrative Profiles
-              </p>
-              <h2 className="mt-3 font-serif text-4xl font-semibold md:text-5xl">
-                Dignified dossiers, never a public feed.
-              </h2>
-              <p className="mt-5 text-sm leading-7 text-muted-foreground">
-                Real member profiles are never displayed publicly. The composite archetypes below
-                illustrate how institutional credentials, personal values, and granular discretion
-                locks appear inside a verified member dossier.
-              </p>
-            </div>
-            <div className="self-start border border-border bg-secondary/60 px-3.5 py-2 text-xs font-medium text-muted-foreground lg:self-auto">
-              Illustrative composite archetypes · Real member profiles are strictly private
-            </div>
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
+              The Architecture of Discretion
+            </p>
+            <h2 className="mt-3 font-serif text-4xl font-semibold md:text-5xl">
+              How introductions happen when privacy is non-negotiable.
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-muted-foreground">
+              No open database. No search-engine indexing. No circulating biodatas on WhatsApp.
+              Every connection is candidate-governed, confidential, and intentional from first
+              glance to mutual conversation.
+            </p>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {ILLUSTRATIVE_ARCHETYPES.map((item) => (
-              <article
-                key={item.cohort}
-                className="flex flex-col justify-between border border-border bg-card p-6 transition-all duration-200 hover:border-brass/70 hover:shadow-paper"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="grid size-12 shrink-0 place-items-center border border-brass/50 bg-secondary font-serif text-base font-semibold tracking-wider text-foreground">
-                      {item.monogram}
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-success">
-                      <ShieldCheck className="size-3.5" aria-hidden="true" /> Verified
-                    </span>
-                  </div>
-
-                  <p className="mt-5 min-h-[1.25rem] text-xs font-bold uppercase tracking-[0.14em] text-brass">
-                    {item.cohort}
-                  </p>
-
-                  <div className="mt-1.5 min-h-[5.25rem]">
-                    <h3 className="font-serif text-xl font-semibold leading-snug text-foreground">
-                      {item.role}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">{item.degree}</p>
-                  </div>
-
-                  <p className="mt-3 flex min-h-[1.5rem] items-center gap-1.5 text-xs font-medium text-foreground/80">
-                    <MapPin className="size-3.5 shrink-0 text-brass" aria-hidden="true" />
-                    <span>{item.location}</span>
-                  </p>
-
-                  <div className="mt-4 flex min-h-[4.25rem] flex-wrap content-start gap-1.5">
-                    {item.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="border border-border bg-secondary/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            <article className="flex flex-col justify-between border border-border bg-card p-6 md:p-8 transition-all hover:border-brass/60">
+              <div>
+                <div className="flex size-12 items-center justify-center border border-brass/40 bg-secondary/60 text-brass">
+                  <EyeOff className="size-5" />
                 </div>
+                <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em] text-brass">
+                  Stage 01
+                </p>
+                <h3 className="mt-2 font-serif text-2xl font-semibold text-foreground">
+                  Shielded Discovery
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  Browse verified members aligned on intellect, values, and life vision. Your
+                  photographs, employer identity, and full name remain blurred and shielded until
+                  you explicitly grant access.
+                </p>
+              </div>
+              <div className="mt-8 border-t border-border pt-4">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                  <LockKeyhole className="size-3.5 text-brass" /> Photographs private by default
+                </span>
+              </div>
+            </article>
 
-                <div className="mt-6 border-t border-border pt-3.5">
-                  <p className="flex min-h-[2.5rem] items-start gap-2 text-[11px] leading-4 text-muted-foreground">
-                    <LockKeyhole
-                      className="mt-0.5 size-3.5 shrink-0 text-brass"
-                      aria-hidden="true"
-                    />
-                    <span>{item.visibilityNote}</span>
-                  </p>
+            <article className="flex flex-col justify-between border border-border bg-card p-6 md:p-8 transition-all hover:border-brass/60">
+              <div>
+                <div className="flex size-12 items-center justify-center border border-brass/40 bg-secondary/60 text-brass">
+                  <ShieldCheck className="size-5" />
                 </div>
-              </article>
-            ))}
+                <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em] text-brass">
+                  Stage 02
+                </p>
+                <h3 className="mt-2 font-serif text-2xl font-semibold text-foreground">
+                  Mutual Yes Only
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  No unsolicited messages, no cold calls, and no pressure. Direct messaging and
+                  private 1:1 video introductions unlock only when both individuals independently
+                  choose to accept.
+                </p>
+              </div>
+              <div className="mt-8 border-t border-border pt-4">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                  <Check className="size-3.5 text-success" /> Two-party verified consent
+                </span>
+              </div>
+            </article>
+
+            <article className="flex flex-col justify-between border border-border bg-card p-6 md:p-8 transition-all hover:border-brass/60">
+              <div>
+                <div className="flex size-12 items-center justify-center border border-brass/40 bg-secondary/60 text-brass">
+                  <UsersRound className="size-5" />
+                </div>
+                <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em] text-brass">
+                  Stage 03
+                </p>
+                <h3 className="mt-2 font-serif text-2xl font-semibold text-foreground">
+                  Family With Dignity
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  Invite a parent or trusted relative as a co-pilot. They can suggest profiles and
+                  discuss matches privately with you, but cannot message candidates or accept on
+                  your behalf.
+                </p>
+              </div>
+              <div className="mt-8 border-t border-border pt-4">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                  <UserRound className="size-3.5 text-brass" /> Candidate maintains the keys
+                </span>
+              </div>
+            </article>
           </div>
 
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
             <p className="text-xs text-muted-foreground">
-              Full dossier records, photographs, and contact information are strictly gated to
-              verified members upon mutual consent.
+              Full profiles, photographs, and contact information are strictly gated to verified
+              members upon mutual consent.
             </p>
             <Link
               to="/standards"
