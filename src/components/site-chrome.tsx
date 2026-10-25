@@ -144,9 +144,13 @@ function useUserAvatar(path?: string | null) {
     enabled: !!path,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
+      if (!path) return null;
+      if (path.startsWith("http://") || path.startsWith("https://")) {
+        return path;
+      }
       const { data, error } = await supabase.storage
         .from("profile-photos")
-        .createSignedUrl(path!, 3600);
+        .createSignedUrl(path, 3600);
       if (error) return null;
       return data?.signedUrl ?? null;
     },
@@ -168,9 +172,19 @@ function UserNavMenu({
   onSignOut: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  const avatar = useUserAvatar(profile?.photo_path);
+  const rawPhotoPath =
+    profile?.photo_path ||
+    (typeof user.user_metadata?.["avatar_url"] === "string"
+      ? (user.user_metadata["avatar_url"] as string)
+      : null) ||
+    (typeof user.user_metadata?.["picture"] === "string"
+      ? (user.user_metadata["picture"] as string)
+      : null);
+
+  const avatar = useUserAvatar(rawPhotoPath);
   const displayName = profile?.full_name?.trim() || user.email?.split("@")[0] || "Member";
   const initials = profile?.full_name?.trim()
     ? profile.full_name
@@ -208,12 +222,13 @@ function UserNavMenu({
         className="group flex items-center gap-1.5 rounded-full p-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brass"
       >
         <span className="relative grid size-9 place-items-center overflow-hidden rounded-full border border-border bg-secondary shadow-sm transition-transform group-hover:scale-105 group-hover:border-brass/70">
-          {avatar.data ? (
+          {avatar.data && !imgError ? (
             <img
               src={avatar.data}
               alt={displayName}
               className="size-full object-cover"
               loading="eager"
+              onError={() => setImgError(true)}
             />
           ) : (
             <span className="font-serif text-xs font-semibold text-foreground">{initials}</span>
@@ -237,8 +252,13 @@ function UserNavMenu({
           <div className="border-b border-border bg-secondary/25 p-4">
             <div className="flex items-center gap-3">
               <div className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-secondary">
-                {avatar.data ? (
-                  <img src={avatar.data} alt={displayName} className="size-full object-cover" />
+                {avatar.data && !imgError ? (
+                  <img
+                    src={avatar.data}
+                    alt={displayName}
+                    className="size-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
                 ) : (
                   <span className="font-serif text-sm font-semibold text-foreground">
                     {initials}
@@ -659,7 +679,15 @@ export function SiteHeader() {
     ? nav.filter((i): i is NavItem => !inline.includes(i.label))
     : [];
 
-  const mobileAvatar = useUserAvatar(me.data?.photo_path);
+  const mobileRawPhotoPath =
+    me.data?.photo_path ||
+    (typeof user?.user_metadata?.["avatar_url"] === "string"
+      ? (user.user_metadata["avatar_url"] as string)
+      : null) ||
+    (typeof user?.user_metadata?.["picture"] === "string"
+      ? (user.user_metadata["picture"] as string)
+      : null);
+  const mobileAvatar = useUserAvatar(mobileRawPhotoPath);
   const mobileDisplayName = me.data?.full_name?.trim() || user?.email?.split("@")[0] || "Member";
   const mobileInitials = me.data?.full_name?.trim()
     ? me.data.full_name

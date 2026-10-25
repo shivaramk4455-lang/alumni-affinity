@@ -551,6 +551,7 @@ export function useSetPrimaryPhoto() {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["my-profile"] });
       qc.invalidateQueries({ queryKey: ["photo"] });
+      qc.invalidateQueries({ queryKey: ["navbar-avatar"] });
       toast.success("Primary photograph updated.");
     },
     onError: (e) => toast.error(formatErrorMessage(e)),
@@ -628,6 +629,7 @@ export function useDeleteGalleryPhoto() {
       qc.invalidateQueries({ queryKey: GALLERY_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ["my-profile"] });
       qc.invalidateQueries({ queryKey: ["photo"] });
+      qc.invalidateQueries({ queryKey: ["navbar-avatar"] });
       toast.success("Photograph deleted.");
     },
     onError: (e) => toast.error(formatErrorMessage(e)),
