@@ -56,8 +56,30 @@ function ApplyPage() {
     }
   }, [draft]);
 
-  const handleChange = <K extends keyof ApplyDraft>(k: K, v: ApplyDraft[K]) =>
+  const handleChange = <K extends keyof ApplyDraft>(k: K, v: ApplyDraft[K]) => {
     setDraft((p) => ({ ...p, [k]: v }));
+    setErrors((prev) => {
+      const keyStr = String(k);
+      const toRemove = [keyStr];
+      if (k === "copilotEmail") toRemove.push("copilot-email");
+      if (k === "profession") toRemove.push("custom-profession");
+
+      let hasMatch = false;
+      for (const r of toRemove) {
+        if (prev[r]) {
+          hasMatch = true;
+          break;
+        }
+      }
+      if (!hasMatch) return prev;
+
+      const next = { ...prev };
+      for (const r of toRemove) {
+        delete next[r];
+      }
+      return next;
+    });
+  };
 
   function validate(form: HTMLFormElement) {
     const required = [
