@@ -228,6 +228,7 @@ function Onboarding() {
         const raw = localStorage.getItem(APPLY_DRAFT_KEY);
         if (raw) {
           const draft = JSON.parse(raw) as Partial<Form> & {
+            name?: string;
             selectedState?: string;
             dob?: string;
             gradYear?: string;
@@ -235,11 +236,16 @@ function Onboarding() {
             state?: string;
             values?: string;
           };
+          const derivedBirthYear = draft.birth_year
+            ? String(draft.birth_year)
+            : draft.dob
+              ? draft.dob.split("-")[0]
+              : "";
           setF((prev) => ({
             ...prev,
-            full_name: draft.full_name ?? prev.full_name,
+            full_name: draft.full_name ?? draft.name ?? prev.full_name,
             gender: draft.gender ?? prev.gender,
-            birth_year: draft.birth_year ? String(draft.birth_year) : prev.birth_year,
+            birth_year: derivedBirthYear || prev.birth_year,
             city: draft.city ?? prev.city,
             institution: draft.institution ?? prev.institution,
             degree: draft.degree ?? prev.degree,
@@ -271,7 +277,11 @@ function Onboarding() {
               : prev.nakshatra_pada,
             manglik: draft.manglik ?? prev.manglik,
           }));
-          if (draft.birth_year) setDob(`${draft.birth_year}-01-01`);
+          if (draft.dob) {
+            setDob(draft.dob);
+          } else if (draft.birth_year) {
+            setDob(`${draft.birth_year}-01-01`);
+          }
           const draftCity = draft.city;
           if (draft.state) setSelectedState(draft.state);
           else if (draft.selectedState) setSelectedState(draft.selectedState);
