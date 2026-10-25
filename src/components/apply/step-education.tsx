@@ -135,15 +135,17 @@ export function StepEducation({ draft, onChange, errors }: StepEducationProps) {
           </FormField>
         )}
 
-        <div className="mt-2">
+        <div className="mt-2 grid gap-5 sm:grid-cols-2">
           <FormField
             label="Institutional email (optional)"
             hint={
               alumniRecognised === true
                 ? "Domain recognised — fast-tracks your academic verification."
                 : alumniRecognised === false
-                  ? "Domain not recognised — you can verify with a document after signup."
-                  : "Fastest verification, when your institution address is active. Otherwise verify with a document after signup."
+                  ? "Domain not recognised. If left blank, your personal email is used with document verification."
+                  : draft.email
+                    ? `Optional fast-track if your college email is active. If left blank, your personal email (${draft.email}) is used.`
+                    : "Optional fast-track if your college email is active. If left blank, your personal email is used."
             }
           >
             <Input
