@@ -1,8 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Check, LockKeyhole } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 import { canonical, ogUrl } from "@/lib/seo";
 import {
   APPLY_DRAFT_KEY,
@@ -47,6 +50,11 @@ function ApplyPage() {
   const [completed, setCompleted] = useState(false);
   const [draft, setDraft] = useState<ApplyDraft>(loadApplyDraft);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   useEffect(() => {
     try {
@@ -117,42 +125,207 @@ function ApplyPage() {
     }
   }
 
-  function continueToSignup() {
-    navigate({ to: "/auth", search: { redirect: "/onboarding?prefill=1" } });
+  async function handleDirectSignup(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!password || password.length < 8) {
+      setAuthError("Password must be at least 8 characters.");
+      return;
+    }
+    setBusy(true);
+    setAuthError(null);
+
+    const emailToUse = draft.email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signUp({
+      email: emailToUse,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/onboarding?prefill=1`,
+        data: {
+          full_name: draft.name.trim() || undefined,
+          adult_attested: true,
+        },
+      },
+    });
+
+    setBusy(false);
+
+    if (error) {
+      setAuthError(error.message);
+      toast.error(error.message);
+      return;
+    }
+
+    if (data.session) {
+      toast.success("Account created! Redirecting to onboarding…");
+      navigate({ to: "/onboarding", search: { prefill: "1" } });
+    } else {
+      setAccountCreated(true);
+      toast.success("Account created! Check your email to confirm.");
+    }
+  }
+
+  async function handleGoogleSignup() {
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/onboarding?prefill=1`,
+      },
+    });
+    if (error) {
+      setBusy(false);
+      setAuthError(error.message);
+      toast.error(error.message);
+    }
   }
 
   if (completed) {
+    if (accountCreated) {
+      return (
+        <main className="min-h-[75vh] bg-background px-5 py-16 md:py-24">
+          <div className="mx-auto max-w-xl border border-border bg-card p-7 text-center shadow-paper md:p-12">
+            <span className="mx-auto grid size-14 place-items-center rounded-full bg-success/10 text-success">
+              <Check className="size-6" />
+            </span>
+            <p className="mt-7 text-xs font-bold uppercase tracking-[0.18em] text-brass">
+              Application submitted
+            </p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-foreground md:text-4xl">
+              Check your email to confirm your account
+            </h1>
+            <p className="mx-auto mt-4 max-w-md leading-7 text-muted-foreground">
+              We sent an activation link to{" "}
+              <strong className="text-foreground">{draft.email}</strong>. Click the link in your
+              email to activate your account and proceed directly to member onboarding.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  navigate({
+                    to: "/auth",
+                    search: { mode: "signin", redirect: "/onboarding?prefill=1" },
+                  })
+                }
+              >
+                Go to sign in
+              </Button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-[75vh] bg-background px-5 py-16 md:py-24">
-        <div className="mx-auto max-w-2xl border border-border bg-card p-7 text-center shadow-paper md:p-12">
-          <span className="mx-auto grid size-14 place-items-center rounded-full bg-success/10 text-success">
-            <Check className="size-6" />
-          </span>
-          <p className="mt-7 text-xs font-bold uppercase tracking-[0.18em] text-brass">
-            Application ready
-          </p>
-          <h1 className="mt-3 font-serif text-4xl font-semibold text-foreground md:text-5xl">
-            Your answers are saved on this device.
-          </h1>
-          <p className="mx-auto mt-5 max-w-lg leading-7 text-muted-foreground">
-            Create your account next — your application carries over into onboarding automatically,
-            and document verification happens privately after signup.
-          </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button size="lg" onClick={continueToSignup}>
-              Create account & continue <ArrowRight />
+        <div className="mx-auto max-w-xl border border-border bg-card p-7 shadow-paper md:p-12">
+          <div className="text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-full bg-success/10 text-success">
+              <Check className="size-6" />
+            </span>
+            <p className="mt-7 text-xs font-bold uppercase tracking-[0.18em] text-brass">
+              Application ready
+            </p>
+            <h1 className="mt-3 font-serif text-3xl font-semibold text-foreground md:text-4xl">
+              Create your password to submit
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+              Your details are ready for{" "}
+              <strong className="text-foreground">{draft.name || "you"}</strong>{" "}
+              {draft.institution && `(${draft.institution})`}. Set your password to activate your
+              account and submit your application.
+            </p>
+          </div>
+
+          <form onSubmit={handleDirectSignup} className="mt-8 grid gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-semibold text-foreground">Account email</label>
+              <Input
+                type="email"
+                required
+                disabled={busy}
+                className="h-10 bg-secondary/30"
+                value={draft.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-semibold text-foreground">Set password</label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  disabled={busy}
+                  minLength={8}
+                  maxLength={72}
+                  placeholder="At least 8 characters"
+                  className="h-10 pr-10"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setAuthError(null);
+                  }}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword((p) => !p)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              {authError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {authError}
+                </p>
+              )}
+            </div>
+
+            <Button size="lg" type="submit" disabled={busy} className="mt-2 w-full">
+              {busy ? "Creating account…" : "Submit application & continue"}
+              {!busy && <ArrowRight className="ml-1.5 size-4" />}
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
+          </form>
+
+          <div className="relative my-6 text-center text-xs text-muted-foreground after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+            <span className="relative z-10 bg-card px-3 uppercase tracking-wider text-muted-foreground">
+              or
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={busy}
+            onClick={handleGoogleSignup}
+            className="w-full"
+          >
+            Continue with Google
+          </Button>
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+            <button
+              type="button"
               onClick={() => {
                 setCompleted(false);
                 setStep(0);
-                window.scrollTo({ top: 0 });
+                window.scrollTo({ top: 0, behavior: "smooth" });
               }}
+              className="hover:underline"
             >
-              Review answers
-            </Button>
+              ← Review answers
+            </button>
+            <Link
+              to="/auth"
+              search={{ mode: "signin", redirect: "/onboarding?prefill=1" }}
+              className="font-medium text-brass hover:underline"
+            >
+              Already a member? Sign in
+            </Link>
           </div>
         </div>
       </main>

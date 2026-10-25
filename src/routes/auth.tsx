@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { loadApplyDraft } from "@/components/apply/types";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -87,10 +88,27 @@ function AuthPage() {
   const { redirect, mode: modeParam } = Route.useSearch();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup" | "reset">(modeParam ?? "signin");
-  const [email, setEmail] = useState("");
+  const isFromOnboarding = Boolean(redirect?.includes("onboarding"));
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">(
+    modeParam ?? (isFromOnboarding ? "signup" : "signin"),
+  );
+  const [email, setEmail] = useState(() => {
+    try {
+      const draft = loadApplyDraft();
+      return draft.email || "";
+    } catch {
+      return "";
+    }
+  });
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(() => {
+    try {
+      const draft = loadApplyDraft();
+      return draft.name || "";
+    } catch {
+      return "";
+    }
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -100,7 +118,14 @@ function AuthPage() {
    * profiles.birth_year is the real gate, this is the record that a human
    * affirmatively confirmed their age before an account existed.
    */
-  const [adultAttested, setAdultAttested] = useState(false);
+  const [adultAttested, setAdultAttested] = useState(() => {
+    try {
+      const draft = loadApplyDraft();
+      return Boolean(draft.adult);
+    } catch {
+      return false;
+    }
+  });
   const [attestError, setAttestError] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
@@ -129,8 +154,8 @@ function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    setMode(modeParam ?? "signin");
-  }, [modeParam]);
+    setMode(modeParam ?? (isFromOnboarding ? "signup" : "signin"));
+  }, [modeParam, isFromOnboarding]);
 
   useEffect(() => {
     // The fragment is read directly as well as listened for: this component
@@ -260,11 +285,16 @@ function AuthPage() {
       }
       setAttestError(null);
       setTermsError(null);
-      const { error } = await supabase.auth.signUp({
+      const target = parseRedirect(redirect);
+      const emailRedirectTo = target
+        ? `${window.location.origin}${target.pathname}${target.search}`
+        : `${window.location.origin}/onboarding?prefill=1`;
+
+      const { data, error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          emailRedirectTo: window.location.origin + "/onboarding",
+          emailRedirectTo,
           data: {
             full_name: parsed.data.fullName,
             // handle_new_user() (20261014) reads this flag and stamps
@@ -278,6 +308,15 @@ function AuthPage() {
       if (error) {
         setServerError(error.message);
         toast.error(error.message);
+        return;
+      }
+      if (data?.session) {
+        toast.success("Account created! Redirecting to onboarding…");
+        if (target && target.pathname.includes("onboarding")) {
+          navigate({ to: "/onboarding", search: { prefill: "1" }, replace: true });
+        } else {
+          navigate({ to: "/dashboard", replace: true });
+        }
         return;
       }
       setSent(true);
@@ -325,10 +364,14 @@ function AuthPage() {
     }
     setAttestError(null);
     setTermsError(null);
+    const target = parseRedirect(redirect);
+    const redirectTo = target
+      ? `${window.location.origin}${target.pathname}${target.search}`
+      : `${window.location.origin}/auth`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin + "/auth",
+        redirectTo,
       },
     });
     if (error) {
@@ -495,6 +538,15 @@ function AuthPage() {
           </>
         ) : (
           <>
+            {isFromOnboarding && (
+              <div className="mb-6 border border-brass/40 bg-brass/5 p-4 text-sm text-foreground">
+                <p className="font-semibold text-brass">Application saved</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Your application answers are saved on this device. Choose a password to activate
+                  your account and proceed to member onboarding.
+                </p>
+              </div>
+            )}
             <div
               className="grid grid-cols-2 border border-border"
               role="tablist"
