@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { UserRoundPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { RELATIONS } from "@/lib/profile-options";
 import { FormField, FieldError, ApplyStepContainer } from "./form-field";
 import type { ApplyDraft } from "./types";
 
@@ -12,6 +14,13 @@ export interface StepCopilotProps {
 }
 
 export function StepCopilot({ draft, onChange, errors }: StepCopilotProps) {
+  const [customRelationSelected, setCustomRelationSelected] = useState(false);
+  const isCustomRelation = Boolean(
+    draft.copilotName &&
+    !RELATIONS.includes(draft.copilotName as (typeof RELATIONS)[number]) &&
+    draft.copilotName !== "Other",
+  );
+
   return (
     <ApplyStepContainer
       title="Family co-pilot (optional)"
@@ -36,27 +45,75 @@ export function StepCopilot({ draft, onChange, errors }: StepCopilotProps) {
       </div>
 
       {draft.invite && (
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <FormField label="Co-pilot name">
-            <Input
+        <div className="mt-5 grid items-start gap-5 sm:grid-cols-2">
+          <FormField label="Co-pilot relationship">
+            <select
               name="copilot-name"
-              maxLength={100}
-              placeholder="e.g. Mother, Father, Elder sibling"
-              value={draft.copilotName}
-              onChange={(e) => onChange("copilotName", e.target.value)}
-            />
+              value={
+                isCustomRelation || customRelationSelected
+                  ? "Other"
+                  : RELATIONS.includes(draft.copilotName as (typeof RELATIONS)[number])
+                    ? draft.copilotName
+                    : draft.copilotName
+                      ? "Other"
+                      : ""
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "Other") {
+                  setCustomRelationSelected(true);
+                  if (RELATIONS.includes(draft.copilotName as (typeof RELATIONS)[number])) {
+                    onChange("copilotName", "");
+                  }
+                } else {
+                  setCustomRelationSelected(false);
+                  onChange("copilotName", val);
+                }
+              }}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring cursor-pointer aria-invalid:border-destructive aria-invalid:focus:ring-destructive"
+            >
+              <option value="" disabled>
+                Select relationship
+              </option>
+              {RELATIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            {errors["copilot-name"] && <FieldError text={errors["copilot-name"]} />}
           </FormField>
+
           <FormField label="Co-pilot email">
             <Input
               name="copilot-email"
               type="email"
               maxLength={255}
               placeholder="family@example.com"
+              className="h-10"
               value={draft.copilotEmail}
               onChange={(e) => onChange("copilotEmail", e.target.value)}
             />
             {errors["copilot-email"] && <FieldError text={errors["copilot-email"]} />}
           </FormField>
+
+          {(isCustomRelation || customRelationSelected) && (
+            <div className="sm:col-span-2">
+              <FormField label="Specify name or relation">
+                <Input
+                  name="custom-copilot-name"
+                  maxLength={100}
+                  placeholder="e.g. Elder Brother, Family Mentor, Meera…"
+                  className="h-10"
+                  value={draft.copilotName}
+                  onChange={(e) => onChange("copilotName", e.target.value)}
+                />
+                {errors["custom-copilot-name"] && (
+                  <FieldError text={errors["custom-copilot-name"]} />
+                )}
+              </FormField>
+            </div>
+          )}
         </div>
       )}
 

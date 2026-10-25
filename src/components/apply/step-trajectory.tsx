@@ -7,7 +7,6 @@ import {
   PROFESSIONS,
   RELOCATION,
   RESIDENCY_STATUSES,
-  detectCountryAndStateFromCity,
   getRegionsForCountry,
 } from "@/lib/profile-options";
 import { FormField, FieldError, ApplyStepContainer } from "./form-field";
@@ -21,6 +20,8 @@ export interface StepTrajectoryProps {
 
 export function StepTrajectory({ draft, onChange, errors }: StepTrajectoryProps) {
   const [customSelected, setCustomSelected] = useState(false);
+  const [customCitySelected, setCustomCitySelected] = useState(false);
+
   const isCustom = Boolean(
     draft.profession &&
     !PROFESSIONS.includes(draft.profession as (typeof PROFESSIONS)[number]) &&
@@ -34,11 +35,17 @@ export function StepTrajectory({ draft, onChange, errors }: StepTrajectoryProps)
         ? "State"
         : draft.country === "United Kingdom"
           ? "Region / County"
-          : draft.country === "Europe"
-            ? "Country / Region"
-            : "State / Province";
+          : draft.country === "Australia"
+            ? "State / Territory"
+            : draft.country === "Europe"
+              ? "Country / Region"
+              : "State / Province";
 
   const regions = getRegionsForCountry(draft.country);
+  const availableCities = draft.state ? (MAJOR_CITIES_BY_STATE[draft.state] ?? []) : [];
+  const isCustomCity = Boolean(
+    draft.city && availableCities.length > 0 && !availableCities.includes(draft.city),
+  );
 
   return (
     <ApplyStepContainer
@@ -57,6 +64,7 @@ export function StepTrajectory({ draft, onChange, errors }: StepTrajectoryProps)
               const validRegions = getRegionsForCountry(country);
               if (draft.state && !validRegions.includes(draft.state)) {
                 onChange("state", "");
+                onChange("city", "");
               }
             }}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring cursor-pointer aria-invalid:border-destructive aria-invalid:focus:ring-destructive"
@@ -78,7 +86,14 @@ export function StepTrajectory({ draft, onChange, errors }: StepTrajectoryProps)
             name="state"
             required
             value={draft.state}
-            onChange={(e) => onChange("state", e.target.value)}
+            onChange={(e) => {
+              const st = e.target.value;
+              onChange("state", st);
+              const newCities = MAJOR_CITIES_BY_STATE[st] ?? [];
+              if (draft.city && !newCities.includes(draft.city) && !customCitySelected) {
+                onChange("city", "");
+              }
+            }}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring cursor-pointer aria-invalid:border-destructive aria-invalid:focus:ring-destructive"
           >
             <option value="" disabled>
@@ -93,55 +108,58 @@ export function StepTrajectory({ draft, onChange, errors }: StepTrajectoryProps)
           {errors["state"] && <FieldError text={errors["state"]} />}
         </FormField>
 
-        <div className="grid gap-2">
-          <FormField label="Current city">
+        <FormField label="Current city">
+          {availableCities.length > 0 || !draft.state ? (
+            <select
+              name="city"
+              required
+              disabled={!draft.state}
+              value={
+                isCustomCity || customCitySelected
+                  ? "Other"
+                  : availableCities.includes(draft.city)
+                    ? draft.city
+                    : draft.city
+                      ? "Other"
+                      : ""
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "Other") {
+                  setCustomCitySelected(true);
+                  if (availableCities.includes(draft.city)) {
+                    onChange("city", "");
+                  }
+                } else {
+                  setCustomCitySelected(false);
+                  onChange("city", val);
+                }
+              }}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-destructive aria-invalid:focus:ring-destructive"
+            >
+              <option value="" disabled>
+                {!draft.state ? "Select state / region first" : "Select city"}
+              </option>
+              {availableCities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value="Other">Other (specify)</option>
+            </select>
+          ) : (
             <Input
               name="city"
               required
               maxLength={80}
-              placeholder={
-                draft.country === "Canada"
-                  ? "e.g. Toronto, Vancouver, Montreal"
-                  : draft.country?.startsWith("US")
-                    ? "e.g. New York, San Francisco, Seattle"
-                    : draft.country === "United Kingdom"
-                      ? "e.g. London, Manchester, Cambridge"
-                      : "e.g. Bengaluru, Mumbai, Delhi NCR"
-              }
+              placeholder="Enter your city"
               className="h-10"
               value={draft.city}
-              onChange={(e) => {
-                const val = e.target.value;
-                onChange("city", val);
-                if (!draft.country || !draft.state) {
-                  const detected = detectCountryAndStateFromCity(val);
-                  if (detected.state && !draft.state) onChange("state", detected.state);
-                  if (detected.country && !draft.country) onChange("country", detected.country);
-                }
-              }}
+              onChange={(e) => onChange("city", e.target.value)}
             />
-            {errors["city"] && <FieldError text={errors["city"]} />}
-          </FormField>
-          {draft.state && MAJOR_CITIES_BY_STATE[draft.state] && (
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-medium text-muted-foreground">Popular:</span>
-              {MAJOR_CITIES_BY_STATE[draft.state]?.slice(0, 4).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => onChange("city", c)}
-                  className={`rounded-md border px-2 py-0.5 text-xs font-medium transition-colors ${
-                    draft.city === c
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-secondary/50 text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
           )}
-        </div>
+          {errors["city"] && <FieldError text={errors["city"]} />}
+        </FormField>
 
         <FormField label="Relocation outlook">
           <select
@@ -162,6 +180,23 @@ export function StepTrajectory({ draft, onChange, errors }: StepTrajectoryProps)
           </select>
           {errors["relocation"] && <FieldError text={errors["relocation"]} />}
         </FormField>
+
+        {(isCustomCity || customCitySelected) && availableCities.length > 0 && (
+          <div className="sm:col-span-2">
+            <FormField label="Specify city">
+              <Input
+                name="custom-city"
+                required
+                maxLength={80}
+                placeholder="e.g. Mysuru, Udupi, Hobart, Cork, Limoges…"
+                className="h-10"
+                value={draft.city}
+                onChange={(e) => onChange("city", e.target.value)}
+              />
+              {errors["custom-city"] && <FieldError text={errors["custom-city"]} />}
+            </FormField>
+          </div>
+        )}
 
         <FormField label="Current profession">
           <select

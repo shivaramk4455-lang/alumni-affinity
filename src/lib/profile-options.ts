@@ -416,10 +416,16 @@ export const RESIDENCY_STATUSES = [
   "US (H-1B / O-1 / L-1)",
   "US (Permanent Resident / Citizen)",
   "United Kingdom",
-  "Singapore",
   "Canada",
-  "Europe",
-  "Middle East / UAE",
+  "Australia",
+  "Singapore",
+  "United Arab Emirates / Middle East",
+  "Germany",
+  "Ireland",
+  "France",
+  "Netherlands",
+  "New Zealand",
+  "Europe (Other)",
   "Other International",
 ];
 
@@ -524,6 +530,44 @@ export const REGIONS_BY_COUNTRY: Record<string, readonly string[]> = {
     "Other UK",
   ],
   Singapore: ["Singapore (Central)", "Singapore (East)", "Singapore (West)", "Singapore (North)"],
+  Australia: [
+    "New South Wales",
+    "Victoria",
+    "Queensland",
+    "Western Australia",
+    "South Australia",
+    "Australian Capital Territory",
+    "Tasmania",
+    "Other Australia",
+  ],
+  "New Zealand": [
+    "Auckland",
+    "Wellington",
+    "Canterbury",
+    "Waikato",
+    "Bay of Plenty",
+    "Otago",
+    "Other New Zealand",
+  ],
+  Ireland: ["Dublin", "Cork", "Galway", "Limerick", "Kildare", "Other Ireland"],
+  France: [
+    "Île-de-France (Paris)",
+    "Auvergne-Rhône-Alpes (Lyon)",
+    "Provence-Alpes-Côte d'Azur",
+    "Occitanie (Toulouse)",
+    "Nouvelle-Aquitaine (Bordeaux)",
+    "Other France",
+  ],
+  Germany: [
+    "Berlin",
+    "Bavaria",
+    "Hesse",
+    "Baden-Württemberg",
+    "North Rhine-Westphalia",
+    "Hamburg",
+    "Other Germany",
+  ],
+  Netherlands: ["North Holland", "South Holland", "Utrecht", "North Brabant", "Other Netherlands"],
   "Middle East / UAE": [
     "Dubai",
     "Abu Dhabi",
@@ -607,6 +651,35 @@ export const MAJOR_CITIES_BY_STATE: Record<string, string[]> = {
   Michigan: ["Detroit", "Ann Arbor", "Troy"],
   Florida: ["Miami", "Tampa", "Orlando"],
 
+  // Australia
+  "New South Wales": ["Sydney", "Parramatta", "Newcastle", "Wollongong"],
+  Victoria: ["Melbourne", "Geelong", "Ballarat"],
+  Queensland: ["Brisbane", "Gold Coast", "Sunshine Coast"],
+  "Western Australia": ["Perth", "Fremantle"],
+  "South Australia": ["Adelaide"],
+  "Australian Capital Territory": ["Canberra"],
+  Tasmania: ["Hobart", "Launceston"],
+
+  // New Zealand
+  Auckland: ["Auckland City", "North Shore", "Manukau"],
+  Wellington: ["Wellington", "Lower Hutt"],
+  Canterbury: ["Christchurch"],
+  Waikato: ["Hamilton"],
+  "Bay of Plenty": ["Tauranga", "Rotorua"],
+  Otago: ["Dunedin", "Queenstown"],
+
+  // Ireland & France
+  Dublin: ["Dublin", "Dun Laoghaire", "Swords"],
+  Cork: ["Cork"],
+  Galway: ["Galway"],
+  Limerick: ["Limerick"],
+  Kildare: ["Naas", "Newbridge"],
+  "Île-de-France (Paris)": ["Paris", "Boulogne-Billancourt", "Saint-Denis", "Versailles"],
+  "Auvergne-Rhône-Alpes (Lyon)": ["Lyon", "Grenoble", "Saint-Étienne"],
+  "Provence-Alpes-Côte d'Azur": ["Marseille", "Nice", "Toulon", "Cannes"],
+  "Occitanie (Toulouse)": ["Toulouse", "Montpellier"],
+  "Nouvelle-Aquitaine (Bordeaux)": ["Bordeaux", "Limoges"],
+
   // UK & Global
   "Greater London": ["London", "Canary Wharf", "Westminster", "Croydon", "Harrow"],
   "West Midlands": ["Birmingham", "Coventry"],
@@ -654,11 +727,22 @@ export function getRegionsForCountry(
   if (residencyStatus === "Canada") return REGIONS_BY_COUNTRY["Canada"]!;
   if (residencyStatus.startsWith("US")) return REGIONS_BY_COUNTRY["US"]!;
   if (residencyStatus === "United Kingdom") return REGIONS_BY_COUNTRY["United Kingdom"]!;
+  if (residencyStatus === "Australia") return REGIONS_BY_COUNTRY["Australia"]!;
+  if (residencyStatus === "New Zealand") return REGIONS_BY_COUNTRY["New Zealand"]!;
+  if (residencyStatus === "Ireland") return REGIONS_BY_COUNTRY["Ireland"]!;
+  if (residencyStatus === "France") return REGIONS_BY_COUNTRY["France"]!;
+  if (residencyStatus === "Germany") return REGIONS_BY_COUNTRY["Germany"]!;
+  if (residencyStatus === "Netherlands") return REGIONS_BY_COUNTRY["Netherlands"]!;
   if (residencyStatus === "Singapore") return REGIONS_BY_COUNTRY["Singapore"]!;
-  if (residencyStatus === "Middle East / UAE") return REGIONS_BY_COUNTRY["Middle East / UAE"]!;
-  if (residencyStatus === "Europe") return REGIONS_BY_COUNTRY["Europe"]!;
+  if (
+    residencyStatus === "Middle East / UAE" ||
+    residencyStatus === "United Arab Emirates / Middle East"
+  )
+    return REGIONS_BY_COUNTRY["Middle East / UAE"]!;
+  if (residencyStatus === "Europe" || residencyStatus === "Europe (Other)")
+    return REGIONS_BY_COUNTRY["Europe"]!;
   if (residencyStatus === "Other International") return REGIONS_BY_COUNTRY["Other International"]!;
-  return REGIONS_BY_COUNTRY["India"]!;
+  return REGIONS_BY_COUNTRY[residencyStatus] ?? REGIONS_BY_COUNTRY["India"]!;
 }
 
 export function detectCountryAndStateFromCity(city: string | null | undefined): {
@@ -667,6 +751,38 @@ export function detectCountryAndStateFromCity(city: string | null | undefined): 
 } {
   if (!city) return { country: "India", state: "" };
   const clean = city.toLowerCase().trim();
+
+  // Check Australia
+  for (const st of REGIONS_BY_COUNTRY["Australia"]!) {
+    if (clean.includes(st.toLowerCase())) return { country: "Australia", state: st };
+    const cities = MAJOR_CITIES_BY_STATE[st] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "Australia", state: st };
+  }
+
+  // Check New Zealand
+  for (const st of REGIONS_BY_COUNTRY["New Zealand"]!) {
+    if (clean.includes(st.toLowerCase())) return { country: "New Zealand", state: st };
+    const cities = MAJOR_CITIES_BY_STATE[st] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "New Zealand", state: st };
+  }
+
+  // Check Ireland
+  for (const st of REGIONS_BY_COUNTRY["Ireland"]!) {
+    if (clean.includes(st.toLowerCase())) return { country: "Ireland", state: st };
+    const cities = MAJOR_CITIES_BY_STATE[st] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "Ireland", state: st };
+  }
+
+  // Check France
+  for (const st of REGIONS_BY_COUNTRY["France"]!) {
+    if (clean.includes(st.toLowerCase())) return { country: "France", state: st };
+    const cities = MAJOR_CITIES_BY_STATE[st] ?? [];
+    if (cities.some((c) => clean.includes(c.toLowerCase())))
+      return { country: "France", state: st };
+  }
 
   // Check Canada
   for (const prov of REGIONS_BY_COUNTRY["Canada"]!) {

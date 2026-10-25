@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { INSTITUTIONS, INSTITUTION_GROUPS } from "@/lib/profile-options";
+import {
+  INSTITUTIONS,
+  INSTITUTION_GROUPS,
+  RESIDENCY_STATUSES,
+  getRegionsForCountry,
+} from "@/lib/profile-options";
 
 describe("INSTITUTION_GROUPS", () => {
   it("covers major institution categories with non-empty lists", () => {
@@ -32,5 +37,18 @@ describe("INSTITUTION_GROUPS", () => {
         expect(masterSet.has(opt)).toBe(true);
       }
     }
+  });
+
+  it("includes global countries including Australia, New Zealand, Ireland, and France", () => {
+    expect(RESIDENCY_STATUSES).toContain("Australia");
+    expect(RESIDENCY_STATUSES).toContain("New Zealand");
+    expect(RESIDENCY_STATUSES).toContain("Ireland");
+    expect(RESIDENCY_STATUSES).toContain("France");
+    expect(RESIDENCY_STATUSES).toContain("Canada");
+
+    expect(getRegionsForCountry("Australia")).toContain("New South Wales");
+    expect(getRegionsForCountry("New Zealand")).toContain("Auckland");
+    expect(getRegionsForCountry("Ireland")).toContain("Dublin");
+    expect(getRegionsForCountry("France")).toContain("Île-de-France (Paris)");
   });
 });

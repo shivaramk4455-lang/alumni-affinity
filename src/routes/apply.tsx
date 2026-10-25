@@ -62,6 +62,8 @@ function ApplyPage() {
       const keyStr = String(k);
       const toRemove = [keyStr];
       if (k === "copilotEmail") toRemove.push("copilot-email");
+      if (k === "copilotName") toRemove.push("copilot-name", "custom-copilot-name");
+      if (k === "city") toRemove.push("custom-city");
       if (k === "profession") toRemove.push("custom-profession");
       if (k === "degree") toRemove.push("custom-degree");
 
