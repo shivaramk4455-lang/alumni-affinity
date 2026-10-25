@@ -94,7 +94,7 @@ export function PhoneInput({
   return (
     <div
       className={cn(
-        "relative flex h-9 w-full rounded-md border border-input bg-transparent shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring",
+        "relative flex h-9 w-full max-w-[280px] rounded-md border border-input bg-transparent shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring",
         isInvalid && "border-destructive focus-within:ring-destructive",
         disabled && "cursor-not-allowed opacity-50",
         className,
