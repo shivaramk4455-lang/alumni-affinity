@@ -37,4 +37,15 @@ describe("dob utilities", () => {
     // 31st of April 1995 clamped to 30
     expect(buildIsoDate("31", "04", "1995")).toBe("1995-04-30");
   });
+
+  it("handles progressive date entry without premature ISO output", () => {
+    // Day only
+    expect(buildIsoDate("15", "", "")).toBe("");
+    // Day and Month
+    expect(buildIsoDate("15", "05", "")).toBe("");
+    // Month and Year
+    expect(buildIsoDate("", "05", "1998")).toBe("");
+    // Complete
+    expect(buildIsoDate("15", "05", "1998")).toBe("1998-05-15");
+  });
 });

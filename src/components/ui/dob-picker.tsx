@@ -30,34 +30,33 @@ export function DobPicker({
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,
 }: DobPickerProps) {
-  const [day, setDay] = React.useState<string>(() => {
-    const parts = value ? value.split("-") : [];
-    return parts.length === 3 && parts[2] ? parts[2] : "";
-  });
-  const [month, setMonth] = React.useState<string>(() => {
-    const parts = value ? value.split("-") : [];
-    return parts.length === 3 && parts[1] ? parts[1] : "";
-  });
-  const [year, setYear] = React.useState<string>(() => {
-    const parts = value ? value.split("-") : [];
-    return parts.length === 3 && parts[0] ? parts[0] : "";
-  });
-
-  // Keep state in sync if value is updated externally
-  React.useEffect(() => {
-    if (value) {
-      const parts = value.split("-");
-      if (parts.length === 3) {
-        if (parts[0] && parts[0] !== year) setYear(parts[0]);
-        if (parts[1] && parts[1] !== month) setMonth(parts[1]);
-        if (parts[2] && parts[2] !== day) setDay(parts[2]);
-      }
-    } else {
-      setDay("");
-      setMonth("");
-      setYear("");
+  // Parse initial parts from ISO string
+  const parseParts = React.useCallback((val: string) => {
+    if (!val) return { y: "", m: "", d: "" };
+    const parts = val.split("-");
+    if (parts.length === 3) {
+      return { y: parts[0] ?? "", m: parts[1] ?? "", d: parts[2] ?? "" };
     }
-  }, [value, year, month, day]);
+    return { y: "", m: "", d: "" };
+  }, []);
+
+  const [day, setDay] = React.useState<string>(() => parseParts(value).d);
+  const [month, setMonth] = React.useState<string>(() => parseParts(value).m);
+  const [year, setYear] = React.useState<string>(() => parseParts(value).y);
+
+  // Track the last value emitted by this component so internal state is not wiped
+  const lastEmittedValueRef = React.useRef<string>(value);
+
+  // Synchronize internal state ONLY when value changes from an external source
+  React.useEffect(() => {
+    if (value !== lastEmittedValueRef.current) {
+      lastEmittedValueRef.current = value;
+      const { y, m, d } = parseParts(value);
+      setYear(y);
+      setMonth(m);
+      setDay(d);
+    }
+  }, [value, parseParts]);
 
   const currentCalYear = new Date().getFullYear();
   const maxBirthYear = currentCalYear - minAge;
@@ -93,6 +92,7 @@ export function DobPicker({
     setYear(newYear);
 
     const iso = buildIsoDate(validDay, newMonth, newYear);
+    lastEmittedValueRef.current = iso;
     onChange(iso);
   };
 
@@ -102,7 +102,7 @@ export function DobPicker({
     <div className={cn("grid w-full max-w-[280px] grid-cols-3 gap-2", className)}>
       <div className="relative">
         <select
-          id={id ? `${id}-day` : undefined}
+          id={id}
           value={day}
           onChange={(e) => updateDate(e.target.value, month, year)}
           disabled={disabled}
