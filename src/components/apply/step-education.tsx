@@ -32,7 +32,7 @@ export function StepEducation({ draft, onChange, errors }: StepEducationProps) {
       title="Confirm your academic record"
       note="We verify directly through alumni channels or a graduation document after signup."
     >
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid items-start gap-5 sm:grid-cols-2">
         <FormField label="Institution">
           <select
             name="institution"
@@ -141,10 +141,8 @@ export function StepEducation({ draft, onChange, errors }: StepEducationProps) {
             alumniRecognised === true
               ? "Domain recognised — fast-tracks your academic verification."
               : alumniRecognised === false
-                ? "Domain not recognised. If left blank, your personal email is used with document verification."
-                : draft.email
-                  ? `Optional fast-track if your college email is active. If left blank, your personal email (${draft.email}) is used.`
-                  : "Optional fast-track if your college email is active. If left blank, your personal email is used."
+                ? "Domain not recognised — you can verify with a document after signup."
+                : undefined
           }
         >
           <Input
@@ -152,6 +150,7 @@ export function StepEducation({ draft, onChange, errors }: StepEducationProps) {
             type="email"
             maxLength={255}
             placeholder="name@alumni.iitb.ac.in"
+            className="h-10"
             value={draft.alumniEmail}
             onChange={(e) => onChange("alumniEmail", e.target.value)}
           />

@@ -35,7 +35,7 @@ export function FormField({
 }: {
   label: string;
   children: ReactNode;
-  hint?: string;
+  hint?: string | undefined;
 }) {
   const id = useId();
   const errId = `${id}-error`;
@@ -57,7 +57,7 @@ export function FormField({
     : control;
 
   return (
-    <div className="grid gap-2">
+    <div className="grid content-start gap-2">
       <label htmlFor={id} className="text-sm font-semibold text-foreground">
         {label}
       </label>
