@@ -11,7 +11,14 @@ import type { MyProfileRow } from "@/lib/profile-columns";
 import type { Database } from "@/integrations/supabase/types";
 import { recordConsent } from "@/lib/consent";
 import { supabase } from "@/integrations/supabase/client";
-import { CASTES, DEGREES, GOTRAS, PROFESSIONS, detectStateFromCity } from "@/lib/profile-options";
+import {
+  CASTES,
+  DEGREES,
+  GOTRAS,
+  MAJOR_CITIES_BY_STATE,
+  PROFESSIONS,
+  detectStateFromCity,
+} from "@/lib/profile-options";
 import { APPLY_DRAFT_KEY } from "@/routes/apply";
 
 import { emptyForm, type Form } from "@/components/onboarding/types";
@@ -121,6 +128,7 @@ function Onboarding() {
   const graduationYears = Array.from({ length: year + 2 - 1960 + 1 }, (_, i) => year + 2 - i);
   const [customDegreeSelected, setCustomDegreeSelected] = useState(false);
   const [customProfessionSelected, setCustomProfessionSelected] = useState(false);
+  const [customCitySelected, setCustomCitySelected] = useState(false);
   const [customCasteSelected, setCustomCasteSelected] = useState(false);
   const [customGotraSelected, setCustomGotraSelected] = useState(false);
 
@@ -151,6 +159,7 @@ function Onboarding() {
             f,
             dob,
             selectedState,
+            customCitySelected,
             customDegreeSelected,
             customProfessionSelected,
             customCasteSelected,
@@ -166,6 +175,7 @@ function Onboarding() {
     f,
     dob,
     selectedState,
+    customCitySelected,
     customDegreeSelected,
     customProfessionSelected,
     customCasteSelected,
@@ -190,6 +200,7 @@ function Onboarding() {
             f?: Partial<Form>;
             dob?: string;
             selectedState?: string;
+            customCitySelected?: boolean;
             customDegreeSelected?: boolean;
             customProfessionSelected?: boolean;
             customCasteSelected?: boolean;
@@ -202,6 +213,9 @@ function Onboarding() {
             }
             if (draft.dob) setDob(draft.dob);
             if (draft.selectedState) setSelectedState(draft.selectedState);
+            if (typeof draft.customCitySelected === "boolean") {
+              setCustomCitySelected(draft.customCitySelected);
+            }
             if (typeof draft.customDegreeSelected === "boolean") {
               setCustomDegreeSelected(draft.customDegreeSelected);
             }
@@ -283,9 +297,15 @@ function Onboarding() {
             setDob(`${draft.birth_year}-01-01`);
           }
           const draftCity = draft.city;
-          if (draft.state) setSelectedState(draft.state);
-          else if (draft.selectedState) setSelectedState(draft.selectedState);
-          else if (draftCity) setSelectedState(detectStateFromCity(draftCity));
+          const resolvedState =
+            draft.state ?? draft.selectedState ?? (draftCity ? detectStateFromCity(draftCity) : "");
+          if (resolvedState) {
+            setSelectedState(resolvedState);
+            const cities = MAJOR_CITIES_BY_STATE[resolvedState] ?? [];
+            if (draftCity && !cities.includes(draftCity)) {
+              setCustomCitySelected(true);
+            }
+          }
 
           if (draft.degree && !DEGREES.includes(draft.degree as (typeof DEGREES)[number])) {
             setCustomDegreeSelected(true);
@@ -641,6 +661,8 @@ function Onboarding() {
             setDob={setDob}
             selectedState={selectedState}
             setSelectedState={setSelectedState}
+            customCitySelected={customCitySelected}
+            setCustomCitySelected={setCustomCitySelected}
             customCasteSelected={customCasteSelected}
             setCustomCasteSelected={setCustomCasteSelected}
             customGotraSelected={customGotraSelected}

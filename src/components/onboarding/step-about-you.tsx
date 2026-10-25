@@ -33,6 +33,8 @@ interface StepAboutYouProps {
   setDob: (val: string) => void;
   selectedState: string;
   setSelectedState: (val: string) => void;
+  customCitySelected: boolean;
+  setCustomCitySelected: (val: boolean) => void;
   customCasteSelected: boolean;
   setCustomCasteSelected: (val: boolean) => void;
   customGotraSelected: boolean;
@@ -49,6 +51,8 @@ export function StepAboutYou({
   setDob,
   selectedState,
   setSelectedState,
+  customCitySelected,
+  setCustomCitySelected,
   customCasteSelected,
   setCustomCasteSelected,
   customGotraSelected,
@@ -61,6 +65,10 @@ export function StepAboutYou({
   );
   const isCustomGotra = Boolean(
     f.gotra && !GOTRAS.includes(f.gotra as (typeof GOTRAS)[number]) && f.gotra !== "Other",
+  );
+  const availableCities = selectedState ? (MAJOR_CITIES_BY_STATE[selectedState] ?? []) : [];
+  const isCustomCity = Boolean(
+    f.city && availableCities.length > 0 && !availableCities.includes(f.city),
   );
 
   return (
@@ -137,6 +145,7 @@ export function StepAboutYou({
               const validRegions = getRegionsForCountry(country);
               if (selectedState && !validRegions.includes(selectedState)) {
                 setSelectedState("");
+                set("city", "");
               }
             }}
           >
@@ -165,6 +174,10 @@ export function StepAboutYou({
             onChange={(e) => {
               const st = e.target.value;
               setSelectedState(st);
+              const newCities = MAJOR_CITIES_BY_STATE[st] ?? [];
+              if (f.city && !newCities.includes(f.city) && !customCitySelected) {
+                set("city", "");
+              }
             }}
           >
             <option value="">
@@ -183,52 +196,61 @@ export function StepAboutYou({
         </FormField>
       </div>
       <FormField label="Current city" error={errors["city"]}>
-        <Input
-          autoComplete="address-level2"
-          placeholder={
-            f.residency_status === "Canada"
-              ? "e.g. Toronto, Vancouver, Montreal"
-              : f.residency_status?.startsWith("US")
-                ? "e.g. San Francisco, New York, Seattle"
-                : f.residency_status === "United Kingdom"
-                  ? "e.g. London, Manchester"
-                  : "e.g. Bhopal, Bengaluru, Mumbai"
-          }
-          value={f.city}
-          onChange={(e) => {
-            const val = e.target.value;
-            set("city", val);
-            if (!f.residency_status || !selectedState) {
-              const detected = detectCountryAndStateFromCity(val);
-              if (detected.state && !selectedState) {
-                setSelectedState(detected.state);
-              }
-              if (detected.country && !f.residency_status) {
-                set("residency_status", detected.country);
-              }
+        {availableCities.length > 0 || !selectedState ? (
+          <select
+            className={selectCls}
+            disabled={!selectedState}
+            value={
+              isCustomCity || customCitySelected
+                ? "Other"
+                : availableCities.includes(f.city)
+                  ? f.city
+                  : f.city
+                    ? "Other"
+                    : ""
             }
-          }}
-        />
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "Other") {
+                setCustomCitySelected(true);
+                if (availableCities.includes(f.city)) {
+                  set("city", "");
+                }
+              } else {
+                setCustomCitySelected(false);
+                set("city", val);
+              }
+            }}
+          >
+            <option value="" disabled>
+              {!selectedState ? "Select state / region first" : "Select city"}
+            </option>
+            {availableCities.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            <option value="Other">Other (specify)</option>
+          </select>
+        ) : (
+          <Input
+            autoComplete="address-level2"
+            placeholder="Enter your city"
+            value={f.city}
+            onChange={(e) => set("city", e.target.value)}
+          />
+        )}
+        {(isCustomCity || customCitySelected) && (
+          <div className="mt-2">
+            <Input
+              autoComplete="address-level2"
+              placeholder="Enter your city name"
+              value={f.city}
+              onChange={(e) => set("city", e.target.value)}
+            />
+          </div>
+        )}
       </FormField>
-      {selectedState && MAJOR_CITIES_BY_STATE[selectedState] && (
-        <div className="-mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-muted-foreground font-medium">Popular in {selectedState}:</span>
-          {MAJOR_CITIES_BY_STATE[selectedState]?.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => set("city", c)}
-              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                f.city === c
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-secondary/50 text-foreground hover:bg-secondary"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      )}
       <div className="grid gap-5 sm:grid-cols-2">
         <FormField label="Height (optional)">
           <select
