@@ -63,6 +63,7 @@ function ApplyPage() {
       const toRemove = [keyStr];
       if (k === "copilotEmail") toRemove.push("copilot-email");
       if (k === "profession") toRemove.push("custom-profession");
+      if (k === "degree") toRemove.push("custom-degree");
 
       let hasMatch = false;
       for (const r of toRemove) {

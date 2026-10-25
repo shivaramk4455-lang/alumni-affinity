@@ -7,6 +7,7 @@ export interface ApplyDraft {
   phone: string;
   institution: string;
   degree: string;
+  gradYear: string;
   alumniEmail: string;
   profession: string;
   city: string;
@@ -29,6 +30,7 @@ export const emptyApplyDraft: ApplyDraft = {
   phone: "",
   institution: "",
   degree: "",
+  gradYear: "",
   alumniEmail: "",
   profession: "",
   city: "",

@@ -49,6 +49,37 @@ describe("apply-validation", () => {
     expect(okErrors["alumniEmail"]).toBeUndefined();
   });
 
+  it("enforces required fields for education step", () => {
+    const requiredFieldValues = {
+      institution: "",
+      degree: "",
+      gradYear: "",
+    };
+    const errors = validateApplyStep(1, emptyApplyDraft, requiredFieldValues, refDate);
+    expect(errors["institution"]).toBe("Please complete this field.");
+    expect(errors["degree"]).toBe("Please complete this field.");
+    expect(errors["gradYear"]).toBe("Please complete this field.");
+
+    const filledErrors = validateApplyStep(
+      1,
+      {
+        ...emptyApplyDraft,
+        institution: "IIT Bombay",
+        degree: "B.Tech",
+        gradYear: "2018",
+      },
+      {
+        institution: "IIT Bombay",
+        degree: "B.Tech",
+        gradYear: "2018",
+      },
+      refDate,
+    );
+    expect(filledErrors["institution"]).toBeUndefined();
+    expect(filledErrors["degree"]).toBeUndefined();
+    expect(filledErrors["gradYear"]).toBeUndefined();
+  });
+
   it("validates co-pilot email when invite is enabled on step 4", () => {
     const invalidCopilotDraft = {
       ...emptyApplyDraft,

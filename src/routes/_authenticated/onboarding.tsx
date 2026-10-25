@@ -230,6 +230,7 @@ function Onboarding() {
           const draft = JSON.parse(raw) as Partial<Form> & {
             selectedState?: string;
             dob?: string;
+            gradYear?: string;
           };
           setF((prev) => ({
             ...prev,
@@ -239,7 +240,11 @@ function Onboarding() {
             city: draft.city ?? prev.city,
             institution: draft.institution ?? prev.institution,
             degree: draft.degree ?? prev.degree,
-            grad_year: draft.grad_year ? String(draft.grad_year) : prev.grad_year,
+            grad_year: draft.grad_year
+              ? String(draft.grad_year)
+              : draft.gradYear
+                ? String(draft.gradYear)
+                : prev.grad_year,
             profession: draft.profession ?? prev.profession,
             relocation: draft.relocation ?? prev.relocation,
             values_statement: draft.values_statement ?? prev.values_statement,
