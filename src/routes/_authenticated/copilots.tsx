@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, ShieldCheck, Trash2, UserRoundPlus, UsersRound } from "lucide-react";
+import { Copy, Share2, ShieldCheck, Trash2, UserRoundPlus, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,19 @@ export const Route = createFileRoute("/_authenticated/copilots")({
 });
 
 const selectCls = "h-10 w-full border border-input bg-background px-3 text-sm";
+
+function WhatsAppIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M17.472 14.382c-.301-.15-1.78-.879-2.056-.98-.276-.1-.477-.15-.678.15-.2.301-.778.98-.954 1.18-.175.201-.351.226-.652.075-.301-.15-1.27-.468-2.42-1.493-.894-.798-1.498-1.784-1.674-2.085-.175-.301-.019-.464.132-.614.136-.134.301-.35.452-.526.15-.175.2-.3.301-.501.101-.201.05-.376-.025-.526-.075-.15-.678-1.634-.929-2.238-.244-.588-.493-.509-.678-.518-.175-.009-.376-.01-.577-.01-.201 0-.527.075-.803.376s-1.054 1.03-1.054 2.512c0 1.482 1.079 2.912 1.23 3.113.15.201 2.124 3.243 5.145 4.548.719.311 1.28.497 1.718.636.722.23 1.378.197 1.898.12.579-.087 1.78-.727 2.031-1.43.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.351z" />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.176L2 22l4.981-1.408A9.957 9.957 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.2c-1.644 0-3.175-.487-4.46-1.328l-.32-.208-2.957.836.837-2.884-.216-.328A8.17 8.17 0 0 1 3.8 12c0-4.521 3.679-8.2 8.2-8.2 4.521 0 8.2 3.679 8.2 8.2 0 4.521-3.679 8.2-8.2 8.2z"
+      />
+    </svg>
+  );
+}
 
 function Copilots() {
   const qc = useQueryClient();
@@ -294,6 +307,11 @@ function Copilots() {
         ) : (
           mine.map((c) => {
             const url = `${typeof window === "undefined" ? "" : window.location.origin}/copilot-invite/${c.invite_code}`;
+            const candidateName = me.data?.full_name?.split(" ")[0] || "I";
+            const whatsappText = encodeURIComponent(
+              `Hi! ${candidateName} has invited you to be their family co-pilot on The Merit Circle (alumni matrimonial platform). Join privately here:\n${url}`,
+            );
+            const whatsappUrl = `https://wa.me/?text=${whatsappText}`;
             return (
               <article key={c.id} className="border border-border bg-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -310,37 +328,66 @@ function Copilots() {
                   </span>
                 </div>
                 {c.status !== "revoked" && (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-                    <code className="truncate border border-border bg-secondary/40 px-3 py-2 text-xs">
+                  <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <code className="min-w-0 flex-1 truncate border border-border bg-secondary/40 px-3 py-2 font-mono text-xs">
                       {url}
                     </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      // The promise is unawaited, so an insecure origin, a denied
-                      // permission, or Safari's user-gesture rules all reported
-                      // "copied" while nothing was copied — and this button is
-                      // the whole point of the page.
-                      onClick={() => {
-                        navigator.clipboard
-                          .writeText(url)
-                          .then(() => toast.success("Invitation link copied."))
-                          .catch(() =>
-                            toast.error(
-                              "Could not copy automatically — select the link and copy it.",
-                            ),
-                          );
-                      }}
-                    >
-                      <Copy /> Copy
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setStatus.mutate({ id: c.id, status: "revoked" })}
-                    >
-                      Revoke
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-8 items-center justify-center gap-1.5 bg-[#25D366] px-3 text-xs font-semibold text-white transition hover:bg-[#20ba59]"
+                      >
+                        <WhatsAppIcon className="size-3.5 fill-current" />
+                        WhatsApp
+                      </a>
+                      {typeof navigator !== "undefined" && "share" in navigator && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            void navigator
+                              .share({
+                                title: "The Merit Circle — Family Co-Pilot Invite",
+                                text: `Hi! ${candidateName} has invited you to be their family co-pilot on The Merit Circle.`,
+                                url,
+                              })
+                              .catch(() => {});
+                          }}
+                        >
+                          <Share2 /> Share
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        // The promise is unawaited, so an insecure origin, a denied
+                        // permission, or Safari's user-gesture rules all reported
+                        // "copied" while nothing was copied — and this button is
+                        // the whole point of the page.
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() => toast.success("Invitation link copied."))
+                            .catch(() =>
+                              toast.error(
+                                "Could not copy automatically — select the link and copy it.",
+                              ),
+                            );
+                        }}
+                      >
+                        <Copy /> Copy
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setStatus.mutate({ id: c.id, status: "revoked" })}
+                      >
+                        Revoke
+                      </Button>
+                    </div>
                   </div>
                 )}
               </article>
