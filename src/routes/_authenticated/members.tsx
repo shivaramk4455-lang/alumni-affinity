@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, SlidersHorizontal, UsersRound, X } from "lucide-react";
+import { Search, ShieldCheck, SlidersHorizontal, UsersRound, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -840,6 +840,34 @@ function Members() {
         </aside>
       )}
 
+      {!isCopilot && me.data && me.data.verification_status !== "verified" && (
+        <aside
+          role="note"
+          aria-label="Verification required"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3 border-l-2 border-brass bg-brass/5 p-4 text-sm shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="size-5 shrink-0 text-brass" />
+            <span>
+              Your profile is currently{" "}
+              <strong>
+                {me.data.verification_status === "pending_review"
+                  ? "under membership desk review"
+                  : "pending verification"}
+              </strong>
+              . Complete verification to browse and connect with verified alumni.
+            </span>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/verification">
+              {me.data.verification_status === "pending_review"
+                ? "View review status"
+                : "Submit verification"}
+            </Link>
+          </Button>
+        </aside>
+      )}
+
       <div className="mt-8 border border-border bg-card p-4 shadow-paper">
         {/* Quick Alumni Cluster Filters */}
         <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
@@ -1329,6 +1357,30 @@ function Members() {
           <p role="alert" className="text-sm text-destructive">
             Search failed. Please try again.
           </p>
+        ) : !isCopilot && me.data?.verification_status !== "verified" ? (
+          <div className="border border-border bg-card p-10 text-center shadow-paper">
+            <span className="mx-auto grid size-12 place-items-center rounded-full bg-brass/10 text-brass">
+              <ShieldCheck className="size-6" />
+            </span>
+            <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-brass">
+              Verification required
+            </p>
+            <h2 className="mt-2 font-serif text-2xl font-semibold text-foreground">
+              Directory access is private to verified alumni
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+              To safeguard member privacy, candidate profiles are only visible to confirmed alumni.
+              Submit your degree certificate or active college email to unlock search.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Button asChild size="lg">
+                <Link to="/verification">Submit verification</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link to="/dashboard">Back to dashboard</Link>
+              </Button>
+            </div>
+          </div>
         ) : !rows.length ? (
           <div className="border border-dashed border-border p-10 text-center">
             <p className="font-serif text-xl">
