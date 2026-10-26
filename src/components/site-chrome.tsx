@@ -29,13 +29,8 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { notificationDestination } from "@/lib/safe-link";
 
 const publicNav = [
-  { to: "/", label: "Membership" },
+  { to: "/", label: "Standards", hash: "verification" },
   { to: "/apply", label: "How to apply" },
-  // Verification is a member-only route, so a logged-out click bounced to
-  // sign-in and looked identical to "Sign in". This points at the real
-  // standards/verification section on the home page instead, so the item
-  // shows something of its own.
-  { to: "/", label: "Verification", hash: "verification" },
 ] as const;
 const memberNav = [
   { to: "/dashboard", label: "Home" },
@@ -758,8 +753,8 @@ export function SiteHeader() {
                   Sign in
                 </Link>
                 <Button asChild size="lg">
-                  <Link to="/auth" search={{ mode: "signup" }}>
-                    Become a member <ArrowUpRight />
+                  <Link to="/apply">
+                    Request membership <ArrowUpRight />
                   </Link>
                 </Button>
               </div>
@@ -848,12 +843,11 @@ export function SiteHeader() {
                     Sign in
                   </Link>
                   <Link
-                    to="/auth"
-                    search={{ mode: "signup" }}
-                    className="py-3 text-sm font-semibold"
+                    to="/apply"
+                    className="py-3 text-sm font-semibold text-brass"
                     onClick={() => setOpen(false)}
                   >
-                    Become a member
+                    Request membership
                   </Link>
                 </>
               ))}
@@ -901,8 +895,8 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link to="/verification" className="hover:text-primary-foreground">
-                  Verification
+                <Link to="/" hash="verification" className="hover:text-primary-foreground">
+                  Verification standards
                 </Link>
               </li>
             </ul>
