@@ -41,7 +41,7 @@ Required environment: copy `.env.example` to `.env` and fill it in. `SUPABASE_UR
 
 `supabase/migrations/` is the only migration chain — apply it in filename order
 (`supabase db push`, or `supabase db reset` locally). The chain head is
-`20261107001000_private_helper_scope_and_column_grants`; `DEPLOYMENT.md` carries the
+`20261108000000_restore_directory_privacy_clauses`; `DEPLOYMENT.md` carries the
 deployment steps (§2) and the launch checklist (§9).
 
 The table below maps the foundations only. The chain has since grown well past

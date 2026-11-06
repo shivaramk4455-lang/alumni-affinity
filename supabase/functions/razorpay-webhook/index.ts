@@ -203,12 +203,19 @@ const TERMINAL = new Set([
 // ever reject a replay, never a retry.
 const MAX_EVENT_AGE_SECONDS = 30 * 24 * 60 * 60;
 
+// Events that can move the resolved row toward (or into) the entitling set,
+// and which must therefore never be allowed to resurrect a terminal row. The
+// payment events belong here as well: `payment.captured` writes 'active' and
+// `payment.failed` writes 'pending', so treating the guard as
+// subscription-scoped-only left the monotonic ordering rule incomplete.
 const ENTITLING_EVENTS = new Set([
   "subscription.authenticated",
   "subscription.activated",
   "subscription.pending",
   "invoice.paid",
   "invoice.payment_failed",
+  "payment.captured",
+  "payment.failed",
 ]);
 
 /** Rows that still hold an open billing relationship for this member. */

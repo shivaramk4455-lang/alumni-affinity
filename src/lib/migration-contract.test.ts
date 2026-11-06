@@ -208,6 +208,42 @@ describe("regression assertions exist and fail loudly", () => {
   });
 });
 
+describe("HIGH: the directory policy keeps the sabbatical and employer-shield clauses", () => {
+  /**
+   * The LAST definition of the directory policy in the chain is the one that
+   * ships. 20261105000000 restored the two privacy clauses; 20261107000000
+   * then re-created the same policy without them, and its own assertion only
+   * checked for verification, so a paused or employer-shielded member was
+   * returned to any verified member on the direct-PostgREST paths
+   * (members.tsx, members.$id.tsx, shortlist.tsx, access-log.ts). This asserts
+   * the end state, so a third silent removal fails CI.
+   */
+  const policyName = 'CREATE POLICY "Verified members and copilots read the directory"';
+  const at = chain.lastIndexOf(policyName);
+  const body = at >= 0 ? chain.slice(at, chain.indexOf(";", at)) : "";
+  const lastMigration = read("20261108000000_restore_directory_privacy_clauses.sql");
+
+  it("re-asserts the policy with the sabbatical-pause clause", () => {
+    expect(at, "the directory policy is never created in the chain").toBeGreaterThan(-1);
+    expect(body).toContain("paused_until");
+  });
+
+  it("re-asserts the policy with the employer-shield clause", () => {
+    expect(body).toContain("same_shielded_employer");
+  });
+
+  it("keeps the verified-only gate", () => {
+    expect(body).toContain("is_verified");
+    expect(body).toContain("is_active_copilot");
+  });
+
+  it("asserts both clauses at migrate time so the regression fails loud", () => {
+    expect(lastMigration).toMatch(/NOT ILIKE '%paused_until%'/);
+    expect(lastMigration).toMatch(/NOT ILIKE '%same_shielded_employer%'/);
+    expect(lastMigration).toContain("REGRESSION:");
+  });
+});
+
 describe("HIGH: the private helpers are scoped to the caller", () => {
   const scoped = read("20261107001000_private_helper_scope_and_column_grants.sql");
 

@@ -22,10 +22,13 @@ export async function authenticateCronRequest(
     createHash('sha256').update(value, 'utf8').digest()
   const providedDigest = digest(token)
   const currentMatches = timingSafeEqual(providedDigest, digest(currentSecret))
-  const previousMatches = timingSafeEqual(
-    providedDigest,
-    digest(previousSecret ?? currentSecret),
-  )
+  // Only accept the previous secret when one is explicitly configured.
+  // Falling back to the current secret (`previousSecret ?? currentSecret`)
+  // made this branch a silent duplicate of the check above: no bypass, but it
+  // diverged from supabase/functions/_shared/cron-auth.ts and could leave a
+  // rotated-away secret accepted with no expiry.
+  const previousMatches =
+    !!previousSecret && timingSafeEqual(providedDigest, digest(previousSecret))
 
   if (!currentMatches && !previousMatches) {
     return new Response('Unauthorized', { status: 401 })

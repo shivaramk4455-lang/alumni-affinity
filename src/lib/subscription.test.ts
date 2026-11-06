@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   isEventStale,
@@ -91,5 +92,66 @@ describe("Subscription live-status resolution (matches private.live_subscription
     );
     expect(liveSub?.id).toBe("5");
     expect(liveSub?.status).toBe("active");
+  });
+});
+
+/**
+ * Contract test for the webhook's monotonic ordering guard.
+ *
+ * The webhook is the only place an entitlement is granted, so the guard that
+ * refuses to resurrect a terminal row is a money control. It was incomplete:
+ * `payment.captured` writes 'active' and `payment.failed` writes 'pending',
+ * but neither was in the guarded event set, so the rule held only for the
+ * subscription-scoped events. This asserts the end state so the gap cannot
+ * silently reopen.
+ */
+describe("Webhook terminal-state guard completeness", () => {
+  const source = readFileSync(
+    new URL("../../supabase/functions/razorpay-webhook/index.ts", import.meta.url),
+    "utf8",
+  );
+
+  const block = (start: string): string => {
+    const at = source.indexOf(start);
+    expect(at, `not found in the webhook: ${start}`).toBeGreaterThan(-1);
+    return source.slice(at, source.indexOf("]);", at));
+  };
+
+  it("keeps every non-entitling state in TERMINAL", () => {
+    const terminal = block("const TERMINAL = new Set([");
+    for (const state of [
+      "halted",
+      "cancelled",
+      "completed",
+      "expired",
+      "superseded",
+      "refunded",
+      "disputed",
+    ]) {
+      expect(terminal, state).toContain(`"${state}"`);
+    }
+  });
+
+  it("guards every event that can write an entitling status", () => {
+    const guarded = block("const ENTITLING_EVENTS = new Set([");
+    for (const event of [
+      "subscription.activated",
+      "subscription.authenticated",
+      "subscription.pending",
+      "invoice.paid",
+      "invoice.payment_failed",
+      // The payment branches write 'active' / 'pending'; leaving them out of
+      // the guard left the monotonic rule incomplete.
+      "payment.captured",
+      "payment.failed",
+    ]) {
+      expect(guarded, event).toContain(`"${event}"`);
+    }
+  });
+
+  it("consults both sets in the guard", () => {
+    expect(source).toContain(
+      'if (TERMINAL.has(existing.status) && ENTITLING_EVENTS.has(event.event ?? "")) {',
+    );
   });
 });
