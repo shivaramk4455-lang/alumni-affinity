@@ -19,7 +19,7 @@ import {
   PROFESSIONS,
   detectStateFromCity,
 } from "@/lib/profile-options";
-import { APPLY_DRAFT_KEY } from "@/routes/apply";
+import { APPLY_DRAFT_KEY, ONBOARDING_DRAFT_KEY, clearMemberDrafts } from "@/lib/draft-storage";
 
 import { emptyForm, type Form } from "@/components/onboarding/types";
 import { StepAboutYou } from "@/components/onboarding/step-about-you";
@@ -111,8 +111,6 @@ const schemas = [
     pref_relocation: z.string().optional(),
   }),
 ];
-
-const ONBOARDING_DRAFT_KEY = "alumni_onboarding_draft_v2";
 
 function Onboarding() {
   const navigate = useNavigate();
@@ -531,12 +529,7 @@ function Onboarding() {
 
       submittedRef.current = true;
 
-      try {
-        localStorage.removeItem(APPLY_DRAFT_KEY);
-        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
-      } catch {
-        /* ignore */
-      }
+      clearMemberDrafts();
 
       queryClient.setQueryData(MY_PROFILE_KEY, (old: MyProfileRow | null | undefined) => {
         if (!old) return old;

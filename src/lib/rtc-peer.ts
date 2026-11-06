@@ -38,8 +38,10 @@ export function getIceServers(): RTCIceServer[] {
 
 /**
  * Async variant: tries short-lived TURN credentials from the
- * turn-credentials edge function first, falling back to the static bundle
- * configuration (STUN + optional VITE_TURN_*).
+ * turn-credentials edge function first. The static bundle configuration is only
+ * a fallback for a deployment that explicitly opts in with
+ * VITE_ALLOW_STATIC_TURN=true, because those credentials are extractable from
+ * the public bundle; otherwise the fallback is STUN-only.
  */
 export async function getIceServersAsync(): Promise<RTCIceServer[]> {
   try {
@@ -63,6 +65,17 @@ export async function getIceServersAsync(): Promise<RTCIceServer[]> {
 }
 
 function defaultIceServers(): RTCIceServer[] {
+  const servers: RTCIceServer[] = [
+    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+  ];
+
+  // Static TURN credentials ship to the browser, so anyone can read them and
+  // relay traffic on the operator's account. The default is therefore to fail
+  // closed to STUN-only: a deployment running its own TURN server without the
+  // minting function must opt in explicitly. That way a bundle can never carry
+  // long-lived relay credentials by accident.
+  if (import.meta.env["VITE_ALLOW_STATIC_TURN"] !== "true") return servers;
+
   const customJson = import.meta.env["VITE_WEBRTC_ICE_SERVERS"];
   if (customJson) {
     try {
@@ -76,10 +89,6 @@ function defaultIceServers(): RTCIceServer[] {
   const turnUrls = import.meta.env["VITE_TURN_URLS"] || import.meta.env["VITE_TURN_URL"];
   const turnUsername = import.meta.env["VITE_TURN_USERNAME"];
   const turnCredential = import.meta.env["VITE_TURN_CREDENTIAL"];
-
-  const servers: RTCIceServer[] = [
-    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
-  ];
 
   if (turnUrls) {
     const urls = turnUrls.split(",").map((u: string) => u.trim());

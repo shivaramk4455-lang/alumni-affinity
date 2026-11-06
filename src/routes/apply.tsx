@@ -7,14 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { canonical, ogUrl } from "@/lib/seo";
-import {
-  APPLY_DRAFT_KEY,
-  APPLY_STEPS,
-  loadApplyDraft,
-  type ApplyDraft,
-} from "@/components/apply/types";
+import { APPLY_DRAFT_KEY } from "@/lib/draft-storage";
+import { APPLY_STEPS, loadApplyDraft, type ApplyDraft } from "@/components/apply/types";
 
-export { APPLY_DRAFT_KEY };
 import { StepIdentity } from "@/components/apply/step-identity";
 import { StepEducation } from "@/components/apply/step-education";
 import { StepTrajectory } from "@/components/apply/step-trajectory";

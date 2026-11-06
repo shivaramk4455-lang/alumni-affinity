@@ -1,4 +1,4 @@
-export const APPLY_DRAFT_KEY = "merit-circle-apply-draft";
+import { APPLY_DRAFT_KEY } from "@/lib/draft-storage";
 
 export interface ApplyDraft {
   name: string;

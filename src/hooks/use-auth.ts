@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import { clearMemberDrafts } from "@/lib/draft-storage";
 import { MY_PROFILE_KEY } from "@/hooks/use-my-profile";
 
 /**
@@ -42,9 +43,12 @@ export function useAuth() {
         // is the only place that called clear(). setQueryData(null) alone left
         // revealed contacts, messages, member rows and gallery caches alive for
         // whoever touches the device next — drop everything, not just my own row.
+        // The application and onboarding drafts hold PII and are cleared for the
+        // same reason: on a shared device they must not outlive the session.
         await queryClient.cancelQueries();
         queryClient.clear();
         queryClient.setQueryData(MY_PROFILE_KEY, null);
+        clearMemberDrafts();
       }
     });
     void supabase.auth.getSession().then(({ data: { session } }) => {

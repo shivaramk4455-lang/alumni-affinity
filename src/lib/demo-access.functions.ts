@@ -3,6 +3,29 @@ import { createServerFn } from "@tanstack/react-start";
 const DEMO_EMAIL = "guest.demo@meritcircle.example";
 
 /**
+ * The production Supabase project. A guest session must never be minted against
+ * it: the shared guest account is onboarded AND verified, so a session for it
+ * can browse the whole directory and fetch every all_members photograph. An
+ * unconfigured build falls back to this project (see vite.config.ts), which
+ * makes "a staging host pointing at production" a realistic misconfiguration
+ * rather than a hypothetical one — so it is refused outright, not merely
+ * discouraged in a comment.
+ */
+const PRODUCTION_PROJECT_ID = "beetszutyuihbnzzmokr";
+
+function usesProductionProject(): boolean {
+  // import.meta.env is the value the bundle was built with; process.env is the
+  // runtime value. Either one pointing at production is enough to refuse.
+  const values = [
+    process.env["SUPABASE_PROJECT_ID"],
+    process.env["SUPABASE_URL"],
+    import.meta.env["VITE_SUPABASE_PROJECT_ID"],
+    import.meta.env["VITE_SUPABASE_URL"],
+  ];
+  return values.some((value) => typeof value === "string" && value.includes(PRODUCTION_PROJECT_ID));
+}
+
+/**
  * Guest preview: ensures one shared, verified demo member exists and returns a
  * session for it. The password never leaves the server.
  *
@@ -19,8 +42,11 @@ export const startDemoSession = createServerFn({ method: "POST" }).handler(async
   // set to values other than 'production' (e.g. 'staging', 'test').
   // Both checks must pass: ENABLE_DEMO_MODE must be 'true' AND NODE_ENV must
   // not be 'production'. Either restriction alone can be misconfigured.
+  // The production database is refused separately: the shared guest account is
+  // verified, so a session minted against production would read real members'
+  // data.
   const demoEnabled = process.env["ENABLE_DEMO_MODE"] === "true";
-  if (!demoEnabled || process.env["NODE_ENV"] === "production") {
+  if (!demoEnabled || process.env["NODE_ENV"] === "production" || usesProductionProject()) {
     throw new Error("Guest preview is unavailable right now.");
   }
   const password = process.env["DEMO_GUEST_PASSWORD"];
