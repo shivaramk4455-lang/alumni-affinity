@@ -22,6 +22,7 @@ import type { MyProfileRow } from "@/lib/profile-columns";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { InvitationFloral } from "@/components/invitation-floral";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -874,8 +875,9 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-primary text-primary-foreground">
-      <div className="mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
+    <footer className="relative isolate overflow-hidden border-t border-brass/50 bg-primary text-primary-foreground">
+      <InvitationFloral className="absolute -bottom-24 -right-12 z-0 w-72 opacity-15 md:-bottom-36 md:-right-16 md:w-[30rem]" />
+      <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
         <div className="grid gap-10 md:grid-cols-[1.2fr_1fr_1fr]">
           <div className="max-w-md">
             <div className="flex items-center gap-3 font-serif text-2xl">

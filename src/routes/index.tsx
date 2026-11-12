@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 
 import { SITE_TAGLINE } from "@/lib/legal-identity";
 import { Button } from "@/components/ui/button";
+import { InvitationFloral } from "@/components/invitation-floral";
 import { canonical, ORGANIZATION_JSON_LD } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
@@ -42,12 +43,13 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <main>
-      <section className="relative overflow-hidden border-b border-border bg-background px-5 pb-10 pt-12 md:px-8 md:pb-16 md:pt-16">
+      <section className="relative isolate overflow-hidden border-b border-brass/50 bg-background px-5 pb-10 pt-12 md:px-8 md:pb-16 md:pt-16">
         <div className="absolute inset-x-0 top-0 h-px bg-brass" />
-        <div className="mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-[1.35fr_0.65fr]">
+        <InvitationFloral className="absolute -bottom-14 -right-10 z-0 w-64 opacity-50 md:-bottom-24 md:-right-14 md:w-[30rem]" />
+        <div className="relative z-10 mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
             <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] text-brass">
-              <span className="h-px w-9 bg-brass" /> {SITE_TAGLINE}
+              <span className="h-px w-9 bg-marigold" /> {SITE_TAGLINE}
             </div>
             <h1 className="mt-5 max-w-[16ch] font-serif text-4xl font-semibold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-5xl lg:text-[3.25rem] xl:text-[3.75rem]">
               For people who built their own lives—and wish to choose their own partner.
@@ -78,7 +80,7 @@ function Index() {
               </span>
             </div>
           </div>
-          <aside className="border-l border-brass pl-6 md:pl-9">
+          <aside className="border-l border-rose/50 bg-background/80 pl-6 md:pl-9">
             <p className="font-serif text-2xl leading-9 text-foreground">
               “A smaller circle, held to a higher standard.”
             </p>
