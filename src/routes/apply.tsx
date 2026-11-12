@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InvitationFloral } from "@/components/invitation-floral";
 import { supabase } from "@/integrations/supabase/client";
 import { canonical, ogUrl } from "@/lib/seo";
 import { APPLY_DRAFT_KEY } from "@/lib/draft-storage";
@@ -342,9 +343,10 @@ function ApplyPage() {
 
   return (
     <main className="min-h-dvh bg-background">
-      <section className="border-b border-border bg-secondary/45 px-5 py-10 md:px-8 md:py-14">
-        <div className="mx-auto max-w-5xl">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brass">
+      <section className="relative isolate overflow-hidden border-b border-brass/50 bg-secondary/45 px-5 py-10 md:px-8 md:py-14">
+        <InvitationFloral className="absolute -right-12 -top-12 z-0 w-52 opacity-25 md:-right-8 md:-top-20 md:w-72" />
+        <div className="relative z-10 mx-auto max-w-5xl">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose">
             The Merit Circle
           </p>
           <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
@@ -352,7 +354,10 @@ function ApplyPage() {
               <h1 className="font-serif text-4xl font-semibold text-foreground md:text-5xl">
                 Membership Application
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+              <p className="mt-3 font-serif text-xl text-forest-ink">
+                Your story, in your own words.
+              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Takes approximately 8 minutes. Your draft is securely kept on this device until you
                 create an account.
               </p>
