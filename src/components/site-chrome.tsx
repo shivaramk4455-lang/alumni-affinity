@@ -608,13 +608,27 @@ export function IncomingCallBanner() {
     // The error was never checked. A failed update left the row 'ringing', and
     // idx_calls_one_live (one live call per conversation) then blocked every
     // future call in that conversation for good.
+    const callRow = ringing.data!;
     const { error } = await supabase
       .from("calls")
       .update({ status: "ended", ended_at: new Date().toISOString(), decline_reason: "declined" })
-      .eq("id", ringing.data!.id);
+      .eq("id", callRow.id);
     if (error) {
       console.error("site-chrome: could not decline the call:", error.message);
       toast.error("We could not decline the call. Please contact the membership desk.");
+    } else {
+      // Parity with the ring-timeout path in use-call.ts `endCall("missed")`:
+      // an explicit decline also writes a `call_missed` inbox item to the
+      // caller. Without this the caller saw "Declined" in the UI but the
+      // inbox stayed silent for one decline path and not the other.
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user && callRow.caller_id && callRow.caller_id !== u.user.id) {
+        const { error: notifyError } = await supabase.rpc("notify_counterparty", {
+          _user: callRow.caller_id,
+          _event: "call_missed",
+        });
+        if (notifyError) console.error("site-chrome: counterparty notification", notifyError);
+      }
     }
     void ringing.refetch();
   }

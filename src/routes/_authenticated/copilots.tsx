@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Share2, ShieldCheck, Trash2, UserRoundPlus, UsersRound } from "lucide-react";
 
@@ -121,7 +121,7 @@ function Copilots() {
   });
 
   const setStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: "revoked" | "active" }) => {
       const { error } = await supabase.from("copilots").update({ status }).eq("id", id);
       if (error) throw error;
     },
@@ -155,7 +155,10 @@ function Copilots() {
   // Show suggestions I received (as the candidate) *and* suggestions I wrote
   // (as an active co-pilot) — otherwise a co-pilot can create suggestions but
   // never see them again.
-  const myCopilotIds = new Set(copilotingFor.map((c) => c.id));
+  // My copilot ids (as an active co-pilot for others) — memoized because the
+  // recommendation filter below runs per render and the Set must be stable
+  // for the dual-identity (candidate + co-pilot) view to not churn.
+  const myCopilotIds = useMemo(() => new Set(copilotingFor.map((c) => c.id)), [copilotingFor]);
   const myRecs = (recs.data ?? []).filter(
     (r) => r.candidate_id === myId || myCopilotIds.has(r.copilot_id),
   );
@@ -383,6 +386,7 @@ function Copilots() {
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground hover:text-destructive"
+                        disabled={setStatus.isPending}
                         onClick={() => setStatus.mutate({ id: c.id, status: "revoked" })}
                       >
                         Revoke

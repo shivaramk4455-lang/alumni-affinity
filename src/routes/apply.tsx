@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { canonical, ogUrl } from "@/lib/seo";
 import { APPLY_DRAFT_KEY } from "@/lib/draft-storage";
-import { APPLY_STEPS, loadApplyDraft, type ApplyDraft } from "@/components/apply/types";
+import {
+  APPLY_STEPS,
+  errorKeysFor,
+  loadApplyDraft,
+  type ApplyDraft,
+} from "@/components/apply/types";
 
 import { StepIdentity } from "@/components/apply/step-identity";
 import { StepEducation } from "@/components/apply/step-education";
@@ -41,15 +46,31 @@ export const Route = createFileRoute("/apply")({
 
 function ApplyPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [completed, setCompleted] = useState(false);
+  /** Funnel phase as a discriminated union — replaces the former
+   *  `completed` + `accountCreated` booleans pair, which could co-occur
+   *  (completed && accountCreated) and had an implicit third state. */
+  type ApplyPhase =
+    { kind: "step"; step: number } | { kind: "awaiting-password" } | { kind: "check-email" };
+  const [phase, setPhase] = useState<ApplyPhase>({ kind: "step", step: 0 });
   const [draft, setDraft] = useState<ApplyDraft>(loadApplyDraft);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [accountCreated, setAccountCreated] = useState(false);
+
+  const step =
+    phase.kind === "step"
+      ? phase.step
+      : phase.kind === "awaiting-password"
+        ? APPLY_STEPS.length - 1
+        : 0;
+  const completed = phase.kind !== "step";
+  const accountCreated = phase.kind === "check-email";
+  const setStep = (fn: (v: number) => number) => {
+    if (phase.kind !== "step") return;
+    setPhase({ kind: "step", step: fn(phase.step) });
+  };
 
   useEffect(() => {
     try {
@@ -62,14 +83,7 @@ function ApplyPage() {
   const handleChange = <K extends keyof ApplyDraft>(k: K, v: ApplyDraft[K]) => {
     setDraft((p) => ({ ...p, [k]: v }));
     setErrors((prev) => {
-      const keyStr = String(k);
-      const toRemove = [keyStr];
-      if (k === "copilotEmail") toRemove.push("copilot-email");
-      if (k === "copilotName") toRemove.push("copilot-name", "custom-copilot-name");
-      if (k === "city") toRemove.push("custom-city");
-      if (k === "profession") toRemove.push("custom-profession");
-      if (k === "degree") toRemove.push("custom-degree");
-
+      const toRemove = errorKeysFor(k);
       let hasMatch = false;
       for (const r of toRemove) {
         if (prev[r]) {
@@ -116,7 +130,7 @@ function ApplyPage() {
       setErrors({});
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      setCompleted(true);
+      setPhase({ kind: "awaiting-password" });
     }
   }
 
@@ -154,7 +168,7 @@ function ApplyPage() {
       toast.success("Account created! Redirecting to onboarding…");
       navigate({ to: "/onboarding", search: { prefill: "1" } });
     } else {
-      setAccountCreated(true);
+      setPhase({ kind: "check-email" });
       toast.success("Account created! Check your email to confirm.");
     }
   }
@@ -306,8 +320,7 @@ function ApplyPage() {
             <button
               type="button"
               onClick={() => {
-                setCompleted(false);
-                setStep(0);
+                setPhase({ kind: "step", step: 0 });
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               className="hover:underline"

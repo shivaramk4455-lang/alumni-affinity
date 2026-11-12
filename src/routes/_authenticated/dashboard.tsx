@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useMyProfile } from "@/hooks/use-my-profile";
-import { verificationLabel } from "@/lib/profile-options";
+import { verificationLabel, verificationStepsDone } from "@/lib/profile-options";
 import { profileCompleteness } from "@/lib/profile-completeness";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -78,10 +78,7 @@ function DashboardPage() {
   );
   const activeCopilot = mine.find((c) => c.status === "active") ?? mine[0];
 
-  const stepsDone =
-    (p?.alumni_email || p?.verification_doc_path ? 1 : 0) +
-    (p?.verification_status === "pending_review" || p?.verification_status === "verified" ? 1 : 0) +
-    (p?.verification_status === "verified" ? 1 : 0);
+  const stepsDone = verificationStepsDone(p ?? {});
 
   return (
     <main className="min-h-screen bg-secondary/35">

@@ -101,6 +101,12 @@ function Connections() {
     );
     if (counterpart) mutualPendingByPair.set(i.id, true);
   }
+  // NOTE on the overlapping `sent`/`declined` partitions: a declined,
+  // withdrawn, or expired row appears in BOTH `sent` (where the "Send again"
+  // action lives — re-opening sets status back to `pending`) and `declined`
+  // (the read-only history folder). The duplication is intentional: Sent is
+  // the action tab, Declined is the audit trail. An agent must not "fix" it
+  // by deduplicating.
   const received = all.filter((i) => i.recipient_id === myId && i.status === "pending");
   const sent = all.filter(
     (i) => i.sender_id === myId && i.status !== "accepted" && i.status !== "blocked",

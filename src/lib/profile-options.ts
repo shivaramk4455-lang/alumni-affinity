@@ -864,6 +864,41 @@ export function canSubmitForReview(status: string | null | undefined) {
   return status === "unverified" || status === "needs_resubmission" || status === "rejected";
 }
 
+/** Phase a member is in, derived from verification_status. Single owner for
+ *  the dashboard stepsDone / Next step / Status computations. */
+export type VerificationPhase = "not_started" | "in_review" | "needs_work" | "verified";
+
+export function verificationPhase(status: string | null | undefined): VerificationPhase {
+  switch (status) {
+    case "verified":
+      return "verified";
+    case "pending_review":
+      return "in_review";
+    case "needs_resubmission":
+    case "rejected":
+      return "needs_work";
+    default:
+      // unverified and any unknown status both mean "not started".
+      return "not_started";
+  }
+}
+
+/** 0..3 steps done, preserving the dashboard's original arithmetic exactly:
+ *  credential provided (email or doc) + pending_review/verified + verified. */
+export function verificationStepsDone(profile: {
+  alumni_email?: string | null;
+  verification_doc_path?: string | null;
+  verification_status?: string | null;
+}): number {
+  const hasCredential = Boolean(profile.alumni_email || profile.verification_doc_path);
+  const inReviewOrDone =
+    profile.verification_status === "pending_review" || profile.verification_status === "verified"
+      ? 1
+      : 0;
+  const done = profile.verification_status === "verified" ? 1 : 0;
+  return (hasCredential ? 1 : 0) + inReviewOrDone + done;
+}
+
 // Recognised institutional / alumni mail domains used for automatic credential checks.
 export const ALUMNI_DOMAINS = [
   // IITs

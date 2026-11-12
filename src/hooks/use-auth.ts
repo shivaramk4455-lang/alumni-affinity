@@ -72,3 +72,19 @@ export function useAuth() {
 
   return { user, loading };
 }
+
+/**
+ * Signing a member out and sanitising their slice of shared-device state —
+ * the query cache (revealed contacts, messages, member rows, gallery) plus
+ * the PII-holding localStorage drafts. Used by both the in-app sign-out
+ * buttons and as the single place that defines what "signed out" means for
+ * this client: the same discipline the `SIGNED_OUT` auth event applies.
+ */
+export async function signOutAndClear(
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  await queryClient.cancelQueries();
+  queryClient.clear();
+  clearMemberDrafts();
+  await supabase.auth.signOut();
+}

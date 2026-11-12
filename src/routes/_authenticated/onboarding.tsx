@@ -120,7 +120,12 @@ function Onboarding() {
   const [f, setF] = useState<Form>(emptyForm);
   const [saving, setSaving] = useState(false);
   const submittedRef = useRef(false);
+  // Single source of truth for date of birth. The dropdown writes `dob`
+  // (YYYY-MM-DD); `birth_year` is DERIVED from it, never an independent field,
+  // so the two can never disagree. Previously `dob` and `f.birth_year` were
+  // separate state variables that could drift.
   const [dob, setDob] = useState("");
+  const birthYear = dob ? (dob.split("-")[0] ?? "") : "";
   const [selectedState, setSelectedState] = useState("");
   const birthYears = Array.from({ length: 50 }, (_, i) => year - 21 - i);
   const graduationYears = Array.from({ length: year + 2 - 1960 + 1 }, (_, i) => year + 2 - i);
@@ -441,7 +446,8 @@ function Onboarding() {
         full_name: f.full_name,
         created_by: f.created_by || "Self",
         gender: f.gender,
-        birth_year: Number(f.birth_year),
+        // Derived from `dob`, the single source of truth — not f.birth_year.
+        birth_year: Number(birthYear),
         city: f.city,
         height_cm: f.height_cm ? Number(f.height_cm) : null,
         marital_status: f.marital_status || null,

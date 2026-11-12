@@ -62,6 +62,11 @@ export function useConversation(interestId: string | undefined) {
   const history = useQuery({
     queryKey: ["messages", conversationId],
     enabled: !!conversationId,
+    // Periodic re-check of `read_at` (every 60s while mounted) — the realtime
+    // UPDATE listener covers the common case, but a missed UPDATE (disconnect
+    // during markRead) would otherwise leave "Sent" forever. The bounded
+    // interval bounds that staleness without polling aggressively.
+    refetchInterval: 60_000,
     queryFn: async (): Promise<MessageRow[]> => {
       // Newest-first + limit so a long thread loads its latest window, then
       // reverse for chronological rendering.

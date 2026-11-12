@@ -3,7 +3,11 @@ import {
   INSTITUTIONS,
   INSTITUTION_GROUPS,
   RESIDENCY_STATUSES,
+  canSubmitForReview,
   getRegionsForCountry,
+  verificationLabel,
+  verificationPhase,
+  verificationStepsDone,
 } from "@/lib/profile-options";
 
 describe("INSTITUTION_GROUPS", () => {
@@ -50,5 +54,63 @@ describe("INSTITUTION_GROUPS", () => {
     expect(getRegionsForCountry("New Zealand")).toContain("Auckland");
     expect(getRegionsForCountry("Ireland")).toContain("Dublin");
     expect(getRegionsForCountry("France")).toContain("Île-de-France (Paris)");
+  });
+});
+
+describe("verificationPhase", () => {
+  it("maps each known status to its phase", () => {
+    expect(verificationPhase("verified")).toBe("verified");
+    expect(verificationPhase("pending_review")).toBe("in_review");
+    expect(verificationPhase("needs_resubmission")).toBe("needs_work");
+    expect(verificationPhase("rejected")).toBe("needs_work");
+    expect(verificationPhase("unverified")).toBe("not_started");
+  });
+
+  it("defaults unknown and null statuses to not_started", () => {
+    expect(verificationPhase(null)).toBe("not_started");
+    expect(verificationPhase(undefined)).toBe("not_started");
+    expect(verificationPhase("suspended")).toBe("not_started");
+  });
+});
+
+describe("verificationLabel", () => {
+  it("returns a safe fallback for unknown statuses", () => {
+    expect(verificationLabel("suspended").label).toBe("Verification under review");
+  });
+
+  it("uses unverified for null", () => {
+    expect(verificationLabel(null).label).toBe("Not yet submitted");
+  });
+});
+
+describe("canSubmitForReview", () => {
+  it("allows unverified, needs_resubmission, rejected only", () => {
+    expect(canSubmitForReview("unverified")).toBe(true);
+    expect(canSubmitForReview("needs_resubmission")).toBe(true);
+    expect(canSubmitForReview("rejected")).toBe(true);
+    expect(canSubmitForReview("pending_review")).toBe(false);
+    expect(canSubmitForReview("verified")).toBe(false);
+    expect(canSubmitForReview(null)).toBe(false);
+  });
+});
+
+describe("verificationStepsDone", () => {
+  it("mirrors the dashboard arithmetic", () => {
+    expect(verificationStepsDone({})).toBe(0);
+    expect(
+      verificationStepsDone({ alumni_email: "a@iitb.ac.in", verification_status: "unverified" }),
+    ).toBe(1);
+    expect(
+      verificationStepsDone({
+        verification_doc_path: "doc.pdf",
+        verification_status: "pending_review",
+      }),
+    ).toBe(2);
+    expect(
+      verificationStepsDone({
+        alumni_email: "a@iitb.ac.in",
+        verification_status: "verified",
+      }),
+    ).toBe(3);
   });
 });

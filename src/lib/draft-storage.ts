@@ -15,14 +15,29 @@ export const APPLY_DRAFT_KEY = "merit-circle-apply-draft";
 export const ONBOARDING_DRAFT_KEY = "alumni_onboarding_draft_v2";
 
 /**
+ * Every localStorage key that may hold member PII. `clearMemberDrafts()` is
+ * the only clearer; `hasMemberDrafts()` (tests) and any future writers read
+ * from the same list, so the writing path and the clearing path cannot drift.
+ */
+export const MEMBER_DRAFT_KEYS: readonly string[] = [APPLY_DRAFT_KEY, ONBOARDING_DRAFT_KEY];
+
+/**
  * Remove every draft that may hold personal data. Best-effort: a browser with
  * storage disabled must not break sign-out.
  */
 export function clearMemberDrafts(): void {
   try {
-    localStorage.removeItem(APPLY_DRAFT_KEY);
-    localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+    for (const key of MEMBER_DRAFT_KEYS) localStorage.removeItem(key);
   } catch {
     /* storage unavailable — nothing retained to clear */
+  }
+}
+
+/** Whether either draft currently holds data. Used only by tests. */
+export function hasMemberDrafts(): boolean {
+  try {
+    return MEMBER_DRAFT_KEYS.some((key) => localStorage.getItem(key) !== null);
+  } catch {
+    return false;
   }
 }

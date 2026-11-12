@@ -63,7 +63,10 @@ const KNOWN_ROUTES = [
  * accepted (no "//host", no backslash escapes), so an attacker-supplied
  * `?redirect=` can never turn into an open redirect.
  */
-function parseRedirect(raw: string | undefined): { pathname: string; search: string } | null {
+// eslint-disable-next-line react-refresh/only-export-components -- exported for redirect.test.ts so the open-redirect invariant is locked in CI
+export function parseRedirect(
+  raw: string | undefined,
+): { pathname: string; search: string } | null {
   if (!raw) return null;
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     try {
@@ -110,7 +113,13 @@ function AuthPage() {
     }
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [busy, setBusy] = useState(false);
+  // Per-action in-flight state replaces the single shared `busy` boolean,
+  // which leaked across submit/reset/resend (a password-reset "Please wait…"
+  // could disable the sign-in form while the reset ran in the background).
+  type BusyAction = "submit" | "reset" | "resend" | "newPassword";
+  const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
+  const busy = busyAction !== null;
+  const setBusy = (action: BusyAction | null) => setBusyAction(action);
   const [sent, setSent] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   /**
@@ -214,9 +223,9 @@ function AuthPage() {
       return;
     }
     setFieldErrors({});
-    setBusy(true);
+    setBusy("newPassword");
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setBusy(false);
+    setBusy(null);
     if (error) {
       setServerError(error.message);
       toast.error(error.message);
@@ -240,11 +249,11 @@ function AuthPage() {
         return;
       }
       setFieldErrors({});
-      setBusy(true);
+      setBusy("reset");
       const { error } = await supabase.auth.resetPasswordForEmail(value, {
         redirectTo: window.location.origin + "/auth",
       });
-      setBusy(false);
+      setBusy(null);
       if (error) {
         setServerError(error.message);
         toast.error(error.message);
@@ -269,17 +278,17 @@ function AuthPage() {
       return;
     }
     setFieldErrors({});
-    setBusy(true);
+    setBusy("submit");
     if (mode === "signup") {
       // The attestation and terms agreement are checked here, before the account exists,
       // because a Google OAuth signup never passes through this form's checkbox at all.
       if (!adultAttested) {
-        setBusy(false);
+        setBusy(null);
         setAttestError("Please confirm you are 21 or older to create an account.");
         return;
       }
       if (!termsAccepted) {
-        setBusy(false);
+        setBusy(null);
         setTermsError("Please agree to the terms of membership and privacy policy.");
         return;
       }
@@ -304,7 +313,7 @@ function AuthPage() {
           },
         },
       });
-      setBusy(false);
+      setBusy(null);
       if (error) {
         setServerError(error.message);
         toast.error(error.message);
@@ -325,7 +334,7 @@ function AuthPage() {
         email: parsed.data.email,
         password: parsed.data.password,
       });
-      setBusy(false);
+      setBusy(null);
       if (error) {
         setServerError(error.message);
         toast.error(error.message);
@@ -340,9 +349,9 @@ function AuthPage() {
       toast.error("Enter your email address first.");
       return;
     }
-    setBusy(true);
+    setBusy("resend");
     const { error } = await supabase.auth.resend({ type: "signup", email: value });
-    setBusy(false);
+    setBusy(null);
     if (error) {
       toast.error(error.message);
       return;

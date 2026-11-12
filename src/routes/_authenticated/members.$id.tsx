@@ -37,6 +37,7 @@ import { PhotoSlideshow } from "@/components/photo-gallery";
 import { useMemberGallery } from "@/lib/gallery";
 import { useMyPhotoRequest, useRequestPhoto } from "@/lib/photo-requests";
 import { useDismissProfile } from "@/lib/dismissals";
+import { rankInterest } from "@/lib/interest-transitions";
 import { HoroscopeGunaCard } from "@/components/profile/horoscope-guna-card";
 import { LookingForCard } from "@/components/profile/looking-for-card";
 import { DetailRow } from "@/components/profile/detail-row";
@@ -230,23 +231,13 @@ function MemberProfile() {
         .limit(2);
       if (error) throw error;
       const rows = data ?? [];
-      const rank = (status: string, iAmRecipient: boolean) =>
-        status === "blocked"
-          ? -1
-          : status === "accepted"
-            ? 0
-            : status === "pending" && iAmRecipient
-              ? 1
-              : status === "pending"
-                ? 2
-                : 3;
       return (
         rows
           .slice()
           .sort(
             (a, b) =>
-              rank(a.status, a.recipient_id === me.data!.id) -
-              rank(b.status, b.recipient_id === me.data!.id),
+              rankInterest(a.status, a.recipient_id === me.data!.id) -
+              rankInterest(b.status, b.recipient_id === me.data!.id),
           )[0] ?? null
       );
     },

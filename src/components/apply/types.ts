@@ -48,6 +48,24 @@ export const emptyApplyDraft: ApplyDraft = {
   adult: false,
 };
 
+/**
+ * Error-key remap: the validate() collector reads DOM `[name]` attributes
+ * (kebab-case for multi-word fields, e.g. `copilot-email`), while the React
+ * state keys are camelCase (`copilotEmail`). `handleChange` uses this table
+ * to clear both spellings so a stale error never survives an edit.
+ */
+export const ERROR_KEY_REMAP: Partial<Record<keyof ApplyDraft, string[]>> = {
+  copilotEmail: ["copilot-email"],
+  copilotName: ["copilot-name", "custom-copilot-name"],
+  city: ["custom-city"],
+  profession: ["custom-profession"],
+  degree: ["custom-degree"],
+};
+
+export function errorKeysFor(field: keyof ApplyDraft): string[] {
+  return [field as string, ...(ERROR_KEY_REMAP[field] ?? [])];
+}
+
 export function loadApplyDraft(): ApplyDraft {
   try {
     const raw = localStorage.getItem(APPLY_DRAFT_KEY);

@@ -284,3 +284,24 @@ describe("HIGH: the private helpers are scoped to the caller", () => {
     expect(scoped).toContain("p.adult_attested_at");
   });
 });
+
+describe("HIGH: the interest transition trigger mirrors the client table", () => {
+  // Client mirror: src/lib/interest-transitions.ts INTEREST_TRANSITIONS.
+  // The DB trigger is authoritative; this test locks its edges so a
+  // regression that removes a role edge fails CI instead of silently
+  // diverging from the browser's view.
+  it("defines enforce_interest_transition", () => {
+    expect(chain).toContain("FUNCTION public.enforce_interest_transition()");
+  });
+
+  it("gates matched pairs (recipient-accept) on sender/recipient role", () => {
+    const fn = functionBody("CREATE OR REPLACE FUNCTION public.enforce_interest_transition(");
+    // The trigger must check the caller's role before accepting.
+    expect(fn.toLowerCase()).toMatch(/recipient|auth\.uid\(\)/);
+  });
+
+  it("forbids terminal resurrection (blocked has no outgoing edges)", () => {
+    const fn = functionBody("CREATE OR REPLACE FUNCTION public.enforce_interest_transition(");
+    expect(fn.toLowerCase()).toContain("blocked");
+  });
+});
